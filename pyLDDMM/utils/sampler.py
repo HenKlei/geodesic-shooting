@@ -9,8 +9,17 @@ def sample(array, coordinates):
     @return:
     """
 
+    assert array.ndim in [1, 2, 3]
+
     # reshape coordinate for skimage
-    coordinates = np.transpose(coordinates, axes=[2, 1, 0])
+    if coordinates.ndim == 2:
+        coordinates = np.transpose(coordinates)
+        if array.ndim == 1:
+            return skimage.transform.warp(array, coordinates, mode='edge')
+        return np.transpose([skimage.transform.warp(array[:, 0], coordinates, mode='edge'),])
+
+    if coordinates.ndim == 3:
+        coordinates = np.transpose(coordinates, axes=[2, 1, 0])
 
     if array.ndim == 2:
         # only a single color channel. go ahead
