@@ -2,7 +2,7 @@ import numpy as np
 from scipy.ndimage import convolve
 
 
-class BiharmonicReguarizer:
+class BiharmonicRegularizer:
     def __init__(self, alpha=1, gamma=1):
         """
         Instantiates the Biharmonic regularizer.

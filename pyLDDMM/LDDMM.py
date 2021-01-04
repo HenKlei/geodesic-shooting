@@ -1,7 +1,7 @@
 import numpy as np
 from pyLDDMM.utils import sampler, grid
 from pyLDDMM.utils.grad import finite_difference
-from pyLDDMM.regularizer import BiharmonicReguarizer
+from pyLDDMM.regularizer import BiharmonicRegularizer
 
 
 class LDDMM:
@@ -36,7 +36,7 @@ class LDDMM:
         self.T = T
         self.shape = I0.shape
         self.dim = I0.ndim
-        self.regularizer = BiharmonicReguarizer(alpha, gamma)
+        self.regularizer = BiharmonicRegularizer(alpha, gamma)
         self.opt = ()
         self.E_opt = None
         self.energy_threshold = 1e-3
