@@ -27,5 +27,5 @@ def finite_difference(a):
 
 if __name__ == "__main__":
     img = np.zeros((5, 5))
-    img[:, 2] = 1
+    img[..., 2] = 1
     print(finite_difference(img))

@@ -99,4 +99,4 @@ if __name__ == '__main__':
 
     reg = BiharmonicReguarizer(alpha=1, gamma=1)
 
-    print(reg.K(v)[:, :, 0])
+    print(reg.K(v)[..., 0])
