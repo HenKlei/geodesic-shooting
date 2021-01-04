@@ -3,11 +3,11 @@ from pyLDDMM.utils import sampler, grid
 from pyLDDMM.utils.grad import finite_difference
 from pyLDDMM.regularizer import BiharmonicReguarizer
 
+
 class LDDMM:
     """
-    LDDMM registration
+    LDDMM registration; Computing Large Deformation Metric Mappings via Geodesic Flows of Diffeomorphisms.
     """
-
     def register(self, I0, I1, T=30, K=100, sigma=1, alpha=1, gamma=1, epsilon=0.01, return_all=False):
         """
         Registers two images, I0 and I1.
@@ -40,6 +40,7 @@ class LDDMM:
         self.opt = ()
         self.E_opt = None
         self.energy_threshold = 1e-3
+
         energies = []
 
         # define vector fields
@@ -72,7 +73,7 @@ class LDDMM:
             dJ0 = self.image_grad(J0)
 
             # (8): Calculate Jacobian determinant of the transformation
-            detPhi1 = self.jacobian_derterminant(Phi1)
+            detPhi1 = self.jacobian_determinant(Phi1)
             if self.is_injectivity_violated(detPhi1):
                 print("Injectivity violated. Stopping. Try lowering the learning rate (epsilon).")
                 break
@@ -123,9 +124,9 @@ class LDDMM:
 
     def reparameterize(self, v):
         """
-        implements step (2): reparameterization
-        @param v:
-        @return:
+        implements step (2): Reparameterization of the velocity field to obtain a velocity field with constant speed.
+        @param v: The velocity field.
+        @return: Reparametrized velocity field, array.
         """
         length = np.sum([np.linalg.norm(self.regularizer.L(v[t])) for t in range(self.T)])
         for t in range(self.T):
@@ -134,8 +135,8 @@ class LDDMM:
 
     def integrate_backward_flow(self, v):
         """
-        implements step (3): Calculation of backward flows
-        @return:
+        implements step (3): Calculation of backward flows.
+        @return: Flow, array.
         """
         # make identity grid
         x = grid.coordinate_grid(self.shape)
@@ -154,10 +155,10 @@ class LDDMM:
 
     def backwards_alpha(self, v_t, x):
         """
-        helper function for step (3): Calculation of backward flows
-        @param v_t: the velocity field
-        @param x: coordinates
-        @return:
+        helper function for step (3): Calculation of backward flows.
+        @param v_t: The velocity field at time `t`.
+        @param x: Coordinates.
+        @return: Alpha, array.
         """
         alpha = np.zeros(v_t.shape, dtype=np.double)
         for i in range(5):
@@ -166,8 +167,9 @@ class LDDMM:
 
     def integrate_forward_flow(self, v):
         """
-        implements step (4): Calculation of forward flows
-        @return:
+        implements step (4): Calculation of forward flows.
+        @param v: The velocity field.
+        @return: Flow, array.
         """
         # make identity grid
         x = grid.coordinate_grid(self.shape)
@@ -186,10 +188,10 @@ class LDDMM:
 
     def forward_alpha(self, v_t, x):
         """
-        helper function for step (4): Calculation of forward flows
-        @param v_t: the velocity field
-        @param x: coordinates
-        @return:
+        helper function for step (4): Calculation of forward flows.
+        @param v_t: The velocity field.
+        @param x: Coordinates.
+        @return: Alpha, array.
         """
         alpha = np.zeros(v_t.shape, dtype=np.double)
         for i in range(5):
@@ -198,10 +200,10 @@ class LDDMM:
 
     def push_forward(self, I0, Phi0):
         """
-        implements step (5): push forward image I0 along flow Phi0
-        @param I0: image
-        @param Phi0: flow
-        @return: sequence of forward pushed images J0
+        implements step (5): Push forward image I0 along flow Phi0.
+        @param I0: Image.
+        @param Phi0: Flow.
+        @return: Sequence of forward pushed images J0, array.
         """
         J0 = np.zeros((self.T,) + I0.shape, dtype=np.double)
 
@@ -212,10 +214,10 @@ class LDDMM:
 
     def pull_back(self, I1, Phi1):
         """
-        implements step (6): pull back image I1 along flow Phi1
-        @param I1: image
-        @param Phi1: flow
-        @return: sequence of back-pulled images J1
+        implements step (6): Pull back image I1 along flow Phi1.
+        @param I1: Image.
+        @param Phi1: Flow.
+        @return: Sequence of back-pulled images J1, array.
         """
         J1 = np.zeros((self.T,) + I1.shape, dtype=np.double)
 
@@ -226,9 +228,9 @@ class LDDMM:
 
     def image_grad(self, J0):
         """
-        implements step (7): Calculate image gradient
-        @param J0: sequence of forward pushed images J0
-        @return: dJ0: gradients of J0
+        implements step (7): Calculate image gradients.
+        @param J0: Sequence of forward pushed images J0.
+        @return: Gradients of J0, array.
         """
         dJ0 = np.zeros((*J0.shape, self.dim), dtype=np.double)
 
@@ -237,11 +239,11 @@ class LDDMM:
 
         return dJ0
 
-    def jacobian_derterminant(self, Phi1):
+    def jacobian_determinant(self, Phi1):
         """
-        implements step (8): Calculate Jacobian determinant of the transformation
-        @param Phi1: sequence of transformations
-        @return: detPhi1: sequence of determinants of J0
+        implements step (8): Calculate Jacobian determinant of the transformation.
+        @param Phi1: Sequence of transformations.
+        @return: Sequence of determinants of J0, array.
         """
         detPhi1 = np.zeros((self.T, *self.shape), dtype=np.double)
 
@@ -278,8 +280,8 @@ class LDDMM:
 
     def is_injectivity_violated(self, detPhi1):
         """
-        check injectivity: a function has a differentiable inverse iff the determinant of it's jacobian is positive
-        @param detPhi1: sequence of determinants of J0
-        @return: bool
+        check injectivity: A function has a differentiable inverse iff the determinant of its jacobian is positive.
+        @param detPhi1: Sequence of determinants of J0.
+        @return: Truth value, bool.
         """
         return detPhi1.min() < 0

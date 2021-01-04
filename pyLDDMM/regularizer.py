@@ -1,12 +1,13 @@
 import numpy as np
 from scipy.ndimage import convolve
 
+
 class BiharmonicReguarizer:
     def __init__(self, alpha=1, gamma=1):
         """
         Instantiates the Biharmonic regularizer.
-        @param alpha: smoothness penalty. Positive number. The higher, the more smoothness will be enforced
-        @param gamma: norm penalty. Positive value, so that the operator is non-singular
+        @param alpha: Smoothness penalty. Positive number. The higher, the more smoothness will be enforced.
+        @param gamma: Norm penalty. Positive value, so that the operator is non-singular.
         """
         assert alpha > 0
         assert gamma > 0
@@ -16,9 +17,9 @@ class BiharmonicReguarizer:
 
     def L(self, f):
         """
-        The Cauchy-Navier operator (Equation 17).
-        @param f: an array representing function f
-        @return: g = L(f), array
+        Application of the Cauchy-Navier operator `L` to a function `f` (Equation 17).
+        @param f: An array representing the function `f`.
+        @return: `g=L(f)`, array.
         """
         assert f.ndim in [2, 3]
 
@@ -35,9 +36,9 @@ class BiharmonicReguarizer:
 
     def K(self, g):
         """
-        The K = (LL)^-1 operator.
-        @param g: an array representing function g
-        @return: f = K(g) = (LL)^-1 (g), array
+        Application of the compact and self-adjoint smoothing operator `K=(LL)^-1` to a function `g`.
+        @param g: An array representing the function `g`.
+        @return: `f=K(g)=(LL)^-1(g)`, array.
         """
         if self.A is None or self.A.shape != g.shape[:-1]:
             # A is not chached. compute A.
@@ -50,14 +51,13 @@ class BiharmonicReguarizer:
         F = G / self.A**2
 
         # transform back to normal domain
-        f = self.ifftn(F)
-        return f
+        return self.ifftn(F)
 
     def compute_A(self, shape):
         """
-        Computes the A(k) operator.
-        @param shape: shape of the input image
-        @return: A(k)
+        Computes the operator `A(k)`.
+        @param shape: Shape of the input image.
+        @return: `A(k)`, array.
         """
         dim = shape[-1]
         shape = shape[:-1]
@@ -70,12 +70,11 @@ class BiharmonicReguarizer:
         A += self.gamma
 
         # expand dims to match G
-        A = np.stack([A,]*dim, axis=-1)
-        return A
+        return np.stack([A,]*dim, axis=-1)
 
     def fftn(self, a):
         """
-        Performs n-d FFT along the first n axes of a (n+1)-d array.
+        Performs `n`-dimensional FFT along the first `n` axes of an `n+1`-dimensional array.
         """
         C = a.shape[-1]
         A = np.zeros(a.shape, dtype=np.complex128)
@@ -85,13 +84,14 @@ class BiharmonicReguarizer:
 
     def ifftn(self, A):
         """
-        Performs n-d iFFT along the first n axes of a (n+1)-d array.
+        Performs the `n`-dimensional inverse FFT (iFFT) along the first `n` axes of an `n+1`-dimensional array.
         """
         C = A.shape[-1]
         a = np.zeros(A.shape, dtype=np.complex128)
         for c in range(C):
             a[..., c] = np.fft.ifftn(A[..., c])
         return np.real(a)
+
 
 if __name__ == '__main__':
     v = np.zeros((5, 5, 2))
