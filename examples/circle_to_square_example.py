@@ -6,9 +6,11 @@ if __name__ == "__main__":
     i0 = loadimg('./example_images/circle.png')
     i1 = loadimg('./example_images/square.png')
 
+    problem = pyLDDMM.ImageRegistrationProblem(i1, alpha=1, gamma=1)
+
     # perform the registration
     lddmm = pyLDDMM.LDDMM()
-    im, v, energies, Phi0, Phi1, J0, J1, length = lddmm.register(i0, i1, sigma=0.1, alpha=1, epsilon=0.0001, K=20, return_all=True)
+    im, v, energies, Phi0, Phi1, J0, J1, length = lddmm.register(i0, problem, sigma=0.1, epsilon=0.0001, K=20, return_all=True)
 
     # save i0 aligned to i1
     saveimg('example_images/out_c2s.png', im)
