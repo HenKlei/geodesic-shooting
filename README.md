@@ -1,14 +1,6 @@
 # pyLDDMM
 ### A documented implementation of Large deformation diffeomorphic metric mapping (LDDMM) in python.
 
-![I0](example_images/t0.png)
-![transformation](example_images/out_translation.gif)
-![I1](example_images/t1.png)
-
-![I0](example_images/circle.png)
-![transformation](example_images/out_c2s.gif)
-![I1](example_images/square.png)
-
 The LDDMM algorithm, introduced in Faisal Beg et al. (2005), has been a
 centerpiece of establishing diffeomorphic registration. It expands the large
 deformation model based on the model of viscous fluids (Christensen, Rabbitt, and Miller 1996) by proposing a gradient-descent based optimization
@@ -32,7 +24,7 @@ pip3 install .
 ```
 
 ## Examples
-Three examples are provided. A one-dimensional example, a circle translation, and morphing a circle to a square. An example is shown at the top of this README.
+Three examples are provided. A one-dimensional example, a circle translation, and morphing a circle to a square.
 
 The examples can be executed in the examples folder with:
 ```
@@ -40,7 +32,7 @@ python3 1d_example.py
 python3 translation_example.py
 python3 circle_to_square_example.py
 ```
-Output files are written into the directory `example_images`.
+Output files are written into the directory `examples/example_images/`.
 
 ## Documentation
 The commented code is in the file [pyLDDMM/LDDMM.py](pyLDDMM/LDDMM.py). 
