@@ -1,1 +1,1 @@
-from .LDDMM import LDDMM2D
+from .LDDMM import LDDMM

@@ -3,34 +3,47 @@ from pyLDDMM.utils import sampler, grid
 from pyLDDMM.utils.grad import finite_difference
 from pyLDDMM.regularizer import BiharmonicReguarizer
 
-class LDDMM2D(object):
+class LDDMM:
     """
-    2d LDDMM registration
+    LDDMM registration
     """
 
-    def register(self, I0, I1, T=32, K=200, sigma=1, alpha=1, gamma=1, epsilon=0.01):
+    def register(self, I0, I1, T=30, K=100, sigma=1, alpha=1, gamma=1, epsilon=0.01, return_all=False):
         """
-        registers two images, I0 and I1
-        @param I0: image, ndarray of dimension H x W x n
-        @param I1: image, ndarray of dimension H x W x n
-        @param T: int, simulated discrete time steps
-        @param K: int, maximum iterations
-        @param sigma: float, sigma for L2 loss. lower values strengthen the L2 loss
-        @param alpha: float, smoothness regularization. Higher values regularize stronger
-        @param gamma: float, norm penalty. Positive value to ensure injectivity of the regularizer
-        @param epsilon: float, learning rate
+        Registers two images, I0 and I1.
+        @param I0: image, ndarray.
+        @param I1: image, ndarray.
+        @param T: int, simulated discrete time steps.
+        @param K: int, maximum iterations.
+        @param sigma: float, sigma for L2 loss. Lower values strengthen the L2 loss.
+        @param alpha: float, smoothness regularization. Higher values regularize stronger.
+        @param gamma: float, norm penalty. Positive value to ensure injectivity of the regularizer.
+        @param epsilon: float, learning rate.
         @return:
         """
+        assert I0.shape == I1.shape
+        assert T > 0
+        assert K > 0
+        assert sigma > 0
+        assert alpha > 0
+        assert gamma > 0
+        assert epsilon > 0
+
+        I0 = I0.astype('double')
+        I1 = I1.astype('double')
 
         # set up variables
         self.T = T
-        self.K = K
-        self.H, self.W = I0.shape[:2]
+        self.shape = I0.shape
+        self.dim = I0.ndim
         self.regularizer = BiharmonicReguarizer(alpha, gamma)
+        self.opt = ()
+        self.E_opt = None
+        self.energy_threshold = 1e-3
         energies = []
 
         # define vector fields
-        v = np.zeros((T, self.H, self.W, 2))
+        v = np.zeros((self.T, *self.shape, self.dim), dtype=np.double)
         dv = np.copy(v)
 
         # (12): iteration over k
@@ -66,34 +79,47 @@ class LDDMM2D(object):
 
             # (9): Calculate the gradient
             for t in range(0, self.T):
-                dv[t] = 2*v[t] - self.regularizer.K(2 / sigma**2 * detPhi1[t][:, :, np.newaxis] * dJ0[t] * (J0[t] - J1[t])[:, :, np.newaxis])
+                dv[t] = 2*v[t] - self.regularizer.K(2 / sigma**2 * detPhi1[t][..., np.newaxis] * dJ0[t] * (J0[t] - J1[t])[..., np.newaxis])
 
-            # (10) calculate nor of the gradient, stop if small
+            # (10) calculate norm of the gradient, stop if small
             dv_norm = np.linalg.norm(dv)
             if dv_norm < 0.001:
-                print(dv_norm)
-                print("gradient norm below threshold. stopping")
+                print(f"Gradient norm is {dv_norm} and therefore below threshold. Stopping ...")
                 break
 
             # (11): calculate new energy
-            E_regularizer = np.sum([np.linalg.norm(self.regularizer.L(v[t])) for t in range(T)])
+            E_regularizer = np.sum([np.linalg.norm(self.regularizer.L(v[t])) for t in range(self.T)])
             E_intensity = 1 / sigma**2 * np.sum((J0[-1] - I1)**2)
             E = E_regularizer + E_intensity
+
+            if E < self.energy_threshold:
+                self.E_opt = E
+                self.opt = (J0[-1], v, energies, Phi0, Phi1, J0, J1)
+                print(f"Energy below threshold of {self.energy_threshold}. Stopping ...")
+                break
+
+            if self.E_opt is None or E < self.E_opt:
+                self.E_opt = E
+                self.opt = (J0[-1], v, energies, Phi0, Phi1, J0, J1)
+
             energies.append(E)
 
             # (12): iterate k = k+1
             print("iteration {:3d}, energy {:4.2f}, thereof {:4.2f} regularization and {:4.2f} intensity difference".format(k, E, E_regularizer, E_intensity))
             # end of for loop block
 
+        print("Optimal energy {:4.2f}".format(self.E_opt))
+
         # (13): Denote the final velocity field as \hat{v}
-        v_hat = v
+        v_hat = self.opt[1]
 
         # (14): Calculate the length of the path on the manifold
-        length = np.sum([np.linalg.norm(self.regularizer.L(v_hat[t])) for t in range(T)])
+        length = np.sum([np.linalg.norm(self.regularizer.L(v_hat[t])) for t in range(self.T)])
 
-        return J0[-1], v_hat, energies, length, Phi0, Phi1, J0, J1
-
-
+        if return_all:
+            return self.opt + (length,)
+        else:
+            return Phi0[-1]
 
     def reparameterize(self, v):
         """
@@ -112,10 +138,10 @@ class LDDMM2D(object):
         @return:
         """
         # make identity grid
-        x = grid.coordinate_grid((self.H, self.W))
+        x = grid.coordinate_grid(self.shape)
 
         # create flow
-        Phi1 = np.zeros((self.T, self.H, self.W, 2))
+        Phi1 = np.zeros((self.T, *self.shape, self.dim), dtype=np.double)
 
         # Phi1_1 is the identity mapping
         Phi1[self.T - 1] = x
@@ -133,7 +159,7 @@ class LDDMM2D(object):
         @param x: coordinates
         @return:
         """
-        alpha = np.zeros(v_t.shape)
+        alpha = np.zeros(v_t.shape, dtype=np.double)
         for i in range(5):
             alpha = sampler.sample(v_t, x + 0.5 * alpha)
         return alpha
@@ -144,10 +170,10 @@ class LDDMM2D(object):
         @return:
         """
         # make identity grid
-        x = grid.coordinate_grid((self.H, self.W))
+        x = grid.coordinate_grid(self.shape)
 
         # create flow
-        Phi0 = np.zeros((self.T, self.H, self.W, 2))
+        Phi0 = np.zeros((self.T, *self.shape, self.dim), dtype=np.double)
 
         # Phi0_0 is the identity mapping
         Phi0[0] = x
@@ -165,7 +191,7 @@ class LDDMM2D(object):
         @param x: coordinates
         @return:
         """
-        alpha = np.zeros(v_t.shape)
+        alpha = np.zeros(v_t.shape, dtype=np.double)
         for i in range(5):
             alpha = sampler.sample(v_t, x - 0.5 * alpha)
         return alpha
@@ -177,7 +203,7 @@ class LDDMM2D(object):
         @param Phi0: flow
         @return: sequence of forward pushed images J0
         """
-        J0 = np.zeros((self.T,) + I0.shape)
+        J0 = np.zeros((self.T,) + I0.shape, dtype=np.double)
 
         for t in range(0, self.T):
             J0[t] = sampler.sample(I0, Phi0[t])
@@ -191,7 +217,7 @@ class LDDMM2D(object):
         @param Phi1: flow
         @return: sequence of back-pulled images J1
         """
-        J1 = np.zeros((self.T,) + I1.shape)
+        J1 = np.zeros((self.T,) + I1.shape, dtype=np.double)
 
         for t in range(self.T-1, -1, -1):
             J1[t] = sampler.sample(I1, Phi1[t])
@@ -204,7 +230,7 @@ class LDDMM2D(object):
         @param J0: sequence of forward pushed images J0
         @return: dJ0: gradients of J0
         """
-        dJ0 = np.zeros(J0.shape + (2,))
+        dJ0 = np.zeros((*J0.shape, self.dim), dtype=np.double)
 
         for t in range(self.T):
             dJ0[t] = finite_difference(J0[t])
@@ -217,16 +243,36 @@ class LDDMM2D(object):
         @param Phi1: sequence of transformations
         @return: detPhi1: sequence of determinants of J0
         """
-        detPhi1 = np.zeros((self.T, self.H, self.W))
+        detPhi1 = np.zeros((self.T, *self.shape), dtype=np.double)
 
         for t in range(self.T):
-            # get gradient in x-direction
-            dx = finite_difference(Phi1[t, :, :, 0])
-            # gradient in y-direction
-            dy = finite_difference(Phi1[t, :, :, 1])
+            if self.dim == 1:
+                dx = finite_difference(Phi1[t, ..., 0])
 
-            # calculate determinants
-            detPhi1[t] = dx[:, :, 0] * dy[:, :, 1] - dx[:, :, 1] * dy[:, :, 0]
+                detPhi1[t] = dx[..., 0]
+            elif self.dim == 2:
+                # get gradient in x-direction
+                dx = finite_difference(Phi1[t, ..., 0])
+                # gradient in y-direction
+                dy = finite_difference(Phi1[t, ..., 1])
+
+                # calculate determinants
+                detPhi1[t] = dx[..., 0] * dy[..., 1] - dx[..., 1] * dy[..., 0]
+            elif self.dim == 3:
+                # get gradient in x-direction
+                dx = finite_difference(Phi1[t, ..., 0])
+                # gradient in y-direction
+                dy = finite_difference(Phi1[t, ..., 1])
+                # gradient in z-direction
+                dz = finite_difference(Phi1[t, ..., 2])
+
+                # calculate determinants
+                detPhi1[t] = (dx[..., 0] * dy[..., 1] * dz[..., 2]
+                              + dy[..., 0] * dz[..., 1] * dx[..., 2]
+                              + dz[..., 0] * dx[..., 1] * dy[..., 2]
+                              - dx[..., 2] * dy[..., 1] * dz[..., 0]
+                              - dy[..., 2] * dz[..., 1] * dx[..., 0]
+                              - dz[..., 2] * dx[..., 1] * dy[..., 0])
 
         return detPhi1
 
@@ -237,6 +283,3 @@ class LDDMM2D(object):
         @return: bool
         """
         return detPhi1.min() < 0
-
-
-

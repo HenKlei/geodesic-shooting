@@ -7,8 +7,8 @@ if __name__ == "__main__":
     i1 = loadimg('./example_images/square.png')
 
     # perform the registration
-    lddmm = pyLDDMM.LDDMM2D()
-    im, v, energies, length, Phi0, Phi1, J0, J1 = lddmm.register(i0, i1, sigma=0.1, alpha=1, epsilon=0.0001, K=20)
+    lddmm = pyLDDMM.LDDMM()
+    im, v, energies, Phi0, Phi1, J0, J1, length = lddmm.register(i0, i1, sigma=0.1, alpha=1, epsilon=0.0001, K=20, return_all=True)
 
     # save i0 aligned to i1
     saveimg('./example_images/out_c2s.png', im)
