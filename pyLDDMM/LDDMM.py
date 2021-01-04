@@ -82,7 +82,7 @@ class LDDMM:
                     grad = self.problem.grad_energy(detPhi1[t], dJ0[t], J0[t], J1[t])
                 else:
                     grad = self.problem.grad_energy(detPhi1[t], dJ0[t], J0[t])
-                dv[t] = 2*v[t] - 1 / sigma**2 * grad#self.regularizer.K(2 * detPhi1[t][..., np.newaxis] * dJ0[t] * (J0[t] - J1[t])[..., np.newaxis])
+                dv[t] = 2*v[t] - 1 / sigma**2 * grad
 
             # (10) calculate norm of the gradient, stop if small
             dv_norm = np.linalg.norm(dv)
@@ -92,7 +92,7 @@ class LDDMM:
 
             # (11): calculate new energy
             E_regularizer = np.sum([np.linalg.norm(self.problem.regularizer.L(v[t])) for t in range(self.T)])
-            E_intensity = 1 / sigma**2 * self.problem.energy(J0[-1])#np.sum((J0[-1] - I1)**2)
+            E_intensity = 1 / sigma**2 * self.problem.energy(J0[-1])
             E = E_regularizer + E_intensity
 
             if E < self.energy_threshold:
