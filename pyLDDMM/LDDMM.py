@@ -8,7 +8,7 @@ class LDDMM:
     """
     LDDMM registration; Computing Large Deformation Metric Mappings via Geodesic Flows of Diffeomorphisms.
     """
-    def register(self, I0, problem, T=30, K=100, sigma=1, epsilon=0.01, return_all=False):
+    def register(self, I0, problem, T=30, K=100, sigma=1, epsilon=0.01, mu=None, return_all=False):
         """
         Registers two images.
         @param I0: image, ndarray.
@@ -34,7 +34,11 @@ class LDDMM:
         self.T = T
         self.shape = I0.shape
         self.dim = I0.ndim
-        self.opt = ()
+        self.opt = (I0, None,)
+        if hasattr(self.problem, 'I1'):
+            self.opt += ([],) * 5
+        else:
+            self.opt += ([],) * 4
         self.E_opt = None
         self.energy_threshold = 1e-3
 
@@ -79,9 +83,9 @@ class LDDMM:
             # (9): Calculate the gradient
             for t in range(0, self.T):
                 if hasattr(self.problem, 'I1'):
-                    grad = self.problem.grad_energy(detPhi1[t], dJ0[t], J0[t], J1[t])
+                    grad = self.problem.grad_energy(detPhi1[t], dJ0[t], J0[t], J1=J1[t])
                 else:
-                    grad = self.problem.grad_energy(detPhi1[t], dJ0[t], J0[t])
+                    grad = self.problem.grad_energy(detPhi1[t], dJ0[t], J0[t], mu=mu)
                 dv[t] = 2*v[t] - 1 / sigma**2 * grad
 
             # (10) calculate norm of the gradient, stop if small
@@ -92,7 +96,10 @@ class LDDMM:
 
             # (11): calculate new energy
             E_regularizer = np.sum([np.linalg.norm(self.problem.regularizer.L(v[t])) for t in range(self.T)])
-            E_intensity = 1 / sigma**2 * self.problem.energy(J0[-1])
+            if hasattr(self.problem, 'I1'):
+                E_intensity = 1 / sigma**2 * self.problem.energy(J0[-1])
+            else:
+                E_intensity = 1 / sigma**2 * self.problem.energy(J0[-1], mu=mu)
             E = E_regularizer + E_intensity
 
             if E < self.energy_threshold:
@@ -117,13 +124,17 @@ class LDDMM:
             print("iteration {:3d}, energy {:4.2f}, thereof {:4.2f} regularization and {:4.2f} intensity difference".format(k, E, E_regularizer, E_intensity))
             # end of for loop block
 
-        print("Optimal energy {:4.2f}".format(self.E_opt))
+        if self.E_opt is not None:
+            print("Optimal energy {:4.2f}".format(self.E_opt))
 
         # (13): Denote the final velocity field as \hat{v}
         v_hat = self.opt[1]
 
-        # (14): Calculate the length of the path on the manifold
-        length = np.sum([np.linalg.norm(self.problem.regularizer.L(v_hat[t])) for t in range(self.T)])
+        if v_hat is not None:
+            # (14): Calculate the length of the path on the manifold
+            length = np.sum([np.linalg.norm(self.problem.regularizer.L(v_hat[t])) for t in range(self.T)])
+        else:
+            length = 0.0
 
         if return_all:
             return self.opt + (length,)
