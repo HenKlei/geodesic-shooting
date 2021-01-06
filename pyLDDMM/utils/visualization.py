@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import imageio
 from PIL import Image
 
+
 def loadimg(path):
     """
     loads a greyscale image and converts it's datatype
@@ -40,6 +41,7 @@ def plot_warpgrid(warp, interval=2, show_axis=False):
     @param show_axis: Bool, should axes be included?
     @return: matplotlib plot. Show with plt.show()
     """
+    plt.close()
     if show_axis is False:
         plt.axis('off')
     ax = plt.gca()
