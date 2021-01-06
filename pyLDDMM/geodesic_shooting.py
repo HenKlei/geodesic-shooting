@@ -65,7 +65,7 @@ class GeodesicShooting:
 
             dE1 = 1 / sigma**2 * self.problem.grad_energy(dJ0, J0)
 
-            dv0 = -self.integrate_backward_adjoint_Jacobi_field_equations(dE1, v)
+            dv0 = - self.integrate_backward_adjoint_Jacobi_field_equations(dE1, v)
 
             # (10) calculate norm of the gradient, stop if small
             dv0_norm = np.linalg.norm(dv0)
