@@ -6,11 +6,11 @@ if __name__ == "__main__":
     i0 = loadimg('../example_images/circle.png')
     i1 = loadimg('../example_images/square.png')
 
-    problem = pyLDDMM.ImageRegistrationProblemGS(i0, alpha=1, gamma=1)
+    problem = pyLDDMM.ImageRegistrationProblemGS(i0, alpha=6, gamma=1)
 
     # perform the registration
     lddmm = pyLDDMM.GeodesicShooting()
-    im, v0, energies, Phi0, length = lddmm.register(i1, problem, sigma=0.1, epsilon=0.01, K=20, return_all=True)
+    im, v0, energies, Phi0, length = lddmm.register(i1, problem, sigma=0.1, epsilon=0.01, K=50, return_all=True)
 
     # save i0 aligned to i1
     saveimg('../example_images/out_s2c.png', im)
