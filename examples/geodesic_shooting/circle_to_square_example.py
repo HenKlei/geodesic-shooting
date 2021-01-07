@@ -1,5 +1,5 @@
 import pyLDDMM
-from pyLDDMM.utils.visualization import loadimg, saveimg, save_animation, plot_warpgrid
+from pyLDDMM.utils.visualization import loadimg, saveimg, save_animation, plot_warpgrid, plot_vector_field
 
 if __name__ == "__main__":
     # load greyscale images
@@ -20,3 +20,7 @@ if __name__ == "__main__":
 
     Phi_half = lddmm.integrate_forward_flow(lddmm.integrate_forward_vector_field(v0/2))
     saveimg('../example_images/out_c2s_half_speed.png', lddmm.push_forward(i0, Phi_half))
+
+    # plot the (initial) vector field
+    plt = plot_vector_field(v0, interval=2)
+    plt.show()
