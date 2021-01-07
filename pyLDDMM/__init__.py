@@ -1,4 +1,4 @@
 from .LDDMM import LDDMM
 
 from .problems.image_registration_problem import ImageRegistrationProblem
-from .problems.pde_problem import PDEProblemStationary
+from .problems.pde_problem import PDEProblemStationary, PDEProblemInstationary
