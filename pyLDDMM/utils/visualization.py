@@ -36,10 +36,12 @@ def plot_warpgrid(warp, interval=2, show_axis=False):
     """
     plots the given warpgrid
     @param warp: array, H x W x 2, the transformation
-    @param interval: int, The interval between grid-lines
+    @param interval: int, the interval between grid-lines
     @param show_axis: Bool, should axes be included?
     @return: matplotlib plot. Show with plt.show()
     """
+    plt.close()
+
     if show_axis is False:
         plt.axis('off')
     ax = plt.gca()
@@ -50,4 +52,21 @@ def plot_warpgrid(warp, interval=2, show_axis=False):
         plt.plot(warp[row, :, 1], warp[row, :, 0], 'k')
     for col in range(0, warp.shape[1], interval):
         plt.plot(warp[:, col, 1], warp[:, col, 0], 'k')
+    return plt
+
+def plot_vector_field(v, interval=1):
+    """
+    plots the given (two-dimensional) vector field
+    @param v: array, H x W x 2, the vector field
+    @param interval: int, the interval between grid-lines
+    @return: matplotlib plot. Show with plt.show()
+    """
+    assert v.shape[-1] == 2
+
+    plt.close()
+    _, ax = plt.subplots()
+    ax.set_aspect('equal')
+
+    ax.quiver(v[::interval, ::interval, 0], v[::interval, ::interval, 1])
+
     return plt
