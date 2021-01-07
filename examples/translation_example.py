@@ -18,6 +18,6 @@ if __name__ == "__main__":
     # save animation of the transformation
     save_animation('example_images/out_translation.gif', J0)
 
-    # plot the transfomration
+    # plot the transformation
     plt = plot_warpgrid(Phi1[0], interval=2)
     plt.savefig('example_images/out_translation_warp.png')

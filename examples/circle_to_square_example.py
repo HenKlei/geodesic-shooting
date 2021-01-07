@@ -1,5 +1,6 @@
 import pyLDDMM
-from pyLDDMM.utils.visualization import loadimg, saveimg, save_animation, plot_warpgrid
+from pyLDDMM.utils.visualization import loadimg, saveimg, save_animation, plot_warpgrid, plot_vector_field
+
 
 if __name__ == "__main__":
     # load greyscale images
@@ -18,6 +19,14 @@ if __name__ == "__main__":
     # save animation of the transformation
     save_animation('example_images/out_c2s.gif', J0)
 
-    # plot the transfomration
+    # plot the transformation
     plt = plot_warpgrid(Phi1[0], interval=1)
     plt.savefig('example_images/out_c2s_warp.png')
+
+    # plot the (initial) vector field
+    plt = plot_vector_field(v[0], interval=2)
+    plt.show()
+
+    # plot the deformation vector field
+    plt = plot_vector_field(Phi0[0] - Phi0[-1], interval=2)
+    plt.show()
