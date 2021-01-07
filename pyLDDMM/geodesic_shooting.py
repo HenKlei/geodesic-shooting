@@ -8,7 +8,7 @@ class GeodesicShooting:
     """
     Geodesic shooting algorithm; Geodesic Shooting for Computational Anatomy.
     """
-    def register(self, I0, problem, T=30, K=100, sigma=1, epsilon=0.01, mu=None, return_all=False):
+    def register(self, I0, problem, T=30, K=100, sigma=1, epsilon=0.01, return_all=False):
         """
         Registers two images.
         @param I0: image, ndarray.
@@ -26,9 +26,9 @@ class GeodesicShooting:
         self.problem = problem
 
         I0 = I0.astype('double')
-        if hasattr(self.problem, 'I1'):
-            I1 = self.problem.I1.astype('double')
-            assert I0.shape == I1.shape
+        if hasattr(self.problem, 'target'):
+            target = self.problem.target.astype('double')
+            assert I0.shape == target.shape
 
         # set up variables
         self.T = T
@@ -75,10 +75,10 @@ class GeodesicShooting:
 
             # (11): calculate new energy
             E_regularizer = np.linalg.norm(self.problem.regularizer.L(v0))
-            if hasattr(self.problem, 'I1'):
+            if hasattr(self.problem, 'target'):
                 E_intensity = 1 / sigma**2 * self.problem.energy(J0)
             else:
-                E_intensity = 1 / sigma**2 * self.problem.energy(J0, mu=mu)
+                raise NotImplementedError
             E = E_regularizer + E_intensity
 
             if E < self.energy_threshold:
@@ -127,13 +127,11 @@ class GeodesicShooting:
         Phi0 = np.zeros((self.dim, *self.shape), dtype=np.double)
 
         # Phi0_0 is the identity mapping
-        Phi0 = x
-        Phi0_old = Phi0
+        Phi0 = x.astype(np.double)
 
         for t in range(0, self.T-1):
             alpha = self.forward_alpha(v[t], x)
-            Phi0 = sampler.sample(Phi0_old, x - alpha)
-            Phi0_old = Phi0
+            Phi0 = sampler.sample(Phi0, x - alpha)
 
         return Phi0
 
@@ -145,7 +143,7 @@ class GeodesicShooting:
         @return: Alpha, array.
         """
         alpha = np.zeros(v_t.shape, dtype=np.double)
-        for i in range(5):
+        for _ in range(5):
             alpha = sampler.sample(v_t, x - 0.5 * alpha)
         return alpha
 
@@ -170,12 +168,15 @@ class GeodesicShooting:
         v = np.zeros((self.T, self.dim, *self.shape), dtype=np.double)
         v[0] = v0
 
+        einsum_string = 'kl...,l...->k...'
+        einsum_string_transpose = 'lk...,l...->k...'
+
         for t in range(0, self.T-2):
             mt = self.problem.regularizer.L(v[t])
             grad_mt = finite_difference(mt)[0:self.dim, ...]
             grad_vt = finite_difference(v[t])[0:self.dim, ...]
             div_vt = np.sum(np.array([grad_vt[d, d, ...] for d in range(self.dim)]), axis=0)
-            rhs = np.einsum('ijlk,ijl->ijk', grad_vt, mt) + np.einsum('ijkl,ijl->ijk', grad_mt, v[t]) + mt * div_vt[np.newaxis, ...]
+            rhs = np.einsum(einsum_string_transpose, grad_vt, mt) + np.einsum(einsum_string, grad_mt, v[t]) + mt * div_vt[np.newaxis, ...]
             v[t+1] = v[t] - self.problem.regularizer.K(rhs) / self.T
 
         return v
@@ -186,12 +187,15 @@ class GeodesicShooting:
         delta_v_old = np.zeros(v_old.shape, dtype=np.double)
         delta_v = delta_v_old
 
+        einsum_string = 'kl...,l...->k...'
+        einsum_string_transpose = 'lk...,l...->k...'
+
         for t in range(self.T-2, -1, -1):
             grad_v_seq = finite_difference(v_seq[t])[0:self.dim, ...]
             div_v_seq = np.sum(np.array([grad_v_seq[d, d, ...] for d in range(self.dim)]), axis=0)
             Lv = self.problem.regularizer.L(v_old)
             grad_Lv = finite_difference(Lv)[0:self.dim, ...]
-            rhs_v = - self.problem.regularizer.K(np.einsum('ijlk,ijl->ijk', grad_v_seq, Lv) + np.einsum('ijkl,ijl->ijk', grad_Lv, v_seq[t]) + Lv * div_v_seq[np.newaxis, ...])
+            rhs_v = - self.problem.regularizer.K(np.einsum(einsum_string_transpose, grad_v_seq, Lv) + np.einsum(einsum_string, grad_Lv, v_seq[t]) + Lv * div_v_seq[np.newaxis, ...])
             v = v_old - rhs_v / self.T
             v_old = v
 
@@ -199,7 +203,7 @@ class GeodesicShooting:
             div_delta_v = np.sum(np.array([grad_delta_v[d, d, ...] for d in range(self.dim)]), axis=0)
             Lv_seq = self.problem.regularizer.L(v_seq[t])
             grad_Lv_seq = finite_difference(Lv_seq)[0:self.dim, ...]
-            rhs_delta_v = - v - (np.einsum('ijkl,ijl->ijk', grad_v_seq, delta_v) - np.einsum('ijkl,ijl->ijk', grad_delta_v, v_seq[t])) + self.problem.regularizer.K(np.einsum('ijlk,ijl->ijk', grad_delta_v, Lv_seq) + np.einsum('ijkl,ijl->ijk', grad_Lv_seq, delta_v) + Lv_seq * div_delta_v[np.newaxis, ...])
+            rhs_delta_v = - v - (np.einsum(einsum_string, grad_v_seq, delta_v) - np.einsum(einsum_string, grad_delta_v, v_seq[t])) + self.problem.regularizer.K(np.einsum(einsum_string_transpose, grad_delta_v, Lv_seq) + np.einsum(einsum_string, grad_Lv_seq, delta_v) + Lv_seq * div_delta_v[np.newaxis, ...])
             delta_v = delta_v_old - rhs_delta_v / self.T
             delta_v_old = delta_v
 
