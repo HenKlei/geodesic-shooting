@@ -40,7 +40,7 @@ class LDDMM:
         else:
             self.opt += ([],) * 4
         self.E_opt = None
-        self.energy_threshold = 1e-3
+        self.energy_threshold = 10#1e-3
 
         energies = []
 
@@ -102,7 +102,7 @@ class LDDMM:
                 E_intensity = 1 / sigma**2 * self.problem.energy(J0[-1], mu=mu)
             E = E_regularizer + E_intensity
 
-            if E < self.energy_threshold:
+            if E_intensity < self.energy_threshold: #E < self.energy_threshold:
                 self.E_opt = E
                 if hasattr(self.problem, 'I1'):
                     self.opt = (J0[-1], v, energies, Phi0, Phi1, J0, J1)
@@ -121,7 +121,8 @@ class LDDMM:
             energies.append(E)
 
             # (12): iterate k = k+1
-            print("iteration {:3d}, energy {:4.2f}, thereof {:4.2f} regularization and {:4.2f} intensity difference".format(k, E, E_regularizer, E_intensity))
+#            print("iteration {:3d}, energy {:4.2f}, thereof {:4.2f} regularization and {:4.2f} intensity difference".format(k, E, E_regularizer, E_intensity))
+            print(f"iteration {k}, energy {E}, thereof {E_regularizer} regularization and {E_intensity} intensity difference")
             # end of for loop block
 
         if self.E_opt is not None:
