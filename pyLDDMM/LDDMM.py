@@ -8,10 +8,10 @@ class LDDMM:
     """
     LDDMM registration; Computing Large Deformation Metric Mappings via Geodesic Flows of Diffeomorphisms.
     """
-    def register(self, I0, problem, T=30, K=100, sigma=1, epsilon=0.01, return_all=False):
+    def register(self, input_, problem, T=30, K=100, sigma=1, epsilon=0.01, return_all=False):
         """
         Registers two images.
-        @param I0: image, ndarray.
+        @param input_: image, ndarray.
         @param T: int, simulated discrete time steps.
         @param K: int, maximum iterations.
         @param sigma: float, sigma for L2 loss. Lower values strengthen the L2 loss.
@@ -25,15 +25,15 @@ class LDDMM:
 
         self.problem = problem
 
-        I0 = I0.astype('double')
+        input_ = input_.astype('double')
         if hasattr(self.problem, 'target'):
             target = self.problem.target.astype('double')
-            assert I0.shape == target.shape
+            assert input_.shape == target.shape
 
         # set up variables
         self.T = T
-        self.shape = I0.shape
-        self.dim = I0.ndim
+        self.shape = input_.shape
+        self.dim = input_.ndim
         self.opt = ()
         self.E_opt = None
         self.energy_threshold = 1e-3
@@ -60,8 +60,8 @@ class LDDMM:
             # (4): calculate forward flows
             Phi0 = self.integrate_forward_flow(v)
 
-            # (5): push-forward I0
-            J0 = self.push_forward(I0, Phi0)
+            # (5): push-forward input_
+            J0 = self.push_forward(input_, Phi0)
 
             if hasattr(self.problem, 'target'):
                 # (6): pull back target
@@ -206,17 +206,17 @@ class LDDMM:
             alpha = sampler.sample(v_t, x - 0.5 * alpha)
         return alpha
 
-    def push_forward(self, I0, Phi0):
+    def push_forward(self, input_, Phi0):
         """
-        implements step (5): Push forward image I0 along flow Phi0.
-        @param I0: Image.
+        implements step (5): Push forward image input_ along flow Phi0.
+        @param input_: Image.
         @param Phi0: Flow.
         @return: Sequence of forward pushed images J0, array.
         """
-        J0 = np.zeros((self.T,) + I0.shape, dtype=np.double)
+        J0 = np.zeros((self.T,) + input_.shape, dtype=np.double)
 
         for t in range(0, self.T):
-            J0[t] = sampler.sample(I0, Phi0[t])
+            J0[t] = sampler.sample(input_, Phi0[t])
 
         return J0
 

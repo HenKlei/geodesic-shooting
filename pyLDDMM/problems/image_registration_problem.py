@@ -1,6 +1,6 @@
 import numpy as np
 
-from pyLDDMM.regularizer import BiharmonicRegularizer
+from pyLDDMM.utils.regularizer import BiharmonicRegularizer
 
 
 class ImageRegistrationProblem:

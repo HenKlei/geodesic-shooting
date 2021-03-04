@@ -24,15 +24,16 @@ pip3 install .
 ```
 
 ## Examples
-Three examples are provided. A one-dimensional example, a circle translation, and morphing a circle to a square.
+Four examples are provided. One- and two-dimensional examples with plain numpy arrays, a circle translation, and morphing a circle to a square.
 
-The examples can be executed in the examples folder with:
+The examples can be executed in the LDDMM-examples folder with:
 ```
 python3 1d_example.py
+python3 2d_example.py
 python3 translation_example.py
 python3 circle_to_square_example.py
 ```
-Output files are written into the directory `examples/example_images/`.
+Output files are written into the directory [examples/LDDMM/results/](examples/LDDMM/results/).
 
 ## Documentation
 The commented code is in the file [pyLDDMM/LDDMM.py](pyLDDMM/LDDMM.py). 
