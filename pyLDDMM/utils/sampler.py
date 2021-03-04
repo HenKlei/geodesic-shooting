@@ -14,7 +14,6 @@ def sample(array, coordinates):
 
     # Reshape coordinate for skimage.
     if coordinates.ndim == 2:
-        coordinates = np.transpose(coordinates)
         if array.ndim == 1:
             return skimage.transform.warp(array, coordinates, mode='edge')
         return skimage.transform.warp(array[0, :], coordinates, mode='edge')
