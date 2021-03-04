@@ -10,7 +10,13 @@ def coordinate_grid(shape):
     assert len(shape) in [1, 2]
 
     if len(shape) == 1:
-        return np.transpose(np.array([np.mgrid[slice(0, shape[0], 1)],], dtype=np.double))
+        return np.mgrid[:shape[0]][np.newaxis, ...]
 
     grid = np.mgrid[:shape[0], :shape[1]]
-    return np.transpose(grid, axes=[2, 1, 0])
+    return grid
+
+
+if __name__ == "__main__":
+    shape = (4, 3)
+    grid = coordinate_grid(shape)
+    assert grid.shape == (2,) + shape

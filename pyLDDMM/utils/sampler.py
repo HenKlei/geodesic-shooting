@@ -1,33 +1,52 @@
 import skimage.transform
 import numpy as np
 
+
 def sample(array, coordinates):
     """
     samples the array at given coordinates
-    @param array: image array of shape H x W x n or H x W
-    @param coordinates: array of shape H x W x 2
+    @param array: image array of shape n x H x W x n or H x W
+    @param coordinates: array of shape 2 x H x W
     @return:
     """
-
     assert array.ndim in [1, 2, 3]
+    assert coordinates.ndim in [2, 3]
 
-    # reshape coordinate for skimage
+    # Reshape coordinate for skimage.
     if coordinates.ndim == 2:
-        coordinates = np.transpose(coordinates)
         if array.ndim == 1:
             return skimage.transform.warp(array, coordinates, mode='edge')
-        return np.transpose([skimage.transform.warp(array[:, 0], coordinates, mode='edge'),])
-
-    if coordinates.ndim == 3:
-        coordinates = np.transpose(coordinates, axes=[2, 1, 0])
+        return skimage.transform.warp(array[0, :], coordinates, mode='edge')
 
     if array.ndim == 2:
-        # only a single color channel. go ahead
+        # Only a single color channel. Go ahead...
         return skimage.transform.warp(array, coordinates, mode='edge')
     elif array.ndim == 3:
-        # the last dimension is the channel dimension. We need to sample each channel independently.
-        C = array.shape[-1]
+        # The first dimension is the channel dimension.
+        # We need to sample each channel independently.
+        C = array.shape[0]
         samples_channels = []
         for c in range(C):
-            samples_channels.append(skimage.transform.warp(array[:, :, c], coordinates, mode='edge'))
-        return np.stack(samples_channels, axis=-1)
+            samples_channels.append(skimage.transform.warp(array[c, :, :], coordinates, mode='edge'))
+        return np.stack(samples_channels, axis=0)
+
+    raise NotImplementedError
+
+
+if __name__ == "__main__":
+    from pyLDDMM.utils import grid
+
+    shape = (5, 10)
+    coordinates = grid.coordinate_grid(shape)
+    array1 = np.random.rand(*shape)
+
+    # Single color channel...
+    result1 = sample(array1, coordinates)
+    assert (array1 == result1).all()
+
+    array2 = np.random.rand(*shape)
+    array = np.stack([array1, array2], axis=0)
+
+    # Two color channels...
+    result = sample(array, coordinates)
+    assert (array == result).all()

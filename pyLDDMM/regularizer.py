@@ -30,7 +30,7 @@ class BiharmonicRegularizer:
                           [1., -4., 1.],
                           [0., 1., 0.]])
 
-        dff = np.stack([convolve(f[..., d], w) for d in range(f.shape[-1])], axis=-1)
+        dff = np.stack([convolve(f[d, ...], w) for d in range(f.shape[0])], axis=0)
 
         return - self.alpha * dff + self.gamma * f
 
@@ -40,7 +40,7 @@ class BiharmonicRegularizer:
         @param g: An array representing the function `g`.
         @return: `f=K(g)=(LL)^-1(g)`, array.
         """
-        if self.A is None or self.A.shape != g.shape[:-1]:
+        if self.A is None or self.A.shape != g.shape[1:]:
             # A is not chached. compute A.
             self.A = self.compute_A(g.shape)
 
@@ -59,8 +59,8 @@ class BiharmonicRegularizer:
         @param shape: Shape of the input image.
         @return: `A(k)`, array.
         """
-        dim = shape[-1]
-        shape = shape[:-1]
+        dim = shape[0]
+        shape = shape[1:]
         A = np.zeros(shape, dtype=np.double)
 
         for i in np.ndindex(shape):
@@ -70,33 +70,33 @@ class BiharmonicRegularizer:
         A += self.gamma
 
         # expand dims to match G
-        return np.stack([A,]*dim, axis=-1)
+        return np.stack([A,]*dim, axis=0)
 
     def fftn(self, a):
         """
         Performs `n`-dimensional FFT along the first `n` axes of an `n+1`-dimensional array.
         """
-        C = a.shape[-1]
+        C = a.shape[0]
         A = np.zeros(a.shape, dtype=np.complex128)
         for c in range(C):
-            A[..., c] = np.fft.fftn(a[..., c])
+            A[c, ...] = np.fft.fftn(a[c, ...])
         return A
 
     def ifftn(self, A):
         """
         Performs the `n`-dimensional inverse FFT (iFFT) along the first `n` axes of an `n+1`-dimensional array.
         """
-        C = A.shape[-1]
+        C = A.shape[0]
         a = np.zeros(A.shape, dtype=np.complex128)
         for c in range(C):
-            a[..., c] = np.fft.ifftn(A[..., c])
+            a[c, ...] = np.fft.ifftn(A[c, ...])
         return np.real(a)
 
 
 if __name__ == '__main__':
-    v = np.zeros((5, 5, 2))
-    v[2, 2, 0] = 1
+    v = np.zeros((2, 5, 5))
+    v[0, 2, 2] = 1
 
-    reg = BiharmonicReguarizer(alpha=1, gamma=1)
+    reg = BiharmonicRegularizer(alpha=1, gamma=1)
 
-    print(reg.K(v)[..., 0])
+    print(reg.K(v)[0, ...])
