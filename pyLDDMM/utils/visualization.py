@@ -10,7 +10,7 @@ def loadimg(path):
     """
     img = imageio.imread(path)
     img_grey = img[:, :, 0]
-    return img_grey/ 255.
+    return img_grey / 255.
 
 def saveimg(path, img):
     """
@@ -48,10 +48,10 @@ def plot_warpgrid(warp, interval=2, show_axis=False):
     ax.invert_yaxis()
     ax.set_aspect('equal')
 
-    for row in range(0, warp.shape[0], interval):
-        plt.plot(warp[row, :, 1], warp[row, :, 0], 'k')
-    for col in range(0, warp.shape[1], interval):
-        plt.plot(warp[:, col, 1], warp[:, col, 0], 'k')
+    for row in range(0, warp.shape[1], interval):
+        plt.plot(warp[1, row, :], warp[0, row, :], 'k')
+    for col in range(0, warp.shape[2], interval):
+        plt.plot(warp[1, :, col], warp[0, :, col], 'k')
     return plt
 
 def plot_vector_field(v, interval=1):
@@ -61,12 +61,12 @@ def plot_vector_field(v, interval=1):
     @param interval: int, the interval between grid-lines
     @return: matplotlib plot. Show with plt.show()
     """
-    assert v.shape[-1] == 2
+    assert v.shape[0] == 2
 
     plt.close()
     _, ax = plt.subplots()
     ax.set_aspect('equal')
 
-    ax.quiver(v[::interval, ::interval, 0], v[::interval, ::interval, 1])
+    ax.quiver(v[0, ::interval, ::interval], v[1, ::interval, ::interval])
 
     return plt

@@ -8,9 +8,9 @@ def finite_difference(a):
     @param a: an array
     @return: array, with partial derivatives
     """
-    w = np.array([1., 0., -1.])
+    w = np.array([1., 0., -1.])  # unusual ordering since we use convolution and not correlation
     dim = a.ndim
-    w = w.reshape(list(w.shape)+[1]*(dim-1)).T
+    w = w.reshape(list(w.shape)+[1,]*(dim-1)).T
     wy = w.T
 
     g = []
@@ -23,9 +23,20 @@ def finite_difference(a):
         gd = convolve(a, wd)
         g.append(gd)
 
-    return np.stack(g, axis=-1)
+    return np.flip(np.stack(g, axis=0), axis=0)
+
 
 if __name__ == "__main__":
-    img = np.zeros((5, 5))
+    img = np.zeros((5, 10))
     img[..., 2] = 1
-    print(finite_difference(img))
+    derivative = np.zeros((2, 5, 10))
+    derivative[1, :, 1] = 1
+    derivative[1, :, 3] = -1
+    assert (finite_difference(img) == derivative).all()
+
+    img = np.zeros((5, 10))
+    img[2, ...] = 1
+    derivative = np.zeros((2, 5, 10))
+    derivative[0, 1, :] = 1
+    derivative[0, 3, :] = -1
+    assert (finite_difference(img) == derivative).all()

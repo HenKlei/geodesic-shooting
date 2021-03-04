@@ -26,9 +26,9 @@ class LDDMM:
         self.problem = problem
 
         I0 = I0.astype('double')
-        if hasattr(self.problem, 'I1'):
-            I1 = self.problem.I1.astype('double')
-            assert I0.shape == I1.shape
+        if hasattr(self.problem, 'target'):
+            target = self.problem.target.astype('double')
+            assert I0.shape == target.shape
 
         # set up variables
         self.T = T
@@ -41,7 +41,7 @@ class LDDMM:
         energies = []
 
         # define vector fields
-        v = np.zeros((self.T, *self.shape, self.dim), dtype=np.double)
+        v = np.zeros((self.T, self.dim, *self.shape), dtype=np.double)
         dv = np.copy(v)
 
         # (12): iteration over k
@@ -63,9 +63,9 @@ class LDDMM:
             # (5): push-forward I0
             J0 = self.push_forward(I0, Phi0)
 
-            if hasattr(self.problem, 'I1'):
-                # (6): pull back I1
-                J1 = self.pull_back(I1, Phi1)
+            if hasattr(self.problem, 'target'):
+                # (6): pull back target
+                J1 = self.pull_back(target, Phi1)
 
             # (7): Calculate image gradient
             dJ0 = self.image_grad(J0)
@@ -78,7 +78,7 @@ class LDDMM:
 
             # (9): Calculate the gradient
             for t in range(0, self.T):
-                if hasattr(self.problem, 'I1'):
+                if hasattr(self.problem, 'target'):
                     grad = self.problem.grad_energy(detPhi1[t], dJ0[t], J0[t], J1[t])
                 else:
                     grad = self.problem.grad_energy(detPhi1[t], dJ0[t], J0[t])
@@ -97,7 +97,7 @@ class LDDMM:
 
             if E < self.energy_threshold:
                 self.E_opt = E
-                if hasattr(self.problem, 'I1'):
+                if hasattr(self.problem, 'target'):
                     self.opt = (J0[-1], v, energies, Phi0, Phi1, J0, J1)
                 else:
                     self.opt = (J0[-1], v, energies, Phi0, Phi1, J0)
@@ -106,7 +106,7 @@ class LDDMM:
 
             if self.E_opt is None or E < self.E_opt:
                 self.E_opt = E
-                if hasattr(self.problem, 'I1'):
+                if hasattr(self.problem, 'target'):
                     self.opt = (J0[-1], v, energies, Phi0, Phi1, J0, J1)
                 else:
                     self.opt = (J0[-1], v, energies, Phi0, Phi1, J0)
@@ -150,7 +150,7 @@ class LDDMM:
         x = grid.coordinate_grid(self.shape)
 
         # create flow
-        Phi1 = np.zeros((self.T, *self.shape, self.dim), dtype=np.double)
+        Phi1 = np.zeros((self.T, self.dim, *self.shape), dtype=np.double)
 
         # Phi1_1 is the identity mapping
         Phi1[self.T - 1] = x
@@ -169,7 +169,7 @@ class LDDMM:
         @return: Alpha, array.
         """
         alpha = np.zeros(v_t.shape, dtype=np.double)
-        for i in range(5):
+        for _ in range(5):
             alpha = sampler.sample(v_t, x + 0.5 * alpha)
         return alpha
 
@@ -183,7 +183,7 @@ class LDDMM:
         x = grid.coordinate_grid(self.shape)
 
         # create flow
-        Phi0 = np.zeros((self.T, *self.shape, self.dim), dtype=np.double)
+        Phi0 = np.zeros((self.T, self.dim, *self.shape), dtype=np.double)
 
         # Phi0_0 is the identity mapping
         Phi0[0] = x
@@ -202,7 +202,7 @@ class LDDMM:
         @return: Alpha, array.
         """
         alpha = np.zeros(v_t.shape, dtype=np.double)
-        for i in range(5):
+        for _ in range(5):
             alpha = sampler.sample(v_t, x - 0.5 * alpha)
         return alpha
 
@@ -220,17 +220,17 @@ class LDDMM:
 
         return J0
 
-    def pull_back(self, I1, Phi1):
+    def pull_back(self, target, Phi1):
         """
-        implements step (6): Pull back image I1 along flow Phi1.
-        @param I1: Image.
+        implements step (6): Pull back image target along flow Phi1.
+        @param target: Image.
         @param Phi1: Flow.
         @return: Sequence of back-pulled images J1, array.
         """
-        J1 = np.zeros((self.T,) + I1.shape, dtype=np.double)
+        J1 = np.zeros((self.T,) + target.shape, dtype=np.double)
 
         for t in range(self.T-1, -1, -1):
-            J1[t] = sampler.sample(I1, Phi1[t])
+            J1[t] = sampler.sample(target, Phi1[t])
 
         return J1
 
@@ -240,7 +240,7 @@ class LDDMM:
         @param J0: Sequence of forward pushed images J0.
         @return: Gradients of J0, array.
         """
-        dJ0 = np.zeros((*J0.shape, self.dim), dtype=np.double)
+        dJ0 = np.zeros((J0.shape[0], self.dim, *J0.shape[1:]), dtype=np.double)
 
         for t in range(self.T):
             dJ0[t] = finite_difference(J0[t])
@@ -257,32 +257,32 @@ class LDDMM:
 
         for t in range(self.T):
             if self.dim == 1:
-                dx = finite_difference(Phi1[t, ..., 0])
+                dx = finite_difference(Phi1[t, 0, ...])
 
-                detPhi1[t] = dx[..., 0]
+                detPhi1[t] = dx[0, ...]
             elif self.dim == 2:
                 # get gradient in x-direction
-                dx = finite_difference(Phi1[t, ..., 0])
+                dx = finite_difference(Phi1[t, 0, ...])
                 # gradient in y-direction
-                dy = finite_difference(Phi1[t, ..., 1])
+                dy = finite_difference(Phi1[t, 1, ...])
 
                 # calculate determinants
-                detPhi1[t] = dx[..., 0] * dy[..., 1] - dx[..., 1] * dy[..., 0]
+                detPhi1[t] = dx[0, ...] * dy[1, ...] - dx[1, ...] * dy[0, ...]
             elif self.dim == 3:
                 # get gradient in x-direction
-                dx = finite_difference(Phi1[t, ..., 0])
+                dx = finite_difference(Phi1[t, 0, ...])
                 # gradient in y-direction
-                dy = finite_difference(Phi1[t, ..., 1])
+                dy = finite_difference(Phi1[t, 1, ...])
                 # gradient in z-direction
-                dz = finite_difference(Phi1[t, ..., 2])
+                dz = finite_difference(Phi1[t, 2, ...])
 
                 # calculate determinants
-                detPhi1[t] = (dx[..., 0] * dy[..., 1] * dz[..., 2]
-                              + dy[..., 0] * dz[..., 1] * dx[..., 2]
-                              + dz[..., 0] * dx[..., 1] * dy[..., 2]
-                              - dx[..., 2] * dy[..., 1] * dz[..., 0]
-                              - dy[..., 2] * dz[..., 1] * dx[..., 0]
-                              - dz[..., 2] * dx[..., 1] * dy[..., 0])
+                detPhi1[t] = (dx[0, ...] * dy[1, ...] * dz[2, ...]
+                              + dy[0, ...] * dz[1, ...] * dx[2, ...]
+                              + dz[0, ...] * dx[1, ...] * dy[2, ...]
+                              - dx[2, ...] * dy[1, ...] * dz[0, ...]
+                              - dy[2, ...] * dz[1, ...] * dx[0, ...]
+                              - dz[2, ...] * dx[1, ...] * dy[0, ...])
 
         return detPhi1
 
