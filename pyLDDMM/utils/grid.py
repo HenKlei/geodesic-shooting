@@ -2,10 +2,16 @@ import numpy as np
 
 
 def coordinate_grid(shape):
-    """
-    generates a coordinate grid of dimension shape[0] x shape[1] x 2
-    @param shape: tuple
-    @return: grid
+    """Function for generating a coordinate grid that corresponds to the identity mapping.
+
+    Parameters
+    ----------
+    shape
+        Spatial shape of the coordinate grid.
+
+    Returns
+    -------
+    The coordinate grid of size (dim x shape).
     """
     assert len(shape) > 0
 

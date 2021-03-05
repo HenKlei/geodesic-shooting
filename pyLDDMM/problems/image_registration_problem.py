@@ -19,7 +19,7 @@ class ImageRegistrationProblem:
         return np.sum((J0 - self.target)**2)
 
     def grad_energy(self, detPhi1, dJ0, J0, J1):
-        return self.regularizer.K(2 * detPhi1[np.newaxis, ...] * dJ0 * (J0 - J1)[np.newaxis, ...])
+        return self.regularizer.cauchy_navier_squared_inverse(2 * detPhi1[np.newaxis, ...] * dJ0 * (J0 - J1)[np.newaxis, ...])
 
 
 class ImageRegistrationProblemGS:
@@ -38,4 +38,4 @@ class ImageRegistrationProblemGS:
         return np.sum((J0 - self.target)**2)
 
     def grad_energy(self, dJ0, J0):
-        return self.regularizer.K(dJ0 * (J0 - self.target)[np.newaxis, ...])
+        return self.regularizer.cauchy_navier_squared_inverse(dJ0 * (J0 - self.target)[np.newaxis, ...])

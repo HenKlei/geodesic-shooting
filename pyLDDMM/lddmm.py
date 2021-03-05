@@ -91,7 +91,7 @@ class LDDMM:
                 break
 
             # (11): calculate new energy
-            E_regularizer = np.sum([np.linalg.norm(self.problem.regularizer.L(v[t])) for t in range(self.T)])
+            E_regularizer = np.sum([np.linalg.norm(self.problem.regularizer.cauchy_navier(v[t])) for t in range(self.T)])
             E_intensity = 1 / sigma**2 * self.problem.energy(J0[-1])
             E = E_regularizer + E_intensity
 
@@ -123,7 +123,7 @@ class LDDMM:
         v_hat = self.opt[1]
 
         # (14): Calculate the length of the path on the manifold
-        length = np.sum([np.linalg.norm(self.problem.regularizer.L(v_hat[t])) for t in range(self.T)])
+        length = np.sum([np.linalg.norm(self.problem.regularizer.cauchy_navier(v_hat[t])) for t in range(self.T)])
 
         if return_all:
             return self.opt + (length,)
@@ -136,9 +136,9 @@ class LDDMM:
         @param v: The velocity field.
         @return: Reparametrized velocity field, array.
         """
-        length = np.sum([np.linalg.norm(self.problem.regularizer.L(v[t])) for t in range(self.T)])
+        length = np.sum([np.linalg.norm(self.problem.regularizer.cauchy_navier(v[t])) for t in range(self.T)])
         for t in range(self.T):
-            v[t] = length / self.T * v[t] / np.linalg.norm(self.problem.regularizer.L(v[t]))
+            v[t] = length / self.T * v[t] / np.linalg.norm(self.problem.regularizer.cauchy_navier(v[t]))
         return v
 
     def integrate_backward_flow(self, v):

@@ -74,7 +74,7 @@ class GeodesicShooting:
                 break
 
             # (11): calculate new energy
-            E_regularizer = np.linalg.norm(self.problem.regularizer.L(v0))
+            E_regularizer = np.linalg.norm(self.problem.regularizer.cauchy_navier(v0))
             if hasattr(self.problem, 'target'):
                 E_intensity = 1 / sigma**2 * self.problem.energy(J0)
             else:
@@ -105,7 +105,7 @@ class GeodesicShooting:
 
         if v_hat is not None:
             # (14): Calculate the length of the path on the manifold
-            length = np.linalg.norm(self.problem.regularizer.L(v_hat))
+            length = np.linalg.norm(self.problem.regularizer.cauchy_navier(v_hat))
         else:
             length = 0.0
 
@@ -172,12 +172,12 @@ class GeodesicShooting:
         einsum_string_transpose = 'lk...,l...->k...'
 
         for t in range(0, self.T-2):
-            mt = self.problem.regularizer.L(v[t])
+            mt = self.problem.regularizer.cauchy_navier(v[t])
             grad_mt = finite_difference(mt)[0:self.dim, ...]
             grad_vt = finite_difference(v[t])[0:self.dim, ...]
             div_vt = np.sum(np.array([grad_vt[d, d, ...] for d in range(self.dim)]), axis=0)
             rhs = np.einsum(einsum_string_transpose, grad_vt, mt) + np.einsum(einsum_string, grad_mt, v[t]) + mt * div_vt[np.newaxis, ...]
-            v[t+1] = v[t] - self.problem.regularizer.K(rhs) / self.T
+            v[t+1] = v[t] - self.problem.regularizer.cauchy_navier_squared_inverse(rhs) / self.T
 
         return v
 
@@ -193,17 +193,17 @@ class GeodesicShooting:
         for t in range(self.T-2, -1, -1):
             grad_v_seq = finite_difference(v_seq[t])[0:self.dim, ...]
             div_v_seq = np.sum(np.array([grad_v_seq[d, d, ...] for d in range(self.dim)]), axis=0)
-            Lv = self.problem.regularizer.L(v_old)
+            Lv = self.problem.regularizer.cauchy_navier(v_old)
             grad_Lv = finite_difference(Lv)[0:self.dim, ...]
-            rhs_v = - self.problem.regularizer.K(np.einsum(einsum_string_transpose, grad_v_seq, Lv) + np.einsum(einsum_string, grad_Lv, v_seq[t]) + Lv * div_v_seq[np.newaxis, ...])
+            rhs_v = - self.problem.regularizer.cauchy_navier_squared_inverse(np.einsum(einsum_string_transpose, grad_v_seq, Lv) + np.einsum(einsum_string, grad_Lv, v_seq[t]) + Lv * div_v_seq[np.newaxis, ...])
             v = v_old - rhs_v / self.T
             v_old = v
 
             grad_delta_v = finite_difference(delta_v)[0:self.dim, ...]
             div_delta_v = np.sum(np.array([grad_delta_v[d, d, ...] for d in range(self.dim)]), axis=0)
-            Lv_seq = self.problem.regularizer.L(v_seq[t])
+            Lv_seq = self.problem.regularizer.cauchy_navier(v_seq[t])
             grad_Lv_seq = finite_difference(Lv_seq)[0:self.dim, ...]
-            rhs_delta_v = - v - (np.einsum(einsum_string, grad_v_seq, delta_v) - np.einsum(einsum_string, grad_delta_v, v_seq[t])) + self.problem.regularizer.K(np.einsum(einsum_string_transpose, grad_delta_v, Lv_seq) + np.einsum(einsum_string, grad_Lv_seq, delta_v) + Lv_seq * div_delta_v[np.newaxis, ...])
+            rhs_delta_v = - v - (np.einsum(einsum_string, grad_v_seq, delta_v) - np.einsum(einsum_string, grad_delta_v, v_seq[t])) + self.problem.regularizer.cauchy_navier_squared_inverse(np.einsum(einsum_string_transpose, grad_delta_v, Lv_seq) + np.einsum(einsum_string, grad_Lv_seq, delta_v) + Lv_seq * div_delta_v[np.newaxis, ...])
             delta_v = delta_v_old - rhs_delta_v / self.T
             delta_v_old = delta_v
 
