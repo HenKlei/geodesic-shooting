@@ -4,7 +4,7 @@ from pyLDDMM.utils.regularizer import BiharmonicRegularizer
 
 
 class ImageRegistrationProblem:
-    def __init__(self, target, alpha=1, gamma=1):
+    def __init__(self, target, alpha=6, gamma=1):
         """
         @param alpha: float, smoothness regularization. Higher values regularize stronger.
         @param gamma: float, norm penalty. Positive value to ensure injectivity of the regularizer.
@@ -23,8 +23,7 @@ class ImageRegistrationProblem:
 
 
 class ImageRegistrationProblemGS:
-
-    def __init__(self, target, alpha=1, gamma=1):
+    def __init__(self, target, alpha=6, gamma=1):
         """
         @param alpha: float, smoothness regularization. Higher values regularize stronger.
         @param gamma: float, norm penalty. Positive value to ensure injectivity of the regularizer.
