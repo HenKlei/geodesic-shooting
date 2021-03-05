@@ -2,28 +2,36 @@ import numpy as np
 from scipy.ndimage import convolve
 
 
-def finite_difference(a):
-    """
-    Calculates the gradient of a via finite differences
-    @param a: an array
-    @return: array, with partial derivatives
-    """
-    w = np.array([1., 0., -1.])  # unusual ordering since we use convolution and not correlation
-    dim = a.ndim
-    w = w.reshape(list(w.shape)+[1,]*(dim-1)).T
-    wy = w.T
+def finite_difference(array):
+    """Finite difference scheme for approximating the derivative of the input array.
 
-    g = []
+    This function uses central differences to compute the (discrete) derivative
+    of the input array in the different dimensions.
 
+    Parameters
+    ----------
+    array
+        Input array to compute the derivative of.
+
+    Returns
+    -------
+    Array containing the derivatives in the different dimensions.
+    """
+    # mind the unusual ordering due to the usage of convolutions instead of correlations
+    window = np.array([1., 0., -1.])
+    dim = array.ndim
+    window = window.reshape(list(window.shape)+[1,]*(dim-1)).T
+
+    derivatives = []
     for d in range(dim):
         indices = list(range(dim))
         indices[0] = d
         indices[d] = 0
-        wd = np.transpose(w, axes=indices)
-        gd = convolve(a, wd)
-        g.append(gd)
+        window_d = np.transpose(window, axes=indices)
+        derivative_d = convolve(array, window_d)
+        derivatives.append(derivative_d)
 
-    return np.flip(np.stack(g, axis=0), axis=0)
+    return np.flip(np.stack(derivatives, axis=0), axis=0)
 
 
 if __name__ == "__main__":

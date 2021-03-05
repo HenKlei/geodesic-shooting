@@ -4,4 +4,4 @@ __pycache__
 LDDMMnotes
 *.pyc
 *.swp
-examples/LDDMM/results/
+examples/*/results/

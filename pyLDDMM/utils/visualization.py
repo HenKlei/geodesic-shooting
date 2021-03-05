@@ -1,74 +1,75 @@
 import matplotlib.pyplot as plt
-import imageio
-from PIL import Image
 
-def loadimg(path):
-    """
-    loads a greyscale image and converts it's datatype
-    @param path:
-    @return:
-    """
-    img = imageio.imread(path)
-    img_grey = img[:, :, 0]
-    return img_grey / 255.
-
-def saveimg(path, img):
-    """
-    saves an image
-    @param img:
-    @param path:
-    @return:
-    """
-    img = Image.fromarray((img * 255).astype('uint8'))
-    imageio.imsave(path, img)
-    return
-
-def save_animation(path, images):
-    """
-    creates an animation out of the images
-    @param images:
-    @return:
-    """
-    images = [Image.fromarray((images[t] * 255).astype('uint8')) for t in range(len(images))]
-    imageio.mimsave(path, images)
 
 def plot_warpgrid(warp, title='', interval=2, show_axis=False):
+    """Plot the given warpgrid.
+
+    Parameters
+    ----------
+    warp
+        Warp grid to plot.
+    title
+        Title of the plot.
+    interval
+        Interval in which to sample.
+    show_axis
+        Determines whether or not to show the axes.
+
+    Returns
+    -------
+    The created plot.
     """
-    plots the given warpgrid
-    @param warp: array, H x W x 2, the transformation
-    @param interval: int, the interval between grid-lines
-    @param show_axis: Bool, should axes be included?
-    @return: matplotlib plot. Show with plt.show()
-    """
-    plt.close()
+    assert warp.shape[0] == 2
+
+    fig = plt.figure()
+    axis = fig.add_subplot(1, 1, 1)
 
     if show_axis is False:
-        plt.axis('off')
-    ax = plt.gca()
-    ax.invert_yaxis()
-    ax.set_aspect('equal')
-    ax.set_title(title)
+        axis.set_axis_off()
+
+    axis.invert_yaxis()
+    axis.set_aspect('equal')
+    axis.set_title(title)
 
     for row in range(0, warp.shape[1], interval):
-        plt.plot(warp[1, row, :], warp[0, row, :], 'k')
+        axis.plot(warp[1, row, :], warp[0, row, :], 'k')
     for col in range(0, warp.shape[2], interval):
-        plt.plot(warp[1, :, col], warp[0, :, col], 'k')
-    return plt
+        axis.plot(warp[1, :, col], warp[0, :, col], 'k')
 
-def plot_vector_field(v, title='', interval=1):
+    return fig
+
+
+def plot_vector_field(vector_field, title='', interval=1, show_axis=False):
+    """Plot the given (two-dimensional) vector field.
+
+    Parameters
+    ----------
+    vector_field
+        Field to plot.
+    title
+        Title of the plot.
+    interval
+        Interval in which to sample.
+    show_axis
+        Determines whether or not to show the axes.
+
+
+    Returns
+    -------
+    The created plot.
     """
-    plots the given (two-dimensional) vector field
-    @param v: array, H x W x 2, the vector field
-    @param interval: int, the interval between grid-lines
-    @return: matplotlib plot. Show with plt.show()
-    """
-    assert v.shape[0] == 2
+    assert vector_field.shape[0] == 2
 
-    plt.close()
-    _, ax = plt.subplots()
-    ax.set_aspect('equal')
-    ax.set_title(title)
+    fig = plt.figure()
+    axis = fig.add_subplot(1, 1, 1)
 
-    ax.quiver(v[0, ::interval, ::interval], v[1, ::interval, ::interval])
+    if show_axis is False:
+        axis.set_axis_off()
 
-    return plt
+    axis.invert_yaxis()
+    axis.set_aspect('equal')
+    axis.set_title(title)
+
+    axis.quiver(vector_field[0, ::interval, ::interval], vector_field[1, ::interval, ::interval])
+
+    return fig

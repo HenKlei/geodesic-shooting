@@ -1,26 +1,37 @@
+import os
+import matplotlib.pyplot as plt
+
 import pyLDDMM
-from pyLDDMM.utils.visualization import loadimg, saveimg, save_animation, plot_warpgrid, plot_vector_field
+from pyLDDMM.utils.io import load_image, save_image, save_animation
+from pyLDDMM.utils.visualization import plot_warpgrid, plot_vector_field
+
 
 if __name__ == "__main__":
     # load greyscale images
-    i0 = loadimg('../example_images/circle.png')
-    i1 = loadimg('../example_images/square.png')
-
-    problem = pyLDDMM.ImageRegistrationProblemGS(i0, alpha=6, gamma=1)
+    input_ = load_image('../example_images/square.png')
+    target = load_image('../example_images/circle.png')
 
     # perform the registration
-    lddmm = pyLDDMM.GeodesicShooting()
-    im, v0, energies, Phi0, length = lddmm.register(i1, problem, sigma=0.1, epsilon=0.01, K=50, return_all=True)
+    geodesic_shooting = pyLDDMM.GeodesicShooting(alpha=6., gamma=1.)
+    image, v0, energies, Phi0, length = geodesic_shooting.register(input_, target, sigma=0.1, epsilon=0.01, K=100, return_all=True)
 
-    # save i0 aligned to i1
-    saveimg('../example_images/out_s2c.png', im)
+    FILEPATH_RESULTS = 'results/'
 
-    plt_inverse = plot_warpgrid(Phi0, interval=2)
-    plt_inverse.savefig('../example_images/out_s2c_warp_inverse.png')
+    if not os.path.exists(FILEPATH_RESULTS):
+        os.makedirs(FILEPATH_RESULTS)
 
-    Phi_half = lddmm.integrate_forward_flow(lddmm.integrate_forward_vector_field(v0/2))
-    saveimg('../example_images/out_s2c_half_speed.png', lddmm.push_forward(i0, Phi_half))
+    # save input_ aligned to target
+    save_image(image, FILEPATH_RESULTS + 'square_to_circle.png')
+
+    # plot the inverse transformation
+    fig_inverse = plot_warpgrid(Phi0, title="Inverse warp grid (S2C)", interval=2)
+    fig_inverse.savefig(FILEPATH_RESULTS + 'square_to_circle_warp_inverse.png')
+
+    # multiply initial vector field by 0.5, integrate it forward and push the input_ image along this flow
+    Phi_half = geodesic_shooting.integrate_forward_flow(geodesic_shooting.integrate_forward_vector_field(v0 / 2.))
+    save_image(geodesic_shooting.push_forward(input_, Phi_half), FILEPATH_RESULTS + 'square_to_circle_half_speed.png')
 
     # plot the (initial) vector field
-    plt = plot_vector_field(v0, interval=2)
+    plot_vector_field(v0, title="Initial vector field (S2C)", interval=2)
+
     plt.show()
