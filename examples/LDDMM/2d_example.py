@@ -12,11 +12,9 @@ if __name__ == "__main__":
     input_[N//5:2*N//5, M//5:2*M//5] = 1
     target[2*N//5:3*N//5, M//5:2*M//5] = 1
 
-    problem = pyLDDMM.ImageRegistrationProblem(target, alpha=10, gamma=1)
-
     # perform the registration
-    lddmm = pyLDDMM.LDDMM()
-    image, v, energies, Phi0, Phi1, J0, J1, length = lddmm.register(input_, problem, sigma=0.1, epsilon=0.0001, return_all=True)
+    lddmm = pyLDDMM.LDDMM(alpha=10., gamma=1.)
+    image, v, energies, Phi0, Phi1, J0, J1, length = lddmm.register(input_, target, sigma=0.1, epsilon=0.0001, return_all=True)
 
     print(f'Input: {input_}')
     print(f'Target: {target}')

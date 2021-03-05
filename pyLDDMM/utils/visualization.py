@@ -39,7 +39,7 @@ def plot_warpgrid(warp, title='', interval=2, show_axis=False):
     return fig
 
 
-def plot_vector_field(vector_field, title='', interval=1):
+def plot_vector_field(vector_field, title='', interval=1, show_axis=False):
     """Plot the given (two-dimensional) vector field.
 
     Parameters
@@ -50,6 +50,9 @@ def plot_vector_field(vector_field, title='', interval=1):
         Title of the plot.
     interval
         Interval in which to sample.
+    show_axis
+        Determines whether or not to show the axes.
+
 
     Returns
     -------
@@ -59,6 +62,11 @@ def plot_vector_field(vector_field, title='', interval=1):
 
     fig = plt.figure()
     axis = fig.add_subplot(1, 1, 1)
+
+    if show_axis is False:
+        axis.set_axis_off()
+
+    axis.invert_yaxis()
     axis.set_aspect('equal')
     axis.set_title(title)
 

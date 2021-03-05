@@ -11,11 +11,9 @@ if __name__ == "__main__":
     input_ = load_image('../example_images/translation_input.png')
     target = load_image('../example_images/translation_target.png')
 
-    problem = pyLDDMM.ImageRegistrationProblemGS(target, alpha=1000, gamma=1)
-
     # perform the registration
-    lddmm = pyLDDMM.GeodesicShooting()
-    image, v0, energies, Phi0, length = lddmm.register(input_, problem, sigma=0.1, epsilon=0.1, K=20, return_all=True)
+    geodesic_shooting = pyLDDMM.GeodesicShooting(alpha=1000., gamma=1.)
+    image, v0, energies, Phi0, length = geodesic_shooting.register(input_, target, sigma=0.1, epsilon=0.1, K=20, return_all=True)
 
     FILEPATH_RESULTS = 'results/'
  
@@ -30,8 +28,8 @@ if __name__ == "__main__":
     fig_inverse.savefig(FILEPATH_RESULTS + 'translation_warp_inverse.png')
 
     # multiply initial vector field by 0.5, integrate it forward and push the input_ image along this flow
-    Phi_half = lddmm.integrate_forward_flow(lddmm.integrate_forward_vector_field(v0 / 2.))
-    save_image(lddmm.push_forward(input_, Phi_half), FILEPATH_RESULTS + 'translation_half_speed.png')
+    Phi_half = geodesic_shooting.integrate_forward_flow(geodesic_shooting.integrate_forward_vector_field(v0 / 2.))
+    save_image(geodesic_shooting.push_forward(input_, Phi_half), FILEPATH_RESULTS + 'translation_half_speed.png')
 
     # plot the (initial) vector field
     plot_vector_field(v0, title="Initial vector field (translation)", interval=2)

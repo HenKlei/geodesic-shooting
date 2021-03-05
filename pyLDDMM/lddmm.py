@@ -2,13 +2,17 @@ import numpy as np
 
 from pyLDDMM.utils import sampler, grid
 from pyLDDMM.utils.grad import finite_difference
+from pyLDDMM.utils.regularizer import BiharmonicRegularizer
 
 
 class LDDMM:
     """
     LDDMM registration; Computing Large Deformation Metric Mappings via Geodesic Flows of Diffeomorphisms.
     """
-    def register(self, input_, problem, T=30, K=100, sigma=1, epsilon=0.01, return_all=False):
+    def __init__(self, alpha=6., gamma=1.):
+        self.regularizer = BiharmonicRegularizer(alpha, gamma)
+
+    def register(self, input_, target, T=30, K=100, sigma=1, epsilon=0.01, return_all=False):
         """
         Registers two images.
         @param input_: image, ndarray.
@@ -22,13 +26,16 @@ class LDDMM:
         assert K > 0
         assert sigma > 0
         assert epsilon > 0
-
-        self.problem = problem
+        assert input_.shape == target.shape
 
         input_ = input_.astype('double')
-        if hasattr(self.problem, 'target'):
-            target = self.problem.target.astype('double')
-            assert input_.shape == target.shape
+        target = target.astype('double')
+
+        def energy(J0):
+            return np.sum((J0 - target)**2)
+
+        def grad_energy(detPhi1, dJ0, J0, J1):
+            return self.regularizer.cauchy_navier_squared_inverse(2 * detPhi1[np.newaxis, ...] * dJ0 * (J0 - J1)[np.newaxis, ...])
 
         # set up variables
         self.T = T
@@ -63,9 +70,8 @@ class LDDMM:
             # (5): push-forward input_
             J0 = self.push_forward(input_, Phi0)
 
-            if hasattr(self.problem, 'target'):
-                # (6): pull back target
-                J1 = self.pull_back(target, Phi1)
+            # (6): pull back target
+            J1 = self.pull_back(target, Phi1)
 
             # (7): Calculate image gradient
             dJ0 = self.image_grad(J0)
@@ -78,10 +84,7 @@ class LDDMM:
 
             # (9): Calculate the gradient
             for t in range(0, self.T):
-                if hasattr(self.problem, 'target'):
-                    grad = self.problem.grad_energy(detPhi1[t], dJ0[t], J0[t], J1[t])
-                else:
-                    grad = self.problem.grad_energy(detPhi1[t], dJ0[t], J0[t])
+                grad = grad_energy(detPhi1[t], dJ0[t], J0[t], J1[t])
                 dv[t] = 2*v[t] - 1 / sigma**2 * grad
 
             # (10) calculate norm of the gradient, stop if small
@@ -91,25 +94,19 @@ class LDDMM:
                 break
 
             # (11): calculate new energy
-            E_regularizer = np.sum([np.linalg.norm(self.problem.regularizer.cauchy_navier(v[t])) for t in range(self.T)])
-            E_intensity = 1 / sigma**2 * self.problem.energy(J0[-1])
+            E_regularizer = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(v[t])) for t in range(self.T)])
+            E_intensity = 1 / sigma**2 * energy(J0[-1])
             E = E_regularizer + E_intensity
 
             if E < self.energy_threshold:
                 self.E_opt = E
-                if hasattr(self.problem, 'target'):
-                    self.opt = (J0[-1], v, energies, Phi0, Phi1, J0, J1)
-                else:
-                    self.opt = (J0[-1], v, energies, Phi0, Phi1, J0)
+                self.opt = (J0[-1], v, energies, Phi0, Phi1, J0, J1)
                 print(f"Energy below threshold of {self.energy_threshold}. Stopping ...")
                 break
 
             if self.E_opt is None or E < self.E_opt:
                 self.E_opt = E
-                if hasattr(self.problem, 'target'):
-                    self.opt = (J0[-1], v, energies, Phi0, Phi1, J0, J1)
-                else:
-                    self.opt = (J0[-1], v, energies, Phi0, Phi1, J0)
+                self.opt = (J0[-1], v, energies, Phi0, Phi1, J0, J1)
 
             energies.append(E)
 
@@ -123,7 +120,7 @@ class LDDMM:
         v_hat = self.opt[1]
 
         # (14): Calculate the length of the path on the manifold
-        length = np.sum([np.linalg.norm(self.problem.regularizer.cauchy_navier(v_hat[t])) for t in range(self.T)])
+        length = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(v_hat[t])) for t in range(self.T)])
 
         if return_all:
             return self.opt + (length,)
@@ -136,9 +133,9 @@ class LDDMM:
         @param v: The velocity field.
         @return: Reparametrized velocity field, array.
         """
-        length = np.sum([np.linalg.norm(self.problem.regularizer.cauchy_navier(v[t])) for t in range(self.T)])
+        length = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(v[t])) for t in range(self.T)])
         for t in range(self.T):
-            v[t] = length / self.T * v[t] / np.linalg.norm(self.problem.regularizer.cauchy_navier(v[t]))
+            v[t] = length / self.T * v[t] / np.linalg.norm(self.regularizer.cauchy_navier(v[t]))
         return v
 
     def integrate_backward_flow(self, v):

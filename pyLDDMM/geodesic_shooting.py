@@ -2,16 +2,20 @@ import numpy as np
 
 from pyLDDMM.utils import sampler, grid
 from pyLDDMM.utils.grad import finite_difference
+from pyLDDMM.utils.regularizer import BiharmonicRegularizer
 
 
 class GeodesicShooting:
     """
     Geodesic shooting algorithm; Geodesic Shooting for Computational Anatomy.
     """
-    def register(self, I0, problem, T=30, K=100, sigma=1, epsilon=0.01, return_all=False):
+    def __init__(self, alpha=6., gamma=1.):
+        self.regularizer = BiharmonicRegularizer(alpha, gamma)
+
+    def register(self, input_, target, T=30, K=100, sigma=1, epsilon=0.01, return_all=False):
         """
         Registers two images.
-        @param I0: image, ndarray.
+        @param input_: image, ndarray.
         @param T: int, simulated discrete time steps.
         @param K: int, maximum iterations.
         @param sigma: float, sigma for L2 loss. Lower values strengthen the L2 loss.
@@ -22,19 +26,22 @@ class GeodesicShooting:
         assert K > 0
         assert sigma > 0
         assert epsilon > 0
+        assert input_.shape == target.shape
 
-        self.problem = problem
+        input_ = input_.astype('double')
+        target = target.astype('double')
 
-        I0 = I0.astype('double')
-        if hasattr(self.problem, 'target'):
-            target = self.problem.target.astype('double')
-            assert I0.shape == target.shape
+        def energy(J0):
+            return np.sum((J0 - target)**2)
+
+        def grad_energy(dJ0, J0):
+            return self.regularizer.cauchy_navier_squared_inverse(dJ0 * (J0 - target)[np.newaxis, ...])
 
         # set up variables
         self.T = T
-        self.shape = I0.shape
-        self.dim = I0.ndim
-        self.opt = (I0, None,)
+        self.shape = input_.shape
+        self.dim = input_.ndim
+        self.opt = (input_, None,)
         self.opt += ([],) * 2
         self.E_opt = None
         self.energy_threshold = 1e-3
@@ -57,13 +64,13 @@ class GeodesicShooting:
             # (4): calculate forward flows
             Phi0 = self.integrate_forward_flow(v)
 
-            # (5): push-forward I0
-            J0 = self.push_forward(I0, Phi0)
+            # (5): push-forward input_
+            J0 = self.push_forward(input_, Phi0)
 
             # (7): Calculate image gradient
             dJ0 = self.image_grad(J0)
 
-            dE1 = 1 / sigma**2 * self.problem.grad_energy(dJ0, J0)
+            dE1 = 1 / sigma**2 * grad_energy(dJ0, J0)
 
             dv0 = - self.integrate_backward_adjoint_Jacobi_field_equations(dE1, v)
 
@@ -74,11 +81,8 @@ class GeodesicShooting:
                 break
 
             # (11): calculate new energy
-            E_regularizer = np.linalg.norm(self.problem.regularizer.cauchy_navier(v0))
-            if hasattr(self.problem, 'target'):
-                E_intensity = 1 / sigma**2 * self.problem.energy(J0)
-            else:
-                raise NotImplementedError
+            E_regularizer = np.linalg.norm(self.regularizer.cauchy_navier(v0))
+            E_intensity = 1 / sigma**2 * energy(J0)
             E = E_regularizer + E_intensity
 
             if E < self.energy_threshold:
@@ -105,7 +109,7 @@ class GeodesicShooting:
 
         if v_hat is not None:
             # (14): Calculate the length of the path on the manifold
-            length = np.linalg.norm(self.problem.regularizer.cauchy_navier(v_hat))
+            length = np.linalg.norm(self.regularizer.cauchy_navier(v_hat))
         else:
             length = 0.0
 
@@ -147,14 +151,14 @@ class GeodesicShooting:
             alpha = sampler.sample(v_t, x - 0.5 * alpha)
         return alpha
 
-    def push_forward(self, I0, Phi0):
+    def push_forward(self, input_, Phi0):
         """
-        implements step (5): Push forward image I0 along flow Phi0.
-        @param I0: Image.
+        implements step (5): Push forward image input_ along flow Phi0.
+        @param input_: Image.
         @param Phi0: Flow.
         @return: Sequence of forward pushed images J0, array.
         """
-        return sampler.sample(I0, Phi0)
+        return sampler.sample(input_, Phi0)
 
     def image_grad(self, J0):
         """
@@ -172,12 +176,12 @@ class GeodesicShooting:
         einsum_string_transpose = 'lk...,l...->k...'
 
         for t in range(0, self.T-2):
-            mt = self.problem.regularizer.cauchy_navier(v[t])
+            mt = self.regularizer.cauchy_navier(v[t])
             grad_mt = finite_difference(mt)[0:self.dim, ...]
             grad_vt = finite_difference(v[t])[0:self.dim, ...]
             div_vt = np.sum(np.array([grad_vt[d, d, ...] for d in range(self.dim)]), axis=0)
             rhs = np.einsum(einsum_string_transpose, grad_vt, mt) + np.einsum(einsum_string, grad_mt, v[t]) + mt * div_vt[np.newaxis, ...]
-            v[t+1] = v[t] - self.problem.regularizer.cauchy_navier_squared_inverse(rhs) / self.T
+            v[t+1] = v[t] - self.regularizer.cauchy_navier_squared_inverse(rhs) / self.T
 
         return v
 
@@ -193,17 +197,17 @@ class GeodesicShooting:
         for t in range(self.T-2, -1, -1):
             grad_v_seq = finite_difference(v_seq[t])[0:self.dim, ...]
             div_v_seq = np.sum(np.array([grad_v_seq[d, d, ...] for d in range(self.dim)]), axis=0)
-            Lv = self.problem.regularizer.cauchy_navier(v_old)
+            Lv = self.regularizer.cauchy_navier(v_old)
             grad_Lv = finite_difference(Lv)[0:self.dim, ...]
-            rhs_v = - self.problem.regularizer.cauchy_navier_squared_inverse(np.einsum(einsum_string_transpose, grad_v_seq, Lv) + np.einsum(einsum_string, grad_Lv, v_seq[t]) + Lv * div_v_seq[np.newaxis, ...])
+            rhs_v = - self.regularizer.cauchy_navier_squared_inverse(np.einsum(einsum_string_transpose, grad_v_seq, Lv) + np.einsum(einsum_string, grad_Lv, v_seq[t]) + Lv * div_v_seq[np.newaxis, ...])
             v = v_old - rhs_v / self.T
             v_old = v
 
             grad_delta_v = finite_difference(delta_v)[0:self.dim, ...]
             div_delta_v = np.sum(np.array([grad_delta_v[d, d, ...] for d in range(self.dim)]), axis=0)
-            Lv_seq = self.problem.regularizer.cauchy_navier(v_seq[t])
+            Lv_seq = self.regularizer.cauchy_navier(v_seq[t])
             grad_Lv_seq = finite_difference(Lv_seq)[0:self.dim, ...]
-            rhs_delta_v = - v - (np.einsum(einsum_string, grad_v_seq, delta_v) - np.einsum(einsum_string, grad_delta_v, v_seq[t])) + self.problem.regularizer.cauchy_navier_squared_inverse(np.einsum(einsum_string_transpose, grad_delta_v, Lv_seq) + np.einsum(einsum_string, grad_Lv_seq, delta_v) + Lv_seq * div_delta_v[np.newaxis, ...])
+            rhs_delta_v = - v - (np.einsum(einsum_string, grad_v_seq, delta_v) - np.einsum(einsum_string, grad_delta_v, v_seq[t])) + self.regularizer.cauchy_navier_squared_inverse(np.einsum(einsum_string_transpose, grad_delta_v, Lv_seq) + np.einsum(einsum_string, grad_Lv_seq, delta_v) + Lv_seq * div_delta_v[np.newaxis, ...])
             delta_v = delta_v_old - rhs_delta_v / self.T
             delta_v_old = delta_v
 

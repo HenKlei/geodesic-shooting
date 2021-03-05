@@ -10,11 +10,9 @@ if __name__ == "__main__":
     input_ = load_image('../example_images/translation_input.png')
     target = load_image('../example_images/translation_target.png')
 
-    problem = pyLDDMM.ImageRegistrationProblem(target, alpha=1000, gamma=1)
-
     # perform the registration
-    lddmm = pyLDDMM.LDDMM()
-    image, v, energies, Phi0, Phi1, J0, J1, length = lddmm.register(input_, problem, sigma=0.1, epsilon=0.01, K=15, return_all=True)
+    lddmm = pyLDDMM.LDDMM(alpha=1000., gamma=1.)
+    image, v, energies, Phi0, Phi1, J0, J1, length = lddmm.register(input_, target, sigma=0.1, epsilon=0.01, K=15, return_all=True)
 
     FILEPATH_RESULTS = 'results/'
 
