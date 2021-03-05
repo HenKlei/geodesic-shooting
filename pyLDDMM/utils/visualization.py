@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import imageio
 from PIL import Image
 
+
 def loadimg(path):
     """
     loads a greyscale image and converts it's datatype
