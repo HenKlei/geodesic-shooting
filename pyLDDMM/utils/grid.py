@@ -12,8 +12,7 @@ def coordinate_grid(shape):
     if len(shape) == 1:
         return np.mgrid[:shape[0]][np.newaxis, ...]
 
-    grid = np.mgrid[:shape[0], :shape[1]]
-    return grid
+    return np.mgrid[:shape[0], :shape[1]]
 
 
 if __name__ == "__main__":

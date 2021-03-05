@@ -5,12 +5,12 @@ import numpy as np
 def sample(array, coordinates):
     """
     samples the array at given coordinates
-    @param array: image array of shape n x H x W x n or H x W
+    @param array: image array of shape n x H x W or H x W
     @param coordinates: array of shape 2 x H x W
     @return:
     """
     assert array.ndim in [1, 2, 3]
-    assert coordinates.ndim in [2, 3]
+    assert coordinates.ndim in [1, 2, 3]
 
     # Reshape coordinate for skimage.
     if coordinates.ndim == 2:
@@ -18,10 +18,14 @@ def sample(array, coordinates):
             return skimage.transform.warp(array, coordinates, mode='edge')
         return skimage.transform.warp(array[0, :], coordinates, mode='edge')
 
+    if coordinates.ndim == 1:
+        return skimage.transform.warp(array, coordinates[np.newaxis, ...], mode='edge')
+
     if array.ndim == 2:
         # Only a single color channel. Go ahead...
         return skimage.transform.warp(array, coordinates, mode='edge')
-    elif array.ndim == 3:
+
+    if array.ndim == 3:
         # The first dimension is the channel dimension.
         # We need to sample each channel independently.
         C = array.shape[0]
