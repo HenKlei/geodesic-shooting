@@ -6,26 +6,52 @@ from pyLDDMM.utils.regularizer import BiharmonicRegularizer
 
 
 class LDDMM:
-    """
-    LDDMM registration; Computing Large Deformation Metric Mappings via Geodesic Flows of Diffeomorphisms.
+    """Class that implements the original large deformation metric mappings algorithm.
+
+    Based on:
+    Computing Large Deformation Metric Mappings via Geodesic Flows of Diffeomorphisms.
+    Beg, Miller, Trouvé, Younes, 2004
     """
     def __init__(self, alpha=6., gamma=1.):
+        """Constructor.
+
+        Parameters
+        ----------
+        alpha
+            Parameter for biharmonic regularizer.
+        gamma
+            Parameter for biharmonic regularizer.
+        """
         self.regularizer = BiharmonicRegularizer(alpha, gamma)
 
-    def register(self, input_, target, T=30, K=100, sigma=1, epsilon=0.01, return_all=False):
+    def register(self, input_, target, time_steps=30, iterations=100, sigma=1, epsilon=0.01, return_all=False):
+        """Performs actual registration according to LDDMM algorithm with time-varying velocity fields that can be chosen independently of each other (respecting smoothness assumption).
+
+        Parameters
+        ----------
+        input_
+            Input image as array.
+        target
+            Target image as array.
+        time_steps
+            Number of discrete time steps to perform.
+        iterations
+            Number of iterations of the optimizer to perform.
+        sigma
+            Weight for the similarity measurement (L2 difference of the target and the registered image); the smaller sigma, the larger the influence of the L2 loss.
+        epsilon
+            Learning rate, i.e. step size of the optimizer.
+        return_all
+            Determines whether or not to return all information or only the final flow that led to the best registration result.
+
+        Returns
+        -------
+        Either the best flow (if return_all is True) or a tuple consisting of the registered image,the velocities, the energies, the flows and inverse flows, the forward-pushed input and the back-pulled target at all time instances.
         """
-        Registers two images.
-        @param input_: image, ndarray.
-        @param T: int, simulated discrete time steps.
-        @param K: int, maximum iterations.
-        @param sigma: float, sigma for L2 loss. Lower values strengthen the L2 loss.
-        @param epsilon: float, learning rate.
-        @return:
-        """
-        assert T > 0
-        assert K > 0
+        assert isinstance(time_steps, int) and time_steps > 0
+        assert isinstance(iterations, int) and iterations > 0
         assert sigma > 0
-        assert epsilon > 0
+        assert 0 < epsilon < 1
         assert input_.shape == target.shape
 
         input_ = input_.astype('double')
@@ -38,7 +64,7 @@ class LDDMM:
             return self.regularizer.cauchy_navier_squared_inverse(2 * detPhi1[np.newaxis, ...] * dJ0 * (J0 - J1)[np.newaxis, ...])
 
         # set up variables
-        self.T = T
+        self.time_steps = time_steps
         self.shape = input_.shape
         self.dim = input_.ndim
         self.opt = ()
@@ -48,11 +74,11 @@ class LDDMM:
         energies = []
 
         # define vector fields
-        v = np.zeros((self.T, self.dim, *self.shape), dtype=np.double)
+        v = np.zeros((self.time_steps, self.dim, *self.shape), dtype=np.double)
         dv = np.copy(v)
 
         # (12): iteration over k
-        for k in range(K):
+        for k in range(iterations):
 
             # (1): Calculate new estimate of velocity
             v -= epsilon * dv
@@ -83,7 +109,7 @@ class LDDMM:
                 break
 
             # (9): Calculate the gradient
-            for t in range(0, self.T):
+            for t in range(0, self.time_steps):
                 grad = grad_energy(detPhi1[t], dJ0[t], J0[t], J1[t])
                 dv[t] = 2*v[t] - 1 / sigma**2 * grad
 
@@ -94,7 +120,7 @@ class LDDMM:
                 break
 
             # (11): calculate new energy
-            E_regularizer = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(v[t])) for t in range(self.T)])
+            E_regularizer = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(v[t])) for t in range(self.time_steps)])
             E_intensity = 1 / sigma**2 * energy(J0[-1])
             E = E_regularizer + E_intensity
 
@@ -120,173 +146,241 @@ class LDDMM:
         v_hat = self.opt[1]
 
         # (14): Calculate the length of the path on the manifold
-        length = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(v_hat[t])) for t in range(self.T)])
+        length = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(v_hat[t])) for t in range(self.time_steps)])
 
         if return_all:
             return self.opt + (length,)
         else:
             return Phi0[-1]
 
-    def reparameterize(self, v):
-        """
-        implements step (2): Reparameterization of the velocity field to obtain a velocity field with constant speed.
-        @param v: The velocity field.
-        @return: Reparametrized velocity field, array.
-        """
-        length = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(v[t])) for t in range(self.T)])
-        for t in range(self.T):
-            v[t] = length / self.T * v[t] / np.linalg.norm(self.regularizer.cauchy_navier(v[t]))
-        return v
+    def reparameterize(self, velocity_fields):
+        """Reparameterizes velocity fields to obtain a time-dependent velocity field with constant speed.
 
-    def integrate_backward_flow(self, v):
+        Parameters
+        ----------
+        velocity_field
+            Sequence of velocity fields (i.e. time-depending velocity field).
+
+        Returns
+        -------
+        Array consisting of reparametrized velocity fields.
         """
-        implements step (3): Calculation of backward flows.
-        @return: Flow, array.
-        """
-        # make identity grid
-        x = grid.coordinate_grid(self.shape)
+        length = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(velocity_fields[t]))
+                         for t in range(self.time_steps)])
+        for t in range(self.time_steps):
+            velocity_fields[t] = length / self.time_steps * velocity_fields[t] / np.linalg.norm(self.regularizer.cauchy_navier(velocity_fields[t]))
+        return velocity_fields
 
-        # create flow
-        Phi1 = np.zeros((self.T, self.dim, *self.shape), dtype=np.double)
+    def integrate_backward_flow(self, velocity_fields):
+        """Computes backward integration according to given velocity fields.
 
-        # Phi1_1 is the identity mapping
-        Phi1[self.T - 1] = x
+        Parameters
+        ----------
+        velocity_fields
+            Sequence of velocity fields (i.e. time-depending velocity field).
 
-        for t in range(self.T-2, -1, -1):
-            alpha = self.backwards_alpha(v[t], x)
-            Phi1[t] = sampler.sample(Phi1[t + 1], x + alpha)
-
-        return Phi1
-
-    def backwards_alpha(self, v_t, x):
-        """
-        helper function for step (3): Calculation of backward flows.
-        @param v_t: The velocity field at time `t`.
-        @param x: Coordinates.
-        @return: Alpha, array.
-        """
-        alpha = np.zeros(v_t.shape, dtype=np.double)
-        for _ in range(5):
-            alpha = sampler.sample(v_t, x + 0.5 * alpha)
-        return alpha
-
-    def integrate_forward_flow(self, v):
-        """
-        implements step (4): Calculation of forward flows.
-        @param v: The velocity field.
-        @return: Flow, array.
+        Returns
+        -------
+        Array containing the flows at different time instances.
         """
         # make identity grid
-        x = grid.coordinate_grid(self.shape)
+        identity_grid = grid.coordinate_grid(self.shape)
 
         # create flow
-        Phi0 = np.zeros((self.T, self.dim, *self.shape), dtype=np.double)
+        flows = np.zeros((self.time_steps, self.dim, *self.shape), dtype=np.double)
 
-        # Phi0_0 is the identity mapping
-        Phi0[0] = x
+        # final flow is the identity mapping
+        flows[self.time_steps - 1] = identity_grid
 
-        for t in range(0, self.T-1):
-            alpha = self.forward_alpha(v[t], x)
-            Phi0[t+1] = sampler.sample(Phi0[t], x - alpha)
+        # perform backward integration
+        for t in range(self.time_steps-2, -1, -1):
+            alpha = self.backwards_alpha(velocity_fields[t])
+            flows[t] = sampler.sample(flows[t + 1], identity_grid + alpha)
 
-        return Phi0
+        return flows
 
-    def forward_alpha(self, v_t, x):
+    def backwards_alpha(self, velocity_field):
+        """Helper function to estimate the updated positions (backward calculation).
+
+        Parameters
+        ----------
+        velocity_field
+            Array containing the velocity field used for updating the positions.
+
+        Returns
+        -------
+        Array with the update of the positions.
         """
-        helper function for step (4): Calculation of forward flows.
-        @param v_t: The velocity field.
-        @param x: Coordinates.
-        @return: Alpha, array.
-        """
-        alpha = np.zeros(v_t.shape, dtype=np.double)
+        # make identity grid
+        identity_grid = grid.coordinate_grid(self.shape)
+
+        alpha = np.zeros(velocity_field.shape, dtype=np.double)
         for _ in range(5):
-            alpha = sampler.sample(v_t, x - 0.5 * alpha)
+            alpha = sampler.sample(velocity_field, identity_grid + 0.5 * alpha)
         return alpha
 
-    def push_forward(self, input_, Phi0):
+    def integrate_forward_flow(self, velocity_fields):
+        """Computes forward integration according to given velocity fields.
+
+        Parameters
+        ----------
+        velocity_fields
+            Sequence of velocity fields (i.e. time-depending velocity field).
+
+        Returns
+        -------
+        Array containing the flows at different time instances.
         """
-        implements step (5): Push forward image input_ along flow Phi0.
-        @param input_: Image.
-        @param Phi0: Flow.
-        @return: Sequence of forward pushed images J0, array.
+        # make identity grid
+        identity_grid = grid.coordinate_grid(self.shape)
+
+        # create flow
+        flows = np.zeros((self.time_steps, self.dim, *self.shape), dtype=np.double)
+
+        # initial flow is the identity mapping
+        flows[0] = identity_grid
+
+        # perform forward integration
+        for t in range(0, self.time_steps-1):
+            alpha = self.forward_alpha(velocity_fields[t])
+            flows[t+1] = sampler.sample(flows[t], identity_grid - alpha)
+
+        return flows
+
+    def forward_alpha(self, velocity_field):
+        """Helper function to estimate the updated positions (forward calculation).
+
+        Parameters
+        ----------
+        velocity_field
+            Array containing the velocity field used for updating the positions.
+
+        Returns
+        -------
+        Array with the update of the positions.
         """
-        J0 = np.zeros((self.T,) + input_.shape, dtype=np.double)
+        # make identity grid
+        identity_grid = grid.coordinate_grid(self.shape)
 
-        for t in range(0, self.T):
-            J0[t] = sampler.sample(input_, Phi0[t])
+        alpha = np.zeros(velocity_field.shape, dtype=np.double)
+        for _ in range(5):
+            alpha = sampler.sample(velocity_field, identity_grid - 0.5 * alpha)
+        return alpha
 
-        return J0
+    def push_forward(self, image, flow):
+        """Pushs forward an image along a flow.
 
-    def pull_back(self, target, Phi1):
+        Parameters
+        ----------
+        image
+            Array to push forward.
+        flow
+            Array containing a sequence of flows along which to push the input forward.
+
+        Returns
+        -------
+        Array consisting of a sequence of forward-pushed images.
         """
-        implements step (6): Pull back image target along flow Phi1.
-        @param target: Image.
-        @param Phi1: Flow.
-        @return: Sequence of back-pulled images J1, array.
+        result = np.zeros((self.time_steps,) + image.shape, dtype=np.double)
+        for t in range(0, self.time_steps):
+            result[t] = sampler.sample(image, flow[t])
+        return result
+
+    def pull_back(self, image, flows):
+        """Pulls back an image along a flow.
+
+        Parameters
+        ----------
+        image
+            Array to pull back.
+        flows
+            Array containing a sequence of flows along which to pull the input back.
+
+        Returns
+        -------
+        Array consisting of a sequence of back-pulled images.
         """
-        J1 = np.zeros((self.T,) + target.shape, dtype=np.double)
+        result = np.zeros((self.time_steps,) + image.shape, dtype=np.double)
+        for t in range(self.time_steps-1, -1, -1):
+            result[t] = sampler.sample(image, flows[t])
+        return result
 
-        for t in range(self.T-1, -1, -1):
-            J1[t] = sampler.sample(target, Phi1[t])
+    def image_grad(self, images):
+        """Computes the gradients of the given images.
 
-        return J1
+        Parameters
+        ----------
+        images
+            Array containing a sequence of (forward) pushed images.
 
-    def image_grad(self, J0):
+        Returns
+        -------
+        Array consisting of a sequence of gradients of the input images.
         """
-        implements step (7): Calculate image gradients.
-        @param J0: Sequence of forward pushed images J0.
-        @return: Gradients of J0, array.
-        """
-        dJ0 = np.zeros((J0.shape[0], self.dim, *J0.shape[1:]), dtype=np.double)
+        gradients = np.zeros((images.shape[0], self.dim, *images.shape[1:]), dtype=np.double)
+        for t in range(self.time_steps):
+            gradients[t] = finite_difference(images[t])
+        return gradients
 
-        for t in range(self.T):
-            dJ0[t] = finite_difference(J0[t])
+    def jacobian_determinant(self, transformations):
+        """Computes the determinant of the Jacobian for a sequence of transformations at each point.
 
-        return dJ0
-
-    def jacobian_determinant(self, Phi1):
-        """
         implements step (8): Calculate Jacobian determinant of the transformation.
-        @param Phi1: Sequence of transformations.
-        @return: Sequence of determinants of J0, array.
+        Parameters
+        ----------
+        transformations
+            Array consisting of a sequence of transformations.
+
+        Returns
+        -------
+        Array of determinants.
         """
-        detPhi1 = np.zeros((self.T, *self.shape), dtype=np.double)
+        determinants = np.zeros((self.time_steps, *self.shape), dtype=np.double)
 
-        for t in range(self.T):
+        for t in range(self.time_steps):
             if self.dim == 1:
-                dx = finite_difference(Phi1[t, 0, ...])
+                dx = finite_difference(transformations[t, 0, ...])
 
-                detPhi1[t] = dx[0, ...]
+                determinants[t] = dx[0, ...]
             elif self.dim == 2:
                 # get gradient in x-direction
-                dx = finite_difference(Phi1[t, 0, ...])
+                dx = finite_difference(transformations[t, 0, ...])
                 # gradient in y-direction
-                dy = finite_difference(Phi1[t, 1, ...])
+                dy = finite_difference(transformations[t, 1, ...])
 
                 # calculate determinants
-                detPhi1[t] = dx[0, ...] * dy[1, ...] - dx[1, ...] * dy[0, ...]
+                determinants[t] = dx[0, ...] * dy[1, ...] - dx[1, ...] * dy[0, ...]
             elif self.dim == 3:
                 # get gradient in x-direction
-                dx = finite_difference(Phi1[t, 0, ...])
+                dx = finite_difference(transformations[t, 0, ...])
                 # gradient in y-direction
-                dy = finite_difference(Phi1[t, 1, ...])
+                dy = finite_difference(transformations[t, 1, ...])
                 # gradient in z-direction
-                dz = finite_difference(Phi1[t, 2, ...])
+                dz = finite_difference(transformations[t, 2, ...])
 
                 # calculate determinants
-                detPhi1[t] = (dx[0, ...] * dy[1, ...] * dz[2, ...]
-                              + dy[0, ...] * dz[1, ...] * dx[2, ...]
-                              + dz[0, ...] * dx[1, ...] * dy[2, ...]
-                              - dx[2, ...] * dy[1, ...] * dz[0, ...]
-                              - dy[2, ...] * dz[1, ...] * dx[0, ...]
-                              - dz[2, ...] * dx[1, ...] * dy[0, ...])
+                determinants[t] = (dx[0, ...] * dy[1, ...] * dz[2, ...]
+                                   + dy[0, ...] * dz[1, ...] * dx[2, ...]
+                                   + dz[0, ...] * dx[1, ...] * dy[2, ...]
+                                   - dx[2, ...] * dy[1, ...] * dz[0, ...]
+                                   - dy[2, ...] * dz[1, ...] * dx[0, ...]
+                                   - dz[2, ...] * dx[1, ...] * dy[0, ...])
 
-        return detPhi1
+        return determinants
 
-    def is_injectivity_violated(self, detPhi1):
+    def is_injectivity_violated(self, determinants):
+        """Checks injectivity and orientation preservation by considering determinants.
+
+        A function has a differentiable inverse and preserves orientation if and only if
+        the determinant of its jacobian is positive.
+
+        Parameters
+        ----------
+        determinants
+            Sequence of determinants to check.
+
+        Returns
+        -------
+        True if any value in the input is negative, False otherwise.
         """
-        check injectivity: A function has a differentiable inverse iff the determinant of its jacobian is positive.
-        @param detPhi1: Sequence of determinants of J0.
-        @return: Truth value, bool.
-        """
-        return detPhi1.min() < 0
+        return (determinants < 0).any()
