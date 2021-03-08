@@ -3,11 +3,11 @@
 from distutils.core import setup
 
 setup(
-    name='pyLDDMM',
+    name='geodesic-shooting',
     version='0.1.0',
-    description='Python Implementation of the LDDMM algorithm',
-    author='Steffen Czolbe',
+    description='Python implementation of the geodesic shooting algorithm',
+    author='Hendrik Kleikamp',
     maintainer='Hendrik Kleikamp',
     maintainer_email='hendrik.kleikamp@uni-muenster.de',
-    packages=['pyLDDMM', 'pyLDDMM.utils'],
+    packages=['geodesic_shooting', 'geodesic_shooting.utils'],
 )

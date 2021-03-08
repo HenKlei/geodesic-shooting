@@ -1,7 +1,4 @@
-venv
-.idea
 __pycache__
-LDDMMnotes
 *.pyc
 *.swp
 examples/*/results/

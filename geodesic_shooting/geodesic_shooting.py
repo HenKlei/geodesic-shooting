@@ -1,8 +1,8 @@
 import numpy as np
 
-from pyLDDMM.utils import sampler, grid
-from pyLDDMM.utils.grad import finite_difference
-from pyLDDMM.utils.regularizer import BiharmonicRegularizer
+from geodesic_shooting.utils import sampler, grid
+from geodesic_shooting.utils.grad import finite_difference
+from geodesic_shooting.utils.regularizer import BiharmonicRegularizer
 
 
 class GeodesicShooting:

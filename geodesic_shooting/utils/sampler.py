@@ -44,7 +44,7 @@ def sample(array, coordinates):
 
 
 if __name__ == "__main__":
-    from pyLDDMM.utils import grid
+    from geodesic_shooting.utils import grid
 
     shape = (5, 10)
     input_coordinates = grid.coordinate_grid(shape)

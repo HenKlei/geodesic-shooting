@@ -1,6 +1,6 @@
 import numpy as np
 
-import pyLDDMM
+import geodesic_shooting
 
 
 if __name__ == "__main__":
@@ -13,7 +13,7 @@ if __name__ == "__main__":
     target[2*N//5:3*N//5, M//5:2*M//5] = 1
 
     # perform the registration
-    geodesic_shooting = pyLDDMM.GeodesicShooting(alpha=6., gamma=1.)
+    geodesic_shooting = geodesic_shooting.GeodesicShooting(alpha=6., gamma=1.)
     image, v0, energies, Phi0, length = geodesic_shooting.register(input_, target, sigma=0.01, epsilon=0.0001, return_all=True)
 
     print(f'Input: {input_}')

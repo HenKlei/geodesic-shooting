@@ -1,8 +1,8 @@
 import os
 
-import pyLDDMM
-from pyLDDMM.utils.io import load_image, save_image, save_animation
-from pyLDDMM.utils.visualization import plot_warpgrid
+import geodesic_shooting
+from geodesic_shooting.utils.io import load_image, save_image, save_animation
+from geodesic_shooting.utils.visualization import plot_warpgrid
 
 
 if __name__ == "__main__":
@@ -11,7 +11,7 @@ if __name__ == "__main__":
     target = load_image('../example_images/translation_target.png')
 
     # perform the registration
-    lddmm = pyLDDMM.LDDMM(alpha=1000., gamma=1.)
+    lddmm = geodesic_shooting.LDDMM(alpha=1000., gamma=1.)
     image, v, energies, Phi0, Phi1, J0, J1, length = lddmm.register(input_, target, sigma=0.1, epsilon=0.01, K=15, return_all=True)
 
     FILEPATH_RESULTS = 'results/'

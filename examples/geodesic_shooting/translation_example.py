@@ -1,9 +1,9 @@
 import os
 import matplotlib.pyplot as plt
 
-import pyLDDMM
-from pyLDDMM.utils.io import load_image, save_image, save_animation
-from pyLDDMM.utils.visualization import plot_warpgrid, plot_vector_field
+import geodesic_shooting
+from geodesic_shooting.utils.io import load_image, save_image, save_animation
+from geodesic_shooting.utils.visualization import plot_warpgrid, plot_vector_field
 
 
 if __name__ == "__main__":
@@ -12,7 +12,7 @@ if __name__ == "__main__":
     target = load_image('../example_images/translation_target.png')
 
     # perform the registration
-    geodesic_shooting = pyLDDMM.GeodesicShooting(alpha=1000., gamma=1.)
+    geodesic_shooting = geodesic_shooting.GeodesicShooting(alpha=1000., gamma=1.)
     image, v0, energies, Phi0, length = geodesic_shooting.register(input_, target, sigma=0.1, epsilon=0.1, K=20, return_all=True)
 
     FILEPATH_RESULTS = 'results/'
