@@ -13,7 +13,8 @@ if __name__ == "__main__":
 
     # perform the registration
     gs = geodesic_shooting.GeodesicShooting(alpha=6., gamma=1.)
-    image, v0, energies, Phi0, length = gs.register(input_, target, sigma=0.05, epsilon=0.01, return_all=True)
+    image, v0, energies, Phi0, length = gs.register(input_, target, sigma=0.05,
+                                                    epsilon=0.01, return_all=True)
 
     print(f'Input: {input_}')
     print(f'Target: {target}')
