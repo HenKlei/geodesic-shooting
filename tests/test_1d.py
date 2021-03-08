@@ -3,7 +3,7 @@ import numpy as np
 import geodesic_shooting
 
 
-if __name__ == "__main__":
+def test_1d():
     # define greyscale images
     N = 100
     input_ = np.zeros(N)
@@ -15,7 +15,4 @@ if __name__ == "__main__":
     gs = geodesic_shooting.GeodesicShooting(alpha=6., gamma=1.)
     image, v0, energies, Phi0, length = gs.register(input_, target, sigma=0.05, epsilon=0.01, return_all=True)
 
-    print(f'Input: {input_}')
-    print(f'Target: {target}')
-    print(f'Registration result: {image}')
-    print(f'Relative norm of difference: {np.linalg.norm(target - image) / np.linalg.norm(target)}')
+    assert np.abs(np.linalg.norm(target - image) / np.linalg.norm(target)) < 1e-3
