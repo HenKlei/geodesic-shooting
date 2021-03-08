@@ -13,7 +13,7 @@ if __name__ == "__main__":
 
     # perform the registration
     geodesic_shooting = geodesic_shooting.GeodesicShooting(alpha=1000., gamma=1.)
-    image, v0, energies, Phi0, length = geodesic_shooting.register(input_, target, sigma=0.1, epsilon=0.1, K=20, return_all=True)
+    image, v0, energies, Phi0, length = geodesic_shooting.register(input_, target, sigma=0.1, epsilon=0.1, iterations=20, return_all=True)
 
     FILEPATH_RESULTS = 'results/'
  
