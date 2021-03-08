@@ -13,7 +13,8 @@ if __name__ == "__main__":
 
     # perform the registration
     lddmm = geodesic_shooting.LDDMM(alpha=10., gamma=1.)
-    image, v, energies, length, Phi0, Phi1, J0, J1 = lddmm.register(input_, target, sigma=0.05, epsilon=0.01, return_all=True)
+    image, v, energies, length, Phi0, Phi1, J0, J1 = lddmm.register(input_, target, sigma=0.05,
+                                                                    epsilon=0.01, return_all=True)
 
     print(f'Input: {input_}')
     print(f'Target: {target}')

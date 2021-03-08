@@ -13,10 +13,11 @@ if __name__ == "__main__":
 
     # perform the registration
     lddmm = geodesic_shooting.LDDMM(alpha=1., gamma=1.)
-    image, v, energies, Phi0, Phi1, J0, J1, length = lddmm.register(input_, target, sigma=0.1, epsilon=0.0001, K=50, return_all=True)
+    image, v, energies, Phi0, Phi1, J0, J1, length = lddmm.register(input_, target, sigma=0.1,
+                                                                    epsilon=0.0001, iterations=50,
+                                                                    return_all=True)
 
     FILEPATH_RESULTS = 'results/'
-
     if not os.path.exists(FILEPATH_RESULTS):
         os.makedirs(FILEPATH_RESULTS)
 
@@ -34,6 +35,7 @@ if __name__ == "__main__":
     plot_vector_field(v[0], title="Initial vector field (C2S)", interval=2)
 
     # plot the deformation vector field
-    plot_vector_field(Phi0[0] - Phi0[-1], title="Overall deformation vector field (C2S)", interval=2)
+    plot_vector_field(Phi0[0] - Phi0[-1], title="Overall deformation vector field (C2S)",
+                      interval=2)
 
     plt.show()
