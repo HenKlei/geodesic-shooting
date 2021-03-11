@@ -2,7 +2,7 @@ import os
 import matplotlib.pyplot as plt
 
 import geodesic_shooting
-from geodesic_shooting.utils.io import load_image, save_image, save_animation
+from geodesic_shooting.utils.io import load_image, save_image
 from geodesic_shooting.utils.visualization import plot_warpgrid, plot_vector_field
 
 
