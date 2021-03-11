@@ -24,8 +24,18 @@ class LDDMM:
         """
         self.regularizer = BiharmonicRegularizer(alpha, gamma)
 
-    def register(self, input_, target, time_steps=30, iterations=100, sigma=1, epsilon=0.01, return_all=False):
-        """Performs actual registration according to LDDMM algorithm with time-varying velocity fields that can be chosen independently of each other (respecting smoothness assumption).
+        self.time_steps = 30
+        self.shape = None
+        self.dim = None
+        self.opt = None
+        self.opt_energy = None
+        self.energy_threshold = 1e-3
+        self.gradient_norm_threshold = 1e-3
+
+    def register(self, input_, target, time_steps=30, iterations=100, sigma=1, epsilon=0.01,
+                 return_all=False):
+        """Performs actual registration according to LDDMM algorithm with time-varying velocity
+           fields that can be chosen independently of each other (respecting smoothness assumption).
 
         Parameters
         ----------
@@ -38,15 +48,19 @@ class LDDMM:
         iterations
             Number of iterations of the optimizer to perform.
         sigma
-            Weight for the similarity measurement (L2 difference of the target and the registered image); the smaller sigma, the larger the influence of the L2 loss.
+            Weight for the similarity measurement (L2 difference of the target and the registered
+            image); the smaller sigma, the larger the influence of the L2 loss.
         epsilon
             Learning rate, i.e. step size of the optimizer.
         return_all
-            Determines whether or not to return all information or only the final flow that led to the best registration result.
+            Determines whether or not to return all information or only the final flow that led to
+            the best registration result.
 
         Returns
         -------
-        Either the best flow (if return_all is True) or a tuple consisting of the registered image,the velocities, the energies, the flows and inverse flows, the forward-pushed input and the back-pulled target at all time instances.
+        Either the best flow (if return_all is True) or a tuple consisting of the registered image,
+        the velocities, the energies, the flows and inverse flows, the forward-pushed input and the
+        back-pulled target at all time instances.
         """
         assert isinstance(time_steps, int) and time_steps > 0
         assert isinstance(iterations, int) and iterations > 0
@@ -57,104 +71,112 @@ class LDDMM:
         input_ = input_.astype('double')
         target = target.astype('double')
 
-        def energy(J0):
-            return np.sum((J0 - target)**2)
+        def compute_energy(image):
+            return np.sum((image - target)**2)
 
-        def grad_energy(detPhi1, dJ0, J0, J1):
-            return self.regularizer.cauchy_navier_squared_inverse(2 * detPhi1[np.newaxis, ...] * dJ0 * (J0 - J1)[np.newaxis, ...])
+        def compute_grad_energy(determinants, image_gradient, image, image_target):
+            return self.regularizer.cauchy_navier_squared_inverse(
+                2 * determinants[np.newaxis, ...] * image_gradient
+                * (image - image_target)[np.newaxis, ...])
 
         # set up variables
         self.time_steps = time_steps
         self.shape = input_.shape
         self.dim = input_.ndim
         self.opt = ()
-        self.E_opt = None
+        self.opt_energy = None
         self.energy_threshold = 1e-3
 
         energies = []
 
         # define vector fields
-        v = np.zeros((self.time_steps, self.dim, *self.shape), dtype=np.double)
-        dv = np.copy(v)
+        velocity_fields = np.zeros((self.time_steps, self.dim, *self.shape), dtype=np.double)
+        gradient_velocity_fields = np.copy(velocity_fields)
 
-        # (12): iteration over k
         for k in range(iterations):
+            # update estimate of velocity
+            velocity_fields -= epsilon * gradient_velocity_fields
 
-            # (1): Calculate new estimate of velocity
-            v -= epsilon * dv
-
-            # (2): Reparameterize
+            # reparameterize velocity fields
             if k % 10 == 9:
-                v = self.reparameterize(v)
+                velocity_fields = self.reparameterize(velocity_fields)
 
-            # (3): calculate backward flows
-            Phi1 = self.integrate_backward_flow(v)
+            # compute backward flows
+            backward_flows = self.integrate_backward_flow(velocity_fields)
 
-            # (4): calculate forward flows
-            Phi0 = self.integrate_forward_flow(v)
+            # compute forward flows
+            forward_flows = self.integrate_forward_flow(velocity_fields)
 
-            # (5): push-forward input_
-            J0 = self.push_forward(input_, Phi0)
+            # push-forward input_ image
+            forward_pushed_input = self.push_forward(input_, forward_flows)
 
-            # (6): pull back target
-            J1 = self.pull_back(target, Phi1)
+            # pull-back target image
+            back_pulled_target = self.pull_back(target, backward_flows)
 
-            # (7): Calculate image gradient
-            dJ0 = self.image_grad(J0)
+            # compute gradient of forward-pushed input_ image
+            gradient_forward_pushed_input = self.image_grad(forward_pushed_input)
 
-            # (8): Calculate Jacobian determinant of the transformation
-            detPhi1 = self.jacobian_determinant(Phi1)
-            if self.is_injectivity_violated(detPhi1):
+            # compute Jacobian determinant of the transformation
+            det_backward_flows = self.jacobian_determinant(backward_flows)
+            if self.is_injectivity_violated(det_backward_flows):
                 print("Injectivity violated. Stopping. Try lowering the learning rate (epsilon).")
                 break
 
-            # (9): Calculate the gradient
-            for t in range(0, self.time_steps):
-                grad = grad_energy(detPhi1[t], dJ0[t], J0[t], J1[t])
-                dv[t] = 2*v[t] - 1 / sigma**2 * grad
+            # compute the gradient of the energy
+            for time in range(0, self.time_steps):
+                grad = compute_grad_energy(det_backward_flows[time],
+                                           gradient_forward_pushed_input[time],
+                                           forward_pushed_input[time],
+                                           back_pulled_target[time])
+                gradient_velocity_fields[time] = 2 * velocity_fields[time] - 1 / sigma**2 * grad
 
-            # (10) calculate norm of the gradient, stop if small
-            dv_norm = np.linalg.norm(dv)
-            if dv_norm < 0.001:
-                print(f"Gradient norm is {dv_norm} and therefore below threshold. Stopping ...")
+            # compute the norm of the gradient of the energy; stop if small
+            norm_gradient_velocity_fields = np.linalg.norm(gradient_velocity_fields)
+            if norm_gradient_velocity_fields < self.gradient_norm_threshold:
+                print(f"Gradient norm is {norm_gradient_velocity_fields} and "
+                      "therefore below threshold. Stopping ...")
                 break
 
-            # (11): calculate new energy
-            E_regularizer = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(v[t])) for t in range(self.time_steps)])
-            E_intensity = 1 / sigma**2 * energy(J0[-1])
-            E = E_regularizer + E_intensity
+            # compute the current energy consisting of intensity difference and regularization
+            energy_regularizer = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(
+                velocity_fields[time])) for time in range(self.time_steps)])
+            energy_intensity = 1 / sigma**2 * compute_energy(forward_pushed_input[-1])
+            energy = energy_regularizer + energy_intensity
 
-            if E < self.energy_threshold:
-                self.E_opt = E
-                self.opt = (J0[-1], v, energies, Phi0, Phi1, J0, J1)
+            # stop if energy is below threshold
+            if energy < self.energy_threshold:
+                self.opt_energy = energy
+                self.opt = (forward_pushed_input[-1], velocity_fields, energies, forward_flows,
+                            backward_flows, forward_pushed_input, back_pulled_target)
                 print(f"Energy below threshold of {self.energy_threshold}. Stopping ...")
                 break
 
-            if self.E_opt is None or E < self.E_opt:
-                self.E_opt = E
-                self.opt = (J0[-1], v, energies, Phi0, Phi1, J0, J1)
+            # update optimal energy if necessary
+            if self.opt_energy is None or energy < self.opt_energy:
+                self.opt_energy = energy
+                self.opt = (forward_pushed_input[-1], velocity_fields, energies, forward_flows,
+                            backward_flows, forward_pushed_input, back_pulled_target)
 
-            energies.append(E)
+            energies.append(energy)
 
-            # (12): iterate k = k+1
-            print("iteration {:3d}, energy {:4.2f}, thereof {:4.2f} regularization and {:4.2f} intensity difference".format(k, E, E_regularizer, E_intensity))
-            # end of for loop block
+            # output of current iteration and energies
+            print(f"iteration {k:3d}, energy {energy:4.2f}, "
+                  f"thereof {energy_regularizer:4.2f} regularization "
+                  f"and {energy_intensity:4.2f} intensity difference")
 
-        print("Optimal energy {:4.2f}".format(self.E_opt))
+        print(f"Optimal energy: {self.opt_energy:4.2f}")
 
-        # (13): Denote the final velocity field as \hat{v}
-        v_hat = self.opt[1]
-
-        # (14): Calculate the length of the path on the manifold
-        length = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(v_hat[t])) for t in range(self.time_steps)])
+        # compute the length of the path on the manifold
+        length = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(self.opt[1][time]))
+                         for time in range(self.time_steps)])
 
         if return_all:
             return self.opt + (length,)
-        else:
-            return Phi0[-1]
+        return forward_flows[-1]
 
     def reparameterize(self, velocity_fields):
-        """Reparameterizes velocity fields to obtain a time-dependent velocity field with constant speed.
+        """Reparameterizes velocity fields to obtain a time-dependent velocity field
+           with constant speed.
 
         Parameters
         ----------
@@ -165,10 +187,12 @@ class LDDMM:
         -------
         Array consisting of reparametrized velocity fields.
         """
-        length = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(velocity_fields[t]))
-                         for t in range(self.time_steps)])
-        for t in range(self.time_steps):
-            velocity_fields[t] = length / self.time_steps * velocity_fields[t] / np.linalg.norm(self.regularizer.cauchy_navier(velocity_fields[t]))
+        length = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(velocity_fields[time]))
+                         for time in range(self.time_steps)])
+        for time in range(self.time_steps):
+            velocity_fields[time] = (length / self.time_steps * velocity_fields[time]
+                                     / np.linalg.norm(self.regularizer.cauchy_navier(
+                                         velocity_fields[time])))
         return velocity_fields
 
     def integrate_backward_flow(self, velocity_fields):
@@ -190,12 +214,12 @@ class LDDMM:
         flows = np.zeros((self.time_steps, self.dim, *self.shape), dtype=np.double)
 
         # final flow is the identity mapping
-        flows[self.time_steps - 1] = identity_grid
+        flows[self.time_steps-1] = identity_grid
 
         # perform backward integration
-        for t in range(self.time_steps-2, -1, -1):
-            alpha = self.backwards_alpha(velocity_fields[t])
-            flows[t] = sampler.sample(flows[t + 1], identity_grid + alpha)
+        for time in range(self.time_steps-2, -1, -1):
+            alpha = self.backwards_alpha(velocity_fields[time])
+            flows[time] = sampler.sample(flows[time+1], identity_grid + alpha)
 
         return flows
 
@@ -241,9 +265,9 @@ class LDDMM:
         flows[0] = identity_grid
 
         # perform forward integration
-        for t in range(0, self.time_steps-1):
-            alpha = self.forward_alpha(velocity_fields[t])
-            flows[t+1] = sampler.sample(flows[t], identity_grid - alpha)
+        for time in range(0, self.time_steps-1):
+            alpha = self.forward_alpha(velocity_fields[time])
+            flows[time+1] = sampler.sample(flows[time], identity_grid - alpha)
 
         return flows
 
@@ -268,7 +292,7 @@ class LDDMM:
         return alpha
 
     def push_forward(self, image, flow):
-        """Pushs forward an image along a flow.
+        """Pushes forward an image along a flow.
 
         Parameters
         ----------
@@ -282,8 +306,8 @@ class LDDMM:
         Array consisting of a sequence of forward-pushed images.
         """
         result = np.zeros((self.time_steps,) + image.shape, dtype=np.double)
-        for t in range(0, self.time_steps):
-            result[t] = sampler.sample(image, flow[t])
+        for time in range(0, self.time_steps):
+            result[time] = sampler.sample(image, flow[time])
         return result
 
     def pull_back(self, image, flows):
@@ -301,8 +325,8 @@ class LDDMM:
         Array consisting of a sequence of back-pulled images.
         """
         result = np.zeros((self.time_steps,) + image.shape, dtype=np.double)
-        for t in range(self.time_steps-1, -1, -1):
-            result[t] = sampler.sample(image, flows[t])
+        for time in range(self.time_steps-1, -1, -1):
+            result[time] = sampler.sample(image, flows[time])
         return result
 
     def image_grad(self, images):
@@ -318,8 +342,8 @@ class LDDMM:
         Array consisting of a sequence of gradients of the input images.
         """
         gradients = np.zeros((images.shape[0], self.dim, *images.shape[1:]), dtype=np.double)
-        for t in range(self.time_steps):
-            gradients[t] = finite_difference(images[t])
+        for time in range(self.time_steps):
+            gradients[time] = finite_difference(images[time])
         return gradients
 
     def jacobian_determinant(self, transformations):
@@ -337,34 +361,35 @@ class LDDMM:
         """
         determinants = np.zeros((self.time_steps, *self.shape), dtype=np.double)
 
-        for t in range(self.time_steps):
+        for time in range(self.time_steps):
             if self.dim == 1:
-                dx = finite_difference(transformations[t, 0, ...])
+                grad_x = finite_difference(transformations[time, 0, ...])
 
-                determinants[t] = dx[0, ...]
+                determinants[time] = grad_x[0, ...]
             elif self.dim == 2:
                 # get gradient in x-direction
-                dx = finite_difference(transformations[t, 0, ...])
+                grad_x = finite_difference(transformations[time, 0, ...])
                 # gradient in y-direction
-                dy = finite_difference(transformations[t, 1, ...])
+                grad_y = finite_difference(transformations[time, 1, ...])
 
                 # calculate determinants
-                determinants[t] = dx[0, ...] * dy[1, ...] - dx[1, ...] * dy[0, ...]
+                determinants[time] = (grad_x[0, ...] * grad_y[1, ...]
+                                      - grad_x[1, ...] * grad_y[0, ...])
             elif self.dim == 3:
                 # get gradient in x-direction
-                dx = finite_difference(transformations[t, 0, ...])
+                grad_x = finite_difference(transformations[time, 0, ...])
                 # gradient in y-direction
-                dy = finite_difference(transformations[t, 1, ...])
+                grad_y = finite_difference(transformations[time, 1, ...])
                 # gradient in z-direction
-                dz = finite_difference(transformations[t, 2, ...])
+                grad_z = finite_difference(transformations[time, 2, ...])
 
                 # calculate determinants
-                determinants[t] = (dx[0, ...] * dy[1, ...] * dz[2, ...]
-                                   + dy[0, ...] * dz[1, ...] * dx[2, ...]
-                                   + dz[0, ...] * dx[1, ...] * dy[2, ...]
-                                   - dx[2, ...] * dy[1, ...] * dz[0, ...]
-                                   - dy[2, ...] * dz[1, ...] * dx[0, ...]
-                                   - dz[2, ...] * dx[1, ...] * dy[0, ...])
+                determinants[time] = (grad_x[0, ...] * grad_y[1, ...] * grad_z[2, ...]
+                                      + grad_y[0, ...] * grad_z[1, ...] * grad_x[2, ...]
+                                      + grad_z[0, ...] * grad_x[1, ...] * grad_y[2, ...]
+                                      - grad_x[2, ...] * grad_y[1, ...] * grad_z[0, ...]
+                                      - grad_y[2, ...] * grad_z[1, ...] * grad_x[0, ...]
+                                      - grad_z[2, ...] * grad_x[1, ...] * grad_y[0, ...])
 
         return determinants
 
