@@ -2,40 +2,42 @@ import numpy as np
 
 from geodesic_shooting.utils import sampler, grid
 from geodesic_shooting.utils.grad import finite_difference
-from geodesic_shooting.utils.logger import getLogger
 from geodesic_shooting.utils.regularizer import BiharmonicRegularizer
+from geodesic_shooting.utils.helper_functions import tuple_product
 
 
-class GeodesicShooting:
+class ReducedGeodesicShooting:
     """Class that implements large deformation metric mappings via geodesic shooting.
 
     Based on:
     Geodesic Shooting for Computational Anatomy.
     Miller, Trouvé, Younes, 2006
     """
-    def __init__(self, alpha=6., exponent=1, log_level='INFO'):
+    def __init__(self, rb_velocity_fields, alpha=6., gamma=1.):
         """Constructor.
 
         Parameters
         ----------
+        rb_velocity_fields
+            Reduced basis for initial velocity fields (for instance computed via proper orthogonal
+            decomposition of high-dimensional velocity fields).
         alpha
             Parameter for biharmonic regularizer.
         gamma
             Parameter for biharmonic regularizer.
         """
-        self.regularizer = BiharmonicRegularizer(alpha, exponent)
+        self.rb_velocity_fields = rb_velocity_fields
+        self.rb_size = self.rb_velocity_fields.shape[0]
+
+        self.regularizer = BiharmonicRegularizer(alpha, gamma)
 
         self.time_steps = 30
         self.shape = None
         self.dim = None
         self.opt = None
         self.opt_energy = None
-        self.opt_energy_regularizer = None
-        self.opt_energy_intensity = None
         self.energy_threshold = 1e-3
         self.gradient_norm_threshold = 1e-3
-
-        self.logger = getLogger('geodesic_shooting', level=log_level)
 
     def register(self, input_, target, time_steps=30, iterations=100, sigma=1, epsilon=0.01,
                  return_all=False):
@@ -86,91 +88,98 @@ class GeodesicShooting:
         # set up variables
         self.time_steps = time_steps
         self.shape = input_.shape
+        self.size = tuple_product(self.shape)
         self.dim = input_.ndim
+        assert self.rb_velocity_fields.shape == (self.dim, self.size, self.rb_size)
         self.opt = (input_, None, [], [])
         self.opt_energy = None
-        self.opt_energy_regularizer = None
-        self.opt_energy_intensity = None
         self.energy_threshold = 1e-3
         self.gradient_norm_threshold = 1e-3
+
+        self.regularizer.init_matrices(self.shape)
+
+        # PUT THIS INTO CONSTRUCTOR TO PERFORM THIS ONLY ONCE!!!!
+        self.matrices = np.zeros((self.dim, self.rb_size, self.rb_size, self.rb_size))
+
+        for d in range(self.dim):
+            for j in range(self.rb_size):
+                for i in range(self.size):
+                    D =
+                    L = self.regularizer.cauchy_navier_matrix
+                    l_i = L[:, i]
+                    div =
+                    high_dimensional_matrix = -self.regularizer.cauchy_navier_inverse_matrix.dot(
+                        np.diag(l_i).dot(D.transpose()) + D.dot(L) + np.diag(l_i).dot(div))
+                    self.matrices[d][j] += (self.rb_velocity_fields[d][j][i] *
+                        self.rb_velocity_fields[d].transpose().dot(high_dimensional_matrix).dot(self.rb_velocity_fields[d]))
+
+        import sys
+        sys.exit(0)
 
         energies = []
 
         # define vector fields
-        initial_velocity_field = np.zeros((self.dim, *self.shape), dtype=np.double)
-        velocity_fields = np.zeros((self.time_steps, self.dim, *self.shape), dtype=np.double)
-        gradient_initial_velocity = np.copy(initial_velocity_field)
+        initial_coefficients = np.zeros(self.rb_size, dtype=np.double)
+        velocity_fields = np.zeros((self.time_steps, self.dim, self.size), dtype=np.double)
+        gradient_initial_coefficients = np.copy(initial_coefficients)
 
-        with self.logger.block("Perform image matching via geodesic shooting ..."):
-            for k in range(iterations):
-                # update estimate of initial velocity
-                initial_velocity_field -= epsilon * gradient_initial_velocity
+        for k in range(iterations):
+            # update estimate of initial velocity
+            initial_coefficients -= epsilon * gradient_initial_coefficients
 
-                # integrate initial velocity field forward in time
-                velocity_fields = self.integrate_forward_vector_field(initial_velocity_field)
+            # integrate initial velocity field forward in time
+            velocity_fields = self.integrate_forward_vector_field(initial_coefficients)
 
-                # compute forward flows according to the velocity fields
-                flow = self.integrate_forward_flow(velocity_fields)
+            # compute forward flows according to the velocity fields
+            flow = self.integrate_forward_flow(velocity_fields)
 
-                # push-forward input_ image
-                forward_pushed_input = self.push_forward(input_, flow)
+            # push-forward input_ image
+            forward_pushed_input = self.push_forward(input_, flow)
 
-                # compute gradient of the forward-pushed image
-                gradient_forward_pushed_input = self.image_grad(forward_pushed_input)
+            # compute gradient of the forward-pushed image
+            gradient_forward_pushed_input = self.image_grad(forward_pushed_input)
 
-                # compute gradient of the intensity difference
-                gradient_l2_energy = (1 / sigma**2
-                                      * compute_grad_energy(gradient_forward_pushed_input,
-                                                            forward_pushed_input))
+            # compute gradient of the intensity difference
+            gradient_l2_energy = 1 / sigma**2 * compute_grad_energy(gradient_forward_pushed_input,
+                                                                    forward_pushed_input)
 
-                # compute gradient of the intensity difference with respect to the initial velocity
-                gradient_initial_velocity = -self.integrate_backward_adjoint_Jacobi_field_equations(
-                    gradient_l2_energy, velocity_fields)
+            # compute gradient of the intensity difference with respect to the initial velocity
+            gradient_initial_velocity = - self.integrate_backward_adjoint_Jacobi_field_equations(
+                gradient_l2_energy, velocity_fields)
 
-                # compute the norm of the gradient; stop if below threshold (updates are too small)
-                norm_gradient_initial_velocity = np.linalg.norm(gradient_initial_velocity)
-                if norm_gradient_initial_velocity < self.gradient_norm_threshold:
-                    self.logger.warning(f"Gradient norm is {norm_gradient_initial_velocity} and "
-                                        "therefore below threshold. Stopping ...")
-                    break
+            # compute the norm of the gradient; stop if below threshold (updates are too small)
+            norm_gradient_initial_velocity = np.linalg.norm(gradient_initial_velocity)
+            if norm_gradient_initial_velocity < self.gradient_norm_threshold:
+                print(f"Gradient norm is {norm_gradient_initial_velocity} and "
+                      "therefore below threshold. Stopping ...")
+                break
 
-                # compute the current energy consisting of intensity difference and regularization
-                energy_regularizer = np.linalg.norm(self.regularizer.cauchy_navier(
-                    initial_velocity_field))
-                energy_intensity = 1 / sigma**2 * compute_energy(forward_pushed_input)
-                energy = energy_regularizer + energy_intensity
+            # compute the current energy consisting of intensity difference and regularization
+            energy_regularizer = np.linalg.norm(self.regularizer.cauchy_navier_matrix(np.squeeze(initial_velocity_field).shape).dot(initial_velocity_field.flatten()))
+            energy_intensity = 1 / sigma**2 * compute_energy(forward_pushed_input)
+            energy = energy_regularizer + energy_intensity
 
-                # stop if energy is below threshold
-                if energy < self.energy_threshold:
-                    self.opt_energy = energy
-                    self.opt_energy_regularizer = energy_regularizer
-                    self.opt_energy_intensity = energy_intensity
-                    self.opt = (forward_pushed_input, initial_velocity_field, energies, flow)
-                    self.logger.warning(f"Energy below threshold of {self.energy_threshold}. "
-                                        "Stopping ...")
-                    break
+            # stop if energy is below threshold
+            if energy < self.energy_threshold:
+                self.opt_energy = energy
+                self.opt = (forward_pushed_input, initial_velocity_field, energies, flow)
+                print(f"Energy below threshold of {self.energy_threshold}. Stopping ...")
+                break
 
-                # update optimal energy if necessary
-                if self.opt_energy is None or energy < self.opt_energy:
-                    self.opt_energy = energy
-                    self.opt_energy_regularizer = energy_regularizer
-                    self.opt_energy_intensity = energy_intensity
-                    self.opt = (forward_pushed_input, initial_velocity_field, energies, flow)
+            # update optimal energy if necessary
+            if self.opt_energy is None or energy < self.opt_energy:
+                self.opt_energy = energy
+                self.opt = (forward_pushed_input, initial_velocity_field, energies, flow)
 
-                energies.append(energy)
+            energies.append(energy)
 
-                # output of current iteration and energies
-                self.logger.info(f"iter: {k:3d}, "
-                                 f"energy: {energy:4.2f}, "
-                                 f"L2: {energy_intensity:4.2f}, "
-                                 f"reg: {energy_regularizer:4.2f}")
-
-        self.logger.info("Finished registration ...")
+            # output of current iteration and energies
+            print(f"iteration {k:3d}, energy {energy:4.2f}, "
+                  f"thereof {energy_regularizer:4.2f} regularization "
+                  f"and {energy_intensity:4.2f} intensity difference")
 
         if self.opt_energy is not None:
-            self.logger.info(f"Optimal energy: {self.opt_energy:4.4f}")
-            self.logger.info(f"Optimal intensity difference: {self.opt_energy_intensity:4.4f}")
-            self.logger.info(f"Optimal regularization: {self.opt_energy_regularizer:4.4f}")
+            print(f"Optimal energy: {self.opt_energy:4.2f}")
 
         if self.opt[1] is not None:
             # compute the length of the path on the manifold;
@@ -279,9 +288,9 @@ class GeodesicShooting:
         einsum_string_transpose = 'lk...,l...->k...'
 
         for time in range(0, self.time_steps-2):
-            momentum_t = self.regularizer.cauchy_navier(velocity_fields[time])
-            grad_mt = finite_difference(momentum_t)
-            grad_vt = finite_difference(velocity_fields[time])
+            momentum_t = self.regularizer.cauchy_navier_matrix(np.squeeze(velocity_fields[time]).shape).dot(velocity_fields[time].flatten()).reshape(velocity_fields[time].shape)
+            grad_mt = finite_difference(momentum_t)[0:self.dim, ...]
+            grad_vt = finite_difference(velocity_fields[time])[0:self.dim, ...]
             div_vt = np.sum(np.array([grad_vt[d, d, ...] for d in range(self.dim)]), axis=0)
             rhs = (np.einsum(einsum_string_transpose, grad_vt, momentum_t)
                    + np.einsum(einsum_string, grad_mt, velocity_fields[time])
@@ -315,22 +324,23 @@ class GeodesicShooting:
         einsum_string_transpose = 'lk...,l...->k...'
 
         for time in range(self.time_steps-2, -1, -1):
-            grad_velocity_fields = finite_difference(velocity_fields[time])
+            grad_velocity_fields = finite_difference(velocity_fields[time])[0:self.dim, ...]
             div_velocity_fields = np.sum(np.array([grad_velocity_fields[d, d, ...]
                                                    for d in range(self.dim)]), axis=0)
             regularized_v = self.regularizer.cauchy_navier(v_old)
-            grad_regularized_v = finite_difference(regularized_v)
+            grad_regularized_v = finite_difference(regularized_v)[0:self.dim, ...]
             rhs_v = - self.regularizer.cauchy_navier_squared_inverse(
                 np.einsum(einsum_string_transpose, grad_velocity_fields, regularized_v)
                 + np.einsum(einsum_string, grad_regularized_v, velocity_fields[time])
                 + regularized_v * div_velocity_fields[np.newaxis, ...])
             v_old = v_old - rhs_v / self.time_steps
 
-            grad_delta_v = finite_difference(delta_v)
+            grad_delta_v = finite_difference(delta_v)[0:self.dim, ...]
             div_delta_v = np.sum(np.array([grad_delta_v[d, d, ...]
                                            for d in range(self.dim)]), axis=0)
             regularized_velocity_fields = self.regularizer.cauchy_navier(velocity_fields[time])
-            grad_regularized_velocity_fields = finite_difference(regularized_velocity_fields)
+            grad_regularized_velocity_fields = finite_difference(
+                regularized_velocity_fields)[0:self.dim, ...]
             rhs_delta_v = (- v_old
                            - (np.einsum(einsum_string, grad_velocity_fields, delta_v)
                               - np.einsum(einsum_string, grad_delta_v, velocity_fields[time]))
