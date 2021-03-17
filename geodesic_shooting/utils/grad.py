@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.ndimage import correlate
+from scipy.linalg import toeplitz
 
 
 def finite_difference(array):
@@ -31,3 +32,14 @@ def finite_difference(array):
         derivatives.append(derivative_d)
 
     return np.flip(np.stack(derivatives, axis=0), axis=0)[0:array.shape[0], ...]
+
+
+def finite_difference_matrix(dim, size):
+    assert dim in [1, ]
+
+    if dim == 1:
+        column = np.zeros(size)
+        column[1] = -1
+        row = np.zeros(size)
+        row[1] = 1
+        return toeplitz(column, row)
