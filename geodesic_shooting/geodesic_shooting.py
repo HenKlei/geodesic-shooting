@@ -261,8 +261,8 @@ class GeodesicShooting:
 
         for time in range(0, self.time_steps-2):
             momentum_t = self.regularizer.cauchy_navier(velocity_fields[time])
-            grad_mt = finite_difference(momentum_t)[0:self.dim, ...]
-            grad_vt = finite_difference(velocity_fields[time])[0:self.dim, ...]
+            grad_mt = finite_difference(momentum_t)
+            grad_vt = finite_difference(velocity_fields[time])
             div_vt = np.sum(np.array([grad_vt[d, d, ...] for d in range(self.dim)]), axis=0)
             rhs = (np.einsum(einsum_string_transpose, grad_vt, momentum_t)
                    + np.einsum(einsum_string, grad_mt, velocity_fields[time])
@@ -296,23 +296,22 @@ class GeodesicShooting:
         einsum_string_transpose = 'lk...,l...->k...'
 
         for time in range(self.time_steps-2, -1, -1):
-            grad_velocity_fields = finite_difference(velocity_fields[time])[0:self.dim, ...]
+            grad_velocity_fields = finite_difference(velocity_fields[time])
             div_velocity_fields = np.sum(np.array([grad_velocity_fields[d, d, ...]
                                                    for d in range(self.dim)]), axis=0)
             regularized_v = self.regularizer.cauchy_navier(v_old)
-            grad_regularized_v = finite_difference(regularized_v)[0:self.dim, ...]
+            grad_regularized_v = finite_difference(regularized_v)
             rhs_v = - self.regularizer.cauchy_navier_squared_inverse(
                 np.einsum(einsum_string_transpose, grad_velocity_fields, regularized_v)
                 + np.einsum(einsum_string, grad_regularized_v, velocity_fields[time])
                 + regularized_v * div_velocity_fields[np.newaxis, ...])
             v_old = v_old - rhs_v / self.time_steps
 
-            grad_delta_v = finite_difference(delta_v)[0:self.dim, ...]
+            grad_delta_v = finite_difference(delta_v)
             div_delta_v = np.sum(np.array([grad_delta_v[d, d, ...]
                                            for d in range(self.dim)]), axis=0)
             regularized_velocity_fields = self.regularizer.cauchy_navier(velocity_fields[time])
-            grad_regularized_velocity_fields = finite_difference(
-                regularized_velocity_fields)[0:self.dim, ...]
+            grad_regularized_velocity_fields = finite_difference(regularized_velocity_fields)
             rhs_delta_v = (- v_old
                            - (np.einsum(einsum_string, grad_velocity_fields, delta_v)
                               - np.einsum(einsum_string, grad_delta_v, velocity_fields[time]))

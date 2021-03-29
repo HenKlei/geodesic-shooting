@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.ndimage import convolve
+from scipy.ndimage import correlate
 
 
 def finite_difference(array):
@@ -17,8 +17,7 @@ def finite_difference(array):
     -------
     Array containing the derivatives in the different dimensions.
     """
-    # mind the unusual ordering due to the usage of convolutions instead of correlations
-    window = np.array([1., 0., -1.])
+    window = np.array([-1., 0., 1.])
     dim = array.ndim
     window = window.reshape(list(window.shape)+[1,]*(dim-1)).T
 
@@ -28,10 +27,10 @@ def finite_difference(array):
         indices[0] = d
         indices[d] = 0
         window_d = np.transpose(window, axes=indices)
-        derivative_d = convolve(array, window_d)
+        derivative_d = correlate(array, window_d)
         derivatives.append(derivative_d)
 
-    return np.flip(np.stack(derivatives, axis=0), axis=0)
+    return np.flip(np.stack(derivatives, axis=0), axis=0)[0:array.shape[0], ...]
 
 
 if __name__ == "__main__":
