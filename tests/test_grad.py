@@ -1,9 +1,17 @@
 import numpy as np
 
-from geodesic_shooting.utils.grad import finite_difference
+from geodesic_shooting.utils.grad import finite_difference, finite_difference_matrix
 
 
 def test_grad():
+    img = np.zeros(10)
+    img[2] = 1
+    derivative = np.zeros(10)
+    derivative[1] = 1
+    derivative[3] = -1
+    assert (finite_difference(img) == derivative).all()
+    assert (finite_difference_matrix(1, 10).dot(img) == derivative).all()
+
     img = np.zeros((5, 10))
     img[..., 2] = 1
     derivative = np.zeros((2, 5, 10))
