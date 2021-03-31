@@ -1,6 +1,9 @@
 import numpy as np
 from scipy.ndimage import correlate
 from scipy.linalg import toeplitz
+from scipy.sparse import diags
+
+from geodesic_shooting.utils.helper_functions import tuple_product
 
 
 def finite_difference(array):
@@ -34,8 +37,10 @@ def finite_difference(array):
     return np.flip(np.stack(derivatives, axis=0), axis=0)[0:array.shape[0], ...]
 
 
-def finite_difference_matrix(dim, size):
-    assert dim in [1, ]
+def finite_difference_matrix(shape):
+    dim = len(shape)
+    assert dim in [1, 2, ]
+    size = tuple_product(shape)
 
     if dim == 1:
         column = np.zeros(size)
@@ -45,8 +50,27 @@ def finite_difference_matrix(dim, size):
         mat = toeplitz(column, row)
         mat[0, 0] = -0.5
         mat[-1, -1] = 0.5
+        mat = mat.reshape((1, size, size))
 
-    assert mat.shape == (size, size)
+    if dim == 2:
+        main_diagonal = np.zeros(size)
+        main_diagonal[0:shape[1]] = -0.5
+        main_diagonal[-shape[1]:] = 0.5
+        first_diagonal = np.ones(size-shape[1]) * 0.5
+        mat1 = (np.diag(main_diagonal, 0) + np.diag(first_diagonal, shape[1])
+                + np.diag(-first_diagonal, -shape[1]))
+
+        main_diagonal = np.zeros(size)
+        main_diagonal[::shape[1]] = -0.5
+        main_diagonal[shape[1]-1::shape[1]] = 0.5
+        first_diagonal = np.ones(size-1) * 0.5
+        first_diagonal[shape[1]-1::shape[1]] = 0
+        mat2 = (np.diag(main_diagonal, 0) + np.diag(first_diagonal, 1)
+                + np.diag(-first_diagonal, -1))
+
+        mat = np.array([mat1, mat2])
+
+    assert mat.shape == (dim, size, size)
     return mat
 
 
@@ -57,7 +81,7 @@ if __name__ == "__main__":
     derivative[1] = 0.5
     derivative[3] = -0.5
     assert (finite_difference(img) == derivative).all()
-    assert (finite_difference_matrix(1, 10).dot(img) == derivative).all()
+    assert (finite_difference_matrix(img.shape).dot(img) == derivative).all()
 
     img = np.arange(10)
     derivative_fd = np.ones(10)
@@ -67,14 +91,17 @@ if __name__ == "__main__":
     derivative_fd_mat[0] = 0.5
     derivative_fd_mat[-1] = 0.5
     assert (finite_difference(img) == derivative_fd).all()
-    assert (finite_difference_matrix(1, 10).dot(img) == derivative_fd_mat).all()
+    assert (finite_difference_matrix(img.shape).dot(img) == derivative_fd_mat).all()
 
     img = np.zeros((5, 10))
+    img = np.zeros((3, 5))
     img[..., 2] = 1
-    derivative = np.zeros((2, 5, 10))
+    derivative = np.zeros((2, *img.shape))
     derivative[1, :, 1] = 0.5
     derivative[1, :, 3] = -0.5
     assert (finite_difference(img) == derivative).all()
+    assert (finite_difference_matrix(img.shape).dot(img.flatten()).reshape((img.ndim, *img.shape))
+            == derivative).all()
 
     img = np.zeros((5, 10))
     img[2, ...] = 1
@@ -82,3 +109,5 @@ if __name__ == "__main__":
     derivative[0, 1, :] = 0.5
     derivative[0, 3, :] = -0.5
     assert (finite_difference(img) == derivative).all()
+    assert (finite_difference_matrix(img.shape).dot(img.flatten()).reshape((img.ndim, *img.shape))
+            == derivative).all()

@@ -250,7 +250,7 @@ class TestGeodesicShooting:
         -------
         Array with the gradients of the input image.
         """
-        fd_mat = finite_difference_matrix(self.dim, self.size)
+        fd_mat = finite_difference_matrix(self.shape)
         return fd_mat.dot(image).reshape((self.dim, self.size))
 
     def integrate_forward_vector_field(self, initial_velocity_field):
@@ -271,12 +271,11 @@ class TestGeodesicShooting:
         einsum_string = 'kl...,l...->k...'
         einsum_string_transpose = 'lk...,l...->k...'
 
-        fd_mat = finite_difference_matrix(self.dim, self.size)
+        fd_mat = finite_difference_matrix(self.shape)
 
         for time in range(0, self.time_steps-2):
             momentum_t = np.stack([self.regularizer.cauchy_navier_matrix.dot(v)
                                    for v in velocity_fields[time]])
-            assert momentum_t.shape == velocity_fields[time].shape
             grad_mt = (np.stack([fd_mat.dot(mt) for mt in momentum_t])
                        .reshape((self.dim, self.dim, self.size)))
             grad_vt = (np.stack([fd_mat.dot(vt) for vt in velocity_fields[time]])
@@ -287,7 +286,6 @@ class TestGeodesicShooting:
                    + momentum_t * div_vt)
             transformed_rhs = np.stack([self.regularizer.cauchy_navier_inverse_matrix.dot(r)
                                         for r in rhs])
-            assert transformed_rhs.shape == rhs.shape
             velocity_fields[time+1] = (velocity_fields[time] - transformed_rhs / self.time_steps)
 
         return velocity_fields
@@ -314,7 +312,7 @@ class TestGeodesicShooting:
         einsum_string = 'kl...,l...->k...'
         einsum_string_transpose = 'lk...,l...->k...'
 
-        fd_mat = finite_difference_matrix(self.dim, self.size)
+        fd_mat = finite_difference_matrix(self.shape)
 
         for time in range(self.time_steps-2, -1, -1):
             grad_velocity_fields = (np.stack([fd_mat.dot(vt) for vt in velocity_fields[time]])
