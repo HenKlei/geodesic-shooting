@@ -70,6 +70,10 @@ def finite_difference_matrix(shape):
     return mat
 
 
+def divergence_matrix(shape):
+    return np.sum(finite_difference_matrix(shape), axis=0)
+
+
 if __name__ == "__main__":
     img = np.zeros(10)
     img[2] = 1
@@ -88,6 +92,8 @@ if __name__ == "__main__":
     derivative_fd_mat[-1] = 0.5
     assert (finite_difference(img) == derivative_fd).all()
     assert (finite_difference_matrix(img.shape).dot(img) == derivative_fd_mat).all()
+    divergence_mat = derivative_fd_mat
+    assert (divergence_matrix(img.shape).dot(img) == divergence_mat).all()
 
     img = np.zeros((5, 10))
     img = np.zeros((3, 5))
@@ -98,6 +104,9 @@ if __name__ == "__main__":
     assert (finite_difference(img) == derivative).all()
     assert (finite_difference_matrix(img.shape).dot(img.flatten()).reshape((img.ndim, *img.shape))
             == derivative).all()
+    divergence_mat = derivative[1]
+    assert (divergence_matrix(img.shape).dot(img.flatten()).reshape(img.shape)
+            == divergence_mat).all()
 
     img = np.zeros((5, 10))
     img[2, ...] = 1
@@ -107,3 +116,23 @@ if __name__ == "__main__":
     assert (finite_difference(img) == derivative).all()
     assert (finite_difference_matrix(img.shape).dot(img.flatten()).reshape((img.ndim, *img.shape))
             == derivative).all()
+    divergence_mat = derivative[0]
+    assert (divergence_matrix(img.shape).dot(img.flatten()).reshape(img.shape)
+            == divergence_mat).all()
+
+    img = np.zeros((5, 10))
+    img[2, ...] = 1
+    img[..., 2] = 1
+    divergence_mat = np.zeros((5, 10))
+    divergence_mat[:, 1] = 0.5
+    divergence_mat[:, 3] = -0.5
+    divergence_mat[1, :] += 0.5
+    divergence_mat[3, :] += -0.5
+    divergence_mat[1, 2] = 0.
+    divergence_mat[2, 1] = 0.
+    divergence_mat[3, 2] = 0.
+    divergence_mat[2, 3] = 0.
+    assert (np.sum(finite_difference_matrix(img.shape).dot(img.flatten())
+                   .reshape((img.ndim, *img.shape)), axis=0) == divergence_mat).all()
+    assert (divergence_matrix(img.shape).dot(img.flatten()).reshape(img.shape)
+            == divergence_mat).all()
