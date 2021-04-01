@@ -3,7 +3,7 @@ from scipy.ndimage import convolve
 import scipy.sparse as sp
 from scipy.sparse.linalg import inv as spinv
 
-from geodesic_shooting.utils.helper_functions import tuple_product
+from geodesic_shooting.utils.helper_functions import tuple_product, fftn, ifftn
 
 
 class BiharmonicRegularizer:
@@ -30,10 +30,25 @@ class BiharmonicRegularizer:
 
         self.helper_operator = None
 
+        self.cauchy_navier_matrix = None
+        self.cauchy_navier_inverse_matrix = None
+        self.cauchy_navier_squared_inverse_matrix = None
+
     def init_matrices(self, shape):
+        """Initializes the Cauchy-Navier operator matrix and inverse matrices.
+
+        It is very time-consuming to compute the inverse, but solving many linear
+        systems of equations in each iteration is costly as well.
+
+        Parameters
+        ----------
+        shape
+            Shape of the input images.
+        """
         self.cauchy_navier_matrix = self._cauchy_navier_matrix(shape)
         self.cauchy_navier_inverse_matrix = spinv(self.cauchy_navier_matrix)
-        self.cauchy_navier_squared_inverse_matrix = self.cauchy_navier_inverse_matrix.dot(self.cauchy_navier_inverse_matrix)
+        self.cauchy_navier_squared_inverse_matrix = self.cauchy_navier_inverse_matrix.dot(
+            self.cauchy_navier_inverse_matrix)
 
     def cauchy_navier(self, function):
         """Application of the Cauchy-Navier type operator (-alpha * Δ + I) to a function.
@@ -99,7 +114,7 @@ class BiharmonicRegularizer:
                            recursive_kronecker_product(dim, i+1))
 
         size = tuple_product(input_shape)
-        mat = sp.csr_matrix((size, size))
+        mat = sp.csc_matrix((size, size))
         for dimension in range(len_input_shape):
             mat += recursive_kronecker_product(dimension)
         return (- self.alpha * mat + sp.eye(size))**self.exponent
@@ -123,13 +138,13 @@ class BiharmonicRegularizer:
             self.helper_operator = self.compute_helper_operator(function.shape)
 
         # transform input to Fourier space
-        function_fourier = self.fftn(function)
+        function_fourier = fftn(function)
 
         # perform operation in Fourier space
         result_fourier = function_fourier / self.helper_operator**2
 
         # transform back
-        return self.ifftn(result_fourier)
+        return ifftn(result_fourier)
 
     def compute_helper_operator(self, shape):
         """Computes the helper operator for the inverse of the squared Cauchy-Navier type operator.
@@ -152,38 +167,3 @@ class BiharmonicRegularizer:
                 helper_operator[i] += 2 * self.alpha * (1 - np.cos(2 * np.pi * i[d] / shape[d]))
 
         return np.stack([helper_operator, ] * dim, axis=0)
-
-    def fftn(self, array):
-        """Performs `n`-dimensional FFT along the last `n` axes of an `n+1`-dimensional array.
-
-        Parameters
-        ----------
-        array
-           Input array to perform FFT on.
-
-        Returns
-        -------
-        Array of the same shape.
-        """
-        transformed_array = np.zeros(array.shape, dtype=np.complex128)
-        for i in range(array.shape[0]):
-            transformed_array[i] = np.fft.fftn(array[i])
-        return transformed_array
-
-    def ifftn(self, array):
-        """Performs `n`-dimensional iFFT along the last `n` axes of an `n+1`-dimensional array.
-
-        Parameters
-        ----------
-        array
-           Input array to perform iFFT on.
-
-        Returns
-        -------
-        Array of the same shape.
-        """
-        inverse_transformed_array = np.zeros(array.shape, dtype=np.complex128)
-        for i in range(array.shape[0]):
-            inverse_transformed_array[i] = np.fft.ifftn(array[i])
-        # convert to real here since we assume that images consist of real numbers!
-        return np.real(inverse_transformed_array)

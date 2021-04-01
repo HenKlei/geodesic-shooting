@@ -12,9 +12,9 @@ if __name__ == "__main__":
     target = load_image('../example_images/translation_target.png')
 
     # perform the registration
-    geodesic_shooting = geodesic_shooting.TestGeodesicShooting(alpha=1., exponent=4)
-    image, v0, energies, Phi0, length = geodesic_shooting.register(input_, target, sigma=0.1,
-                                                                   epsilon=0.1, iterations=20,
+    geodesic_shooting = geodesic_shooting.TestGeodesicShooting(alpha=10., exponent=4)
+    image, v0, energies, Phi0, length = geodesic_shooting.register(input_, target, sigma=0.01,
+                                                                   epsilon=0.001, iterations=100,
                                                                    return_all=True)
 
     FILEPATH_RESULTS = 'results/'
