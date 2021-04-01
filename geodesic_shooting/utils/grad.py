@@ -1,7 +1,5 @@
 import numpy as np
 from scipy.ndimage import correlate
-from scipy.linalg import toeplitz
-from scipy.sparse import diags
 
 from geodesic_shooting.utils.helper_functions import tuple_product
 
@@ -43,14 +41,12 @@ def finite_difference_matrix(shape):
     size = tuple_product(shape)
 
     if dim == 1:
-        column = np.zeros(size)
-        column[1] = -0.5
-        row = np.zeros(size)
-        row[1] = 0.5
-        mat = toeplitz(column, row)
-        mat[0, 0] = -0.5
-        mat[-1, -1] = 0.5
-        mat = mat.reshape((1, size, size))
+        main_diagonal = np.zeros(size)
+        main_diagonal[0] = -0.5
+        main_diagonal[-1] = 0.5
+        first_diagonal = np.ones(size-1) * 0.5
+        mat1 = np.diag(main_diagonal, 0) + np.diag(first_diagonal, 1) + np.diag(-first_diagonal, -1)
+        mat = np.array([mat1, ])
 
     if dim == 2:
         main_diagonal = np.zeros(size)
