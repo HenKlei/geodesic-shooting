@@ -1,7 +1,5 @@
 import numpy as np
 from scipy.ndimage import convolve
-import scipy.sparse as sp
-from scipy.sparse.linalg import inv as spinv
 
 from geodesic_shooting.utils.helper_functions import tuple_product, fftn, ifftn
 
@@ -46,7 +44,7 @@ class BiharmonicRegularizer:
             Shape of the input images.
         """
         self.cauchy_navier_matrix = self._cauchy_navier_matrix(shape)
-        self.cauchy_navier_inverse_matrix = spinv(self.cauchy_navier_matrix)
+        self.cauchy_navier_inverse_matrix = np.linalg.inv(self.cauchy_navier_matrix)
         self.cauchy_navier_squared_inverse_matrix = self.cauchy_navier_inverse_matrix.dot(
             self.cauchy_navier_inverse_matrix)
 
@@ -88,36 +86,29 @@ class BiharmonicRegularizer:
             assert 0 <= dim <= len_input_shape - 1
             assert len_input_shape == 1 or 0 <= i <= len_input_shape - 2
 
+            main_diagonal = -2. * np.ones(input_shape[dim])
+            first_diagonal = np.ones(input_shape[dim]-1)
+            laplacian = (np.diag(main_diagonal, 0) + np.diag(first_diagonal, 1)
+                         + np.diag(first_diagonal, -1))
+
             if len_input_shape == 1:
-                diag = np.ones(input_shape[dim])
-                laplacian = sp.spdiags([diag, -2 * diag, diag], [-1, 0, 1],
-                                       input_shape[dim], input_shape[dim])
                 return laplacian
             if i == len_input_shape - 2:
                 if i == dim:
-                    diag = np.ones(input_shape[dim])
-                    laplacian = sp.spdiags([diag, -2 * diag, diag], [-1, 0, 1],
-                                           input_shape[dim], input_shape[dim])
-                    return sp.kron(laplacian, sp.eye(input_shape[i+1]))
+                    return np.kron(laplacian, np.eye(input_shape[i+1]))
                 if dim == len_input_shape - 1:
-                    diag = np.ones(input_shape[dim])
-                    laplacian = sp.spdiags([diag, -2 * diag, diag], [-1, 0, 1],
-                                           input_shape[dim], input_shape[dim])
-                    return sp.kron(sp.eye(input_shape[i]), laplacian)
-                return sp.kron(sp.eye(input_shape[i]), sp.eye(input_shape[i+1]))
+                    return np.kron(np.eye(input_shape[i]), laplacian)
+                return np.kron(np.eye(input_shape[i]), np.eye(input_shape[i+1]))
             if i == dim:
-                diag = np.ones(input_shape[dim])
-                laplacian = sp.spdiags([diag, -2 * diag, diag], [-1, 0, 1],
-                                       input_shape[dim], input_shape[dim])
-                return sp.kron(laplacian, recursive_kronecker_product(dim, i+1))
-            return sp.kron(sp.eye(input_shape[i]),
+                return np.kron(laplacian, recursive_kronecker_product(dim, i+1))
+            return np.kron(np.eye(input_shape[i]),
                            recursive_kronecker_product(dim, i+1))
 
         size = tuple_product(input_shape)
-        mat = sp.csc_matrix((size, size))
+        mat = np.zeros((size, size))
         for dimension in range(len_input_shape):
             mat += recursive_kronecker_product(dimension)
-        return (- self.alpha * mat + sp.eye(size))**self.exponent
+        return np.linalg.matrix_power((- self.alpha * mat + np.eye(size)), self.exponent)
 
     def cauchy_navier_squared_inverse(self, function):
         """Application of the operator `K=(LL)^-1` where `L` is the Cauchy-Navier type operator.

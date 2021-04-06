@@ -1,7 +1,7 @@
 import numpy as np
 
 from geodesic_shooting.utils import sampler, grid
-from geodesic_shooting.utils.grad import finite_difference_matrix
+from geodesic_shooting.utils.grad import finite_difference_matrix, divergence_matrix
 from geodesic_shooting.utils.regularizer import BiharmonicRegularizer
 from geodesic_shooting.utils.helper_functions import tuple_product
 
@@ -50,7 +50,7 @@ class TestGeodesicShooting:
         iterations
             Number of iterations of the optimizer to perform.
         sigma
-            Weight for the similarity measurement (L2 difference of the target and the registered
+            eight for the similarity measurement (L2 difference of the target and the registered
             image); the smaller sigma, the larger the influence of the L2 loss.
         epsilon
             Learning rate, i.e. step size of the optimizer.
@@ -140,7 +140,8 @@ class TestGeodesicShooting:
             # stop if energy is below threshold
             if energy < self.energy_threshold:
                 self.opt_energy = energy
-                self.opt = (forward_pushed_input.reshape(self.shape), initial_velocity_field,
+                self.opt = (forward_pushed_input.reshape(self.shape),
+                            initial_velocity_field.reshape((self.dim, *self.shape)),
                             energies, flow)
                 print(f"Energy below threshold of {self.energy_threshold}. Stopping ...")
                 break
@@ -148,8 +149,9 @@ class TestGeodesicShooting:
             # update optimal energy if necessary
             if self.opt_energy is None or energy < self.opt_energy:
                 self.opt_energy = energy
-                self.opt = (forward_pushed_input.reshape(self.shape), initial_velocity_field,
-                            energies, flow)
+                self.opt = (forward_pushed_input.reshape(self.shape),
+                            initial_velocity_field.reshape((self.dim, *self.shape)),
+                            energies, flow.reshape((self.dim, *self.shape)))
 
             energies.append(energy)
 
@@ -165,7 +167,7 @@ class TestGeodesicShooting:
             # compute the length of the path on the manifold;
             # this step only requires the initial velocity due to conservation of momentum
             length = np.linalg.norm(np.stack([self.regularizer.cauchy_navier_matrix.dot(v)
-                                              for v in self.opt[1]]))
+                                              for v in self.opt[1].reshape((self.dim, self.size))]))
         else:
             length = 0.0
 
@@ -266,27 +268,24 @@ class TestGeodesicShooting:
         Sequence of velocity fields obtained via forward integration of the initial velocity field.
         """
         velocity_fields = np.zeros((self.time_steps, self.dim, self.size), dtype=np.double)
-        velocity_fields[0] = initial_velocity_field
-
-        einsum_string = 'kl...,l...->k...'
-        einsum_string_transpose = 'lk...,l...->k...'
+        velocity_fields[0] = initial_velocity_field.reshape((self.dim, self.size))
 
         fd_mat = finite_difference_matrix(self.shape)
+        div_mat = divergence_matrix(self.shape)
 
         for time in range(0, self.time_steps-2):
-            momentum_t = np.stack([self.regularizer.cauchy_navier_matrix.dot(v)
-                                   for v in velocity_fields[time]])
-            grad_mt = (np.stack([fd_mat.dot(mt) for mt in momentum_t])
-                       .reshape((self.dim, self.dim, self.size)))
-            grad_vt = (np.stack([fd_mat.dot(vt) for vt in velocity_fields[time]])
-                       .reshape((self.dim, self.dim, self.size)))
-            div_vt = np.sum(np.array([grad_vt[d, ...] for d in range(self.dim)]), axis=0)
-            rhs = (np.einsum(einsum_string_transpose, grad_vt, momentum_t)
-                   + np.einsum(einsum_string, grad_mt, velocity_fields[time])
+            momentum_t = self.regularizer.cauchy_navier_matrix.dot(
+                velocity_fields[time].swapaxes(0, 1)).swapaxes(0, 1)
+            grad_mt = fd_mat.dot(self.regularizer.cauchy_navier_matrix).dot(
+                velocity_fields[time].swapaxes(0, 1)).swapaxes(1, 2)
+            grad_vt = fd_mat.dot(velocity_fields[time].swapaxes(0, 1)).swapaxes(1, 2)
+            div_vt = div_mat.dot(velocity_fields[time].swapaxes(0, 1)).swapaxes(0, 1)
+            rhs = ((grad_vt * momentum_t)[0]
+                   + (grad_mt * velocity_fields[time])[0]
                    + momentum_t * div_vt)
-            transformed_rhs = np.stack([self.regularizer.cauchy_navier_inverse_matrix.dot(r)
-                                        for r in rhs])
-            velocity_fields[time+1] = (velocity_fields[time] - transformed_rhs / self.time_steps)
+            transformed_rhs = self.regularizer.cauchy_navier_inverse_matrix.dot(
+                rhs.swapaxes(0, 1)).swapaxes(0, 1)
+            velocity_fields[time+1] = velocity_fields[time] - transformed_rhs / self.time_steps
 
         return velocity_fields
 
@@ -313,12 +312,12 @@ class TestGeodesicShooting:
         einsum_string_transpose = 'lk...,l...->k...'
 
         fd_mat = finite_difference_matrix(self.shape)
+        div_mat = divergence_matrix(self.shape)
 
         for time in range(self.time_steps-2, -1, -1):
             grad_velocity_fields = (np.stack([fd_mat.dot(vt) for vt in velocity_fields[time]])
                                     .reshape((self.dim, self.dim, self.size)))
-            div_velocity_fields = np.sum(np.array([grad_velocity_fields[d, d, ...]
-                                                   for d in range(self.dim)]), axis=0)
+            div_velocity_fields = np.array([div_mat.dot(vt) for vt in velocity_fields[time]])[0]
             regularized_v = np.stack([self.regularizer.cauchy_navier_matrix.dot(v)
                                       for v in v_old])
             grad_regularized_v = (np.stack([fd_mat.dot(rv) for rv in regularized_v])
@@ -333,8 +332,7 @@ class TestGeodesicShooting:
 
             grad_delta_v = (np.stack([fd_mat.dot(dv) for dv in delta_v])
                             .reshape((self.dim, self.dim, self.size)))
-            div_delta_v = np.sum(np.array([grad_delta_v[d, d, ...]
-                                           for d in range(self.dim)]), axis=0)
+            div_delta_v = np.array([div_mat.dot(dv) for dv in delta_v])[0]
             regularized_velocity_fields = np.stack([self.regularizer.cauchy_navier_matrix.dot(v)
                                                     for v in velocity_fields[time]])
             grad_regularized_velocity_fields = (np.stack([fd_mat.dot(rvf)

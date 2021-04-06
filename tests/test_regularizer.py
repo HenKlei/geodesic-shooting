@@ -11,7 +11,6 @@ def test_regularizer():
 
     print(regularizer.cauchy_navier_squared_inverse(v)[0])
 
-
     image = np.zeros((2, 5, 5))
     image[0, 2, 2] = 1
 
@@ -19,7 +18,7 @@ def test_regularizer():
     regularizer.init_matrices(shape=image[0].shape)
 
     assert (regularizer.cauchy_navier(image) == np.stack([regularizer.cauchy_navier_matrix.dot(
-            elem.flatten()).reshape(elem.shape) for elem in image])).all()
+        elem.flatten()).reshape(elem.shape) for elem in image])).all()
 
     exact = np.zeros((2, 5, 5))
     exact[0, 2, 2] = 5
@@ -35,4 +34,4 @@ def test_regularizer():
     print(regularizer.cauchy_navier_squared_inverse(image)[0])
     print(regularizer.cauchy_navier_inverse_matrix.dot(image[0].flatten()).reshape(image[0].shape))
 
-    assert (regularizer.cauchy_navier_matrix != square_matrix).nnz == 0
+    assert np.count_nonzero(regularizer.cauchy_navier_matrix != square_matrix) == 0
