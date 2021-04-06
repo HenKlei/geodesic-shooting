@@ -1,6 +1,8 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 import geodesic_shooting
+from geodesic_shooting.utils.visualization import plot_warpgrid, plot_vector_field
 
 
 if __name__ == "__main__":
@@ -21,3 +23,7 @@ if __name__ == "__main__":
     print(f'Target: {target}')
     print(f'Registration result: {image}')
     print(f'Relative norm of difference: {np.linalg.norm(target - image) / np.linalg.norm(target)}')
+
+    plot_warpgrid(Phi0, title="Inverse warp grid (2d example)", interval=1)
+    plot_vector_field(v0, title="Initial vector field (2d example)", interval=1)
+    plt.show()
