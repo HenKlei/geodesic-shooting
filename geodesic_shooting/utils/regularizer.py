@@ -30,7 +30,6 @@ class BiharmonicRegularizer:
 
         self.cauchy_navier_matrix = None
         self.cauchy_navier_inverse_matrix = None
-        self.cauchy_navier_squared_inverse_matrix = None
 
     def init_matrices(self, shape):
         """Initializes the Cauchy-Navier operator matrix and inverse matrices.
@@ -43,10 +42,11 @@ class BiharmonicRegularizer:
         shape
             Shape of the input images.
         """
-        self.cauchy_navier_matrix = self._cauchy_navier_matrix(shape)
-        self.cauchy_navier_inverse_matrix = np.linalg.inv(self.cauchy_navier_matrix)
-        self.cauchy_navier_squared_inverse_matrix = self.cauchy_navier_inverse_matrix.dot(
-            self.cauchy_navier_inverse_matrix)
+        dim = len(shape)
+        self.cauchy_navier_matrix = np.kron(np.eye(dim, dtype=int),
+                                            self._cauchy_navier_matrix(shape))
+        inv_matrix = np.linalg.inv(self._cauchy_navier_matrix(shape))
+        self.cauchy_navier_inverse_matrix = np.kron(np.eye(dim, dtype=int), inv_matrix)
 
     def cauchy_navier(self, function):
         """Application of the Cauchy-Navier type operator (-alpha * Δ + I) to a function.

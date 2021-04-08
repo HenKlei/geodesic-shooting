@@ -1,7 +1,8 @@
 import numpy as np
 
-from geodesic_shooting.utils import sampler, grid
-from geodesic_shooting.utils.grad import finite_difference_matrix, divergence_matrix
+from geodesic_shooting.utils import grid, sampler
+from geodesic_shooting.utils.grad import (divergence_matrix, finite_difference_matrix,
+                                          gradient_matrix)
 from geodesic_shooting.utils.regularizer import BiharmonicRegularizer
 from geodesic_shooting.utils.helper_functions import tuple_product
 
@@ -33,6 +34,11 @@ class TestGeodesicShooting:
         self.opt_energy = None
         self.energy_threshold = 1e-3
         self.gradient_norm_threshold = 1e-3
+
+        self.matrices_forward_integration = []
+        self.matrices_backward_integration_1 = []
+        self.matrices_backward_integration_2 = []
+        self.matrices_backward_integration_3 = []
 
     def register(self, input_, target, time_steps=30, iterations=100, sigma=1, epsilon=0.01,
                  return_all=False):
@@ -76,13 +82,6 @@ class TestGeodesicShooting:
         input_ = input_.astype('double').flatten()
         target = target.astype('double').flatten()
 
-        def compute_energy(image):
-            return np.sum((image - target)**2)
-
-        def compute_grad_energy(image_gradient, image):
-            return np.stack([self.regularizer.cauchy_navier_inverse_matrix.dot(r)
-                             for r in image_gradient * (image - target)[np.newaxis, ...]])
-
         # set up variables
         self.time_steps = time_steps
         self.size = tuple_product(self.shape)
@@ -91,13 +90,42 @@ class TestGeodesicShooting:
         self.energy_threshold = 1e-3
         self.gradient_norm_threshold = 1e-3
 
+        def compute_energy(image):
+            return np.sum((image - target)**2)
+
+        def compute_grad_energy(image_gradient, image):
+            """ Not 100% sure whether this is correct... """
+            return self.regularizer.cauchy_navier_inverse_matrix.dot(
+                (image_gradient.reshape((self.dim, self.size))
+                 * (image - target)[np.newaxis, ...]).reshape(self.dim * self.size))
+
         self.regularizer.init_matrices(self.shape)
+
+        D = finite_difference_matrix(self.shape)
+        assert D.shape == (self.dim * self.size, self.dim * self.size)
+        div = divergence_matrix(self.shape)
+        assert div.shape == (self.dim * self.size, self.dim * self.size)
+        L = self.regularizer.cauchy_navier_matrix
+        assert L.shape == (self.dim * self.size, self.dim * self.size)
+        K = self.regularizer.cauchy_navier_inverse_matrix
+        assert K.shape == (self.dim * self.size, self.dim * self.size)
+
+        for i in range(self.dim * self.size):
+            unit_vector = np.zeros(self.dim * self.size)
+            unit_vector[i] = 1.
+            self.matrices_forward_integration.append(-K.dot(np.diag(L[:, i]).dot(D.T)
+                                                            + np.diag(unit_vector).dot(D.dot(L))
+                                                            + np.diag(L[:, i]).dot(div)))
+            self.matrices_backward_integration_1.append(K.dot(np.diag(L[:, i]).dot(D.T)
+                                                        + np.diag(L[:, i]).dot(div)))
+            self.matrices_backward_integration_2.append(K.dot(np.diag(unit_vector).dot(D.dot(L))))
+            self.matrices_backward_integration_3.append(np.diag(unit_vector).dot(D))
 
         energies = []
 
         # define vector fields
-        initial_velocity_field = np.zeros((self.dim, self.size), dtype=np.double)
-        velocity_fields = np.zeros((self.time_steps, self.dim, self.size), dtype=np.double)
+        initial_velocity_field = np.zeros(self.dim * self.size, dtype=np.double)
+        velocity_fields = np.zeros((self.time_steps, self.dim * self.size), dtype=np.double)
         gradient_initial_velocity = np.copy(initial_velocity_field)
 
         for k in range(iterations):
@@ -132,8 +160,8 @@ class TestGeodesicShooting:
                 break
 
             # compute the current energy consisting of intensity difference and regularization
-            energy_regularizer = np.linalg.norm(np.stack(
-                [self.regularizer.cauchy_navier_matrix.dot(v) for v in initial_velocity_field]))
+            energy_regularizer = np.linalg.norm(self.regularizer.cauchy_navier_matrix
+                                                .dot(initial_velocity_field))
             energy_intensity = 1 / sigma**2 * compute_energy(forward_pushed_input)
             energy = energy_regularizer + energy_intensity
 
@@ -166,8 +194,8 @@ class TestGeodesicShooting:
         if self.opt[1] is not None:
             # compute the length of the path on the manifold;
             # this step only requires the initial velocity due to conservation of momentum
-            length = np.linalg.norm(np.stack([self.regularizer.cauchy_navier_matrix.dot(v)
-                                              for v in self.opt[1].reshape((self.dim, self.size))]))
+            length = np.linalg.norm(self.regularizer.cauchy_navier_matrix
+                                    .dot(self.opt[1].reshape(self.dim * self.size)))
         else:
             length = 0.0
 
@@ -188,7 +216,7 @@ class TestGeodesicShooting:
         Array containing the flow at the final time.
         """
         # make identity grid
-        identity_grid = grid.coordinate_grid(self.shape).reshape((self.dim, self.size))
+        identity_grid = grid.coordinate_grid(self.shape).reshape(self.dim * self.size)
 
         # initial flow is the identity mapping
         flow = identity_grid.astype(np.double)
@@ -197,7 +225,7 @@ class TestGeodesicShooting:
             alpha = self.forward_alpha(velocity_fields[time])
             flow = (sampler.sample(flow.reshape((self.dim, *self.shape)),
                                    (identity_grid - alpha).reshape((self.dim, *self.shape)))
-                    .reshape((self.dim, self.size)))
+                    .reshape(self.dim * self.size))
 
         return flow
 
@@ -214,13 +242,13 @@ class TestGeodesicShooting:
         Array with the update of the positions.
         """
         # make identity grid
-        identity_grid = grid.coordinate_grid(self.shape).reshape((self.dim, self.size))
+        identity_grid = grid.coordinate_grid(self.shape).reshape(self.dim * self.size)
 
         alpha = np.zeros(velocity_field.shape, dtype=np.double)
         for _ in range(5):
             alpha = (sampler.sample(velocity_field.reshape((self.dim, *self.shape)),
                                     (identity_grid - 0.5 * alpha).reshape(self.dim, *self.shape))
-                     .reshape((self.dim, self.size)))
+                     .reshape(self.dim * self.size))
         return alpha
 
     def push_forward(self, image, flow):
@@ -252,8 +280,10 @@ class TestGeodesicShooting:
         -------
         Array with the gradients of the input image.
         """
-        fd_mat = finite_difference_matrix(self.shape)
-        return fd_mat.dot(image).reshape((self.dim, self.size))
+        assert image.shape == (self.size, )
+        gradient_mat = gradient_matrix(self.shape)
+        assert gradient_mat.shape == (self.dim * self.size, self.size)
+        return gradient_mat.dot(image)
 
     def integrate_forward_vector_field(self, initial_velocity_field):
         """Performs forward integration of the initial velocity field.
@@ -267,25 +297,18 @@ class TestGeodesicShooting:
         -------
         Sequence of velocity fields obtained via forward integration of the initial velocity field.
         """
-        velocity_fields = np.zeros((self.time_steps, self.dim, self.size), dtype=np.double)
-        velocity_fields[0] = initial_velocity_field.reshape((self.dim, self.size))
-
-        fd_mat = finite_difference_matrix(self.shape)
-        div_mat = divergence_matrix(self.shape)
+        velocity_fields = np.zeros((self.time_steps, self.dim * self.size), dtype=np.double)
+        velocity_fields[0] = initial_velocity_field.reshape(self.dim * self.size)
 
         for time in range(0, self.time_steps-2):
-            momentum_t = self.regularizer.cauchy_navier_matrix.dot(
-                velocity_fields[time].swapaxes(0, 1)).swapaxes(0, 1)
-            grad_mt = fd_mat.dot(self.regularizer.cauchy_navier_matrix).dot(
-                velocity_fields[time].swapaxes(0, 1)).swapaxes(1, 2)
-            grad_vt = fd_mat.dot(velocity_fields[time].swapaxes(0, 1)).swapaxes(1, 2)
-            div_vt = div_mat.dot(velocity_fields[time].swapaxes(0, 1)).swapaxes(0, 1)
-            rhs = ((grad_vt * momentum_t)[0]
-                   + (grad_mt * velocity_fields[time])[0]
-                   + momentum_t * div_vt)
-            transformed_rhs = self.regularizer.cauchy_navier_inverse_matrix.dot(
-                rhs.swapaxes(0, 1)).swapaxes(0, 1)
-            velocity_fields[time+1] = velocity_fields[time] - transformed_rhs / self.time_steps
+            v = velocity_fields[time]
+            assert v.shape == (self.dim * self.size, )
+            rhs = np.sum(np.array([mat.dot(v) * v_i
+                                   for mat, v_i in zip(self.matrices_forward_integration, v)]),
+                         axis=0)
+            assert rhs.shape == (self.dim * self.size, )
+            velocity_fields[time+1] = velocity_fields[time] + rhs / self.time_steps
+            assert velocity_fields[time+1].shape == (self.dim * self.size, )
 
         return velocity_fields
 
@@ -304,52 +327,39 @@ class TestGeodesicShooting:
         -------
         Gradient of the energy with respect to the initial velocity field.
         """
-        v_old = gradient_l2_energy
-        delta_v_old = np.zeros(v_old.shape, dtype=np.double)
-        delta_v = delta_v_old
-
-        einsum_string = 'kl...,l...->k...'
-        einsum_string_transpose = 'lk...,l...->k...'
-
-        fd_mat = finite_difference_matrix(self.shape)
-        div_mat = divergence_matrix(self.shape)
+        v_adjoint = gradient_l2_energy
+        assert v_adjoint.shape == (self.dim * self.size, )
+        delta_v = np.zeros(v_adjoint.shape, dtype=np.double)
+        assert delta_v.shape == (self.dim * self.size, )
 
         for time in range(self.time_steps-2, -1, -1):
-            grad_velocity_fields = (np.stack([fd_mat.dot(vt) for vt in velocity_fields[time]])
-                                    .reshape((self.dim, self.dim, self.size)))
-            div_velocity_fields = np.array([div_mat.dot(vt) for vt in velocity_fields[time]])[0]
-            regularized_v = np.stack([self.regularizer.cauchy_navier_matrix.dot(v)
-                                      for v in v_old])
-            grad_regularized_v = (np.stack([fd_mat.dot(rv) for rv in regularized_v])
-                                  .reshape((self.dim, self.dim, self.size)))
-            rhs_v = -1. * np.stack([self.regularizer.cauchy_navier_inverse_matrix.dot(r)
-                                    for r in np.einsum(einsum_string_transpose,
-                                                       grad_velocity_fields, regularized_v)
-                                    + np.einsum(einsum_string, grad_regularized_v,
-                                                velocity_fields[time])
-                                    + regularized_v * div_velocity_fields[np.newaxis, ...]])
-            v_old = v_old - rhs_v / self.time_steps
+            v = velocity_fields[time]
+            assert v.shape == (self.dim * self.size, )
+            rhs_v = - (np.sum(np.array([mat.dot(v) * delta_v_i for mat, delta_v_i in
+                                        zip(self.matrices_backward_integration_1, delta_v)]),
+                              axis=0) +
+                       np.sum(np.array([mat.dot(delta_v) * v_i for mat, v_i in
+                                        zip(self.matrices_backward_integration_2, v)]),
+                              axis=0))
+            assert rhs_v.shape == (self.dim * self.size, )
+            v_adjoint = v_adjoint - rhs_v / self.time_steps
+            assert v_adjoint.shape == (self.dim * self.size, )
 
-            grad_delta_v = (np.stack([fd_mat.dot(dv) for dv in delta_v])
-                            .reshape((self.dim, self.dim, self.size)))
-            div_delta_v = np.array([div_mat.dot(dv) for dv in delta_v])[0]
-            regularized_velocity_fields = np.stack([self.regularizer.cauchy_navier_matrix.dot(v)
-                                                    for v in velocity_fields[time]])
-            grad_regularized_velocity_fields = (np.stack([fd_mat.dot(rvf)
-                                                          for rvf in regularized_velocity_fields])
-                                                .reshape((self.dim, self.dim, self.size)))
-            rhs_delta_v = (- v_old
-                           - (np.einsum(einsum_string, grad_velocity_fields, delta_v)
-                              - np.einsum(einsum_string, grad_delta_v, velocity_fields[time]))
-                           + np.stack([self.regularizer.cauchy_navier_inverse_matrix.dot(r)
-                                       for r in
-                                       np.einsum(einsum_string_transpose, grad_delta_v,
-                                                 regularized_velocity_fields)
-                                       + np.einsum(einsum_string, grad_regularized_velocity_fields,
-                                                   delta_v)
-                                       + (regularized_velocity_fields
-                                          * div_delta_v[np.newaxis, ...])]))
-            delta_v = delta_v_old - rhs_delta_v / self.time_steps
-            delta_v_old = delta_v
+            rhs_delta_v = (- v_adjoint
+                           - (np.sum(np.array([mat.dot(v) * delta_v_i for mat, delta_v_i in
+                                               zip(self.matrices_backward_integration_3, delta_v)]),
+                                     axis=0) -
+                              np.sum(np.array([mat.dot(delta_v) * v_i for mat, v_i in
+                                               zip(self.matrices_backward_integration_3, v)]),
+                                     axis=0))
+                           + (np.sum(np.array([mat.dot(delta_v) * v_i for mat, v_i in
+                                               zip(self.matrices_backward_integration_1, v)]),
+                                     axis=0) +
+                              np.sum(np.array([mat.dot(v) * delta_v_i for mat, delta_v_i in
+                                               zip(self.matrices_backward_integration_2, delta_v)]),
+                                     axis=0)))
+            assert rhs_delta_v.shape == (self.dim * self.size, )
+            delta_v = delta_v - rhs_delta_v / self.time_steps
+            assert delta_v.shape == (self.dim * self.size, )
 
         return delta_v
