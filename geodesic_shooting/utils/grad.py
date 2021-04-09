@@ -31,19 +31,3 @@ def finite_difference(array):
         derivatives.append(derivative_d)
 
     return np.flip(np.stack(derivatives, axis=0), axis=0)[0:array.shape[0], ...]
-
-
-if __name__ == "__main__":
-    img = np.zeros((5, 10))
-    img[..., 2] = 1
-    derivative = np.zeros((2, 5, 10))
-    derivative[1, :, 1] = 1
-    derivative[1, :, 3] = -1
-    assert (finite_difference(img) == derivative).all()
-
-    img = np.zeros((5, 10))
-    img[2, ...] = 1
-    derivative = np.zeros((2, 5, 10))
-    derivative[0, 1, :] = 1
-    derivative[0, 3, :] = -1
-    assert (finite_difference(img) == derivative).all()
