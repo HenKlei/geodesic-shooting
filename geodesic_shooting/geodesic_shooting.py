@@ -146,8 +146,8 @@ class GeodesicShooting:
                     self.opt_energy_regularizer = energy_regularizer
                     self.opt_energy_intensity = energy_intensity
                     self.opt = (forward_pushed_input, initial_velocity_field, energies, flow)
-                    self.logger.warning(f"Energy below threshold of {self.energy_threshold}. "
-                                        "Stopping ...")
+                    self.logger.info(f"Energy below threshold of {self.energy_threshold}. "
+                                     "Stopping ...")
                     break
 
                 # update optimal energy if necessary

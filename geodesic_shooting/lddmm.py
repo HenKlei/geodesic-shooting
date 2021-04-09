@@ -159,8 +159,8 @@ class LDDMM:
                     self.opt_energy_intensity = energy_intensity
                     self.opt = (forward_pushed_input[-1], velocity_fields, energies, forward_flows,
                                 backward_flows, forward_pushed_input, back_pulled_target)
-                    self.logger.warning(f"Energy below threshold of {self.energy_threshold}. "
-                                        "Stopping ...")
+                    self.logger.info(f"Energy below threshold of {self.energy_threshold}. "
+                                     "Stopping ...")
                     break
 
                 # update optimal energy if necessary
