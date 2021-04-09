@@ -12,10 +12,10 @@ if __name__ == "__main__":
     target = load_image('../example_images/translation_target.png')
 
     # perform the registration
-    geodesic_shooting = geodesic_shooting.GeodesicShooting(alpha=1000., gamma=1.)
-    image, v0, energies, Phi0, length = geodesic_shooting.register(input_, target, sigma=0.1,
-                                                                   epsilon=0.1, iterations=20,
-                                                                   return_all=True)
+    gs = geodesic_shooting.GeodesicShooting(alpha=1000., exponent=1)
+    image, v0, energies, Phi0, length = gs.register(input_, target, sigma=0.1,
+                                                    epsilon=0.1, iterations=20,
+                                                    return_all=True)
 
     FILEPATH_RESULTS = 'results/'
     if not os.path.exists(FILEPATH_RESULTS):
@@ -30,12 +30,18 @@ if __name__ == "__main__":
 
     # multiply initial vector field by 0.5, integrate it forward and
     # push the input_ image along this flow
-    Phi_half = geodesic_shooting.integrate_forward_flow(
-        geodesic_shooting.integrate_forward_vector_field(v0 / 2.))
-    save_image(geodesic_shooting.push_forward(input_, Phi_half),
+    Phi_half = gs.integrate_forward_flow(gs.integrate_forward_vector_field(v0 / 2.))
+    save_image(gs.push_forward(input_, Phi_half),
                FILEPATH_RESULTS + 'translation_half_speed.png')
 
     # plot the (initial) vector field
     plot_vector_field(v0, title="Initial vector field (translation)", interval=2)
 
     plt.show()
+
+    rb = v0.reshape((v0.flatten().shape[0], 1))
+    reduced_gs = geodesic_shooting.ReducedGeodesicShooting(rb, input_.shape, alpha=1000.,
+                                                           exponent=1)
+    image, v0, energies, Phi0, length = reduced_gs.register(input_, target, sigma=0.1,
+                                                            epsilon=0.1, iterations=20,
+                                                            return_all=True)
