@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import matplotlib.pyplot as plt
 
 import geodesic_shooting
@@ -12,7 +13,7 @@ if __name__ == "__main__":
     target = load_image('../example_images/translation_target.png')
 
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=1000., exponent=1)
+    gs = geodesic_shooting.GeodesicShooting(alpha=1000., exponent=3)
     image, v0, energies, Phi0, length = gs.register(input_, target, sigma=0.1,
                                                     epsilon=0.1, iterations=20,
                                                     return_all=True)
@@ -39,9 +40,9 @@ if __name__ == "__main__":
 
     plt.show()
 
-    rb = v0.reshape((v0.flatten().shape[0], 1))
+    rb = v0.reshape((v0.flatten().shape[0], 1)) / np.linalg.norm(v0.flatten())
     reduced_gs = geodesic_shooting.ReducedGeodesicShooting(rb, input_.shape, alpha=1000.,
-                                                           exponent=1)
+                                                           exponent=3)
     image, v0, energies, Phi0, length = reduced_gs.register(input_, target, sigma=0.1,
                                                             epsilon=0.1, iterations=20,
                                                             return_all=True)
