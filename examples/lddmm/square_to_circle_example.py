@@ -14,10 +14,17 @@ if __name__ == "__main__":
     input_ = make_square(64, np.array([32, 32]), 40)
 
     # perform the registration
+<<<<<<< HEAD
     lddmm = geodesic_shooting.LDDMM(alpha=1., exponent=1.)
     result = lddmm.register(input_, target, sigma=0.1, iterations=100,
                             parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1e-3},
                             return_all=True)
+=======
+    lddmm = geodesic_shooting.LDDMM(alpha=1., exponent=1)
+    image, v, energies, Phi0, Phi1, J0, J1, length = lddmm.register(input_, target, sigma=0.1,
+                                                                    epsilon=0.0001, iterations=100,
+                                                                    return_all=True)
+>>>>>>> 8cb05f8 (fixed examples)
 
     transformed_input = result['transformed_input']
     J0 = result['forward_pushed_input']

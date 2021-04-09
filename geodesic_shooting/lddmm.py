@@ -15,7 +15,7 @@ class LDDMM:
     Computing Large Deformation Metric Mappings via Geodesic Flows of Diffeomorphisms.
     Beg, Miller, Trouvé, Younes, 2004
     """
-    def __init__(self, alpha=6., exponent=1., log_level='INFO'):
+    def __init__(self, alpha=6., exponent=1, log_level='INFO'):
         """Constructor.
 
         Parameters
