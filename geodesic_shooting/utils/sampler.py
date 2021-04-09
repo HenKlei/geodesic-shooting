@@ -37,7 +37,8 @@ def sample(array, coordinates):
         # we need iterate over each channel independently
         samples_channels = []
         for i in range(array.shape[0]):
-            samples_channels.append(skimage.transform.warp(array[i, :, :], coordinates, mode='edge'))
+            samples_channels.append(skimage.transform.warp(array[i, :, :], coordinates,
+                                                           mode='edge'))
         return np.stack(samples_channels, axis=0)
 
     raise NotImplementedError

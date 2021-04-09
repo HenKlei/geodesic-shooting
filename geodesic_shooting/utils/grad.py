@@ -19,7 +19,7 @@ def finite_difference(array):
     """
     window = np.array([-1., 0., 1.])
     dim = array.ndim
-    window = window.reshape(list(window.shape)+[1,]*(dim-1)).T
+    window = window.reshape(list(window.shape) + [1, ]*(dim-1)).T
 
     derivatives = []
     for d in range(dim):
