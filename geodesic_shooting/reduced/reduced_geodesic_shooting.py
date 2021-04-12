@@ -63,29 +63,36 @@ class ReducedGeodesicShooting:
 
         U = self.rb_velocity_fields
 
+        UTK = U.T.dot(K)
+        DL = D.dot(L)
+        DTU = D.T.dot(U)
+        DLU = DL.dot(U)
+        divU = div.dot(U)
+        DU = D.dot(U)
+
         self.logger.info("Compute reduced matrices ...")
 
         for j in range(self.rb_size):
-            matrix_forward = np.zeros((self.dim * self.size, self.dim * self.size))
-            matrix_backward_1 = np.zeros((self.dim * self.size, self.dim * self.size))
-            matrix_backward_2 = np.zeros((self.dim * self.size, self.dim * self.size))
-            matrix_backward_3 = np.zeros((self.dim * self.size, self.dim * self.size))
+            matrix_forward = np.zeros((self.rb_size, self.rb_size))
+            matrix_backward_1 = np.zeros((self.rb_size, self.rb_size))
+            matrix_backward_2 = np.zeros((self.rb_size, self.rb_size))
+            matrix_backward_3 = np.zeros((self.rb_size, self.rb_size))
 
             for i in range(self.dim * self.size):
                 unit_vector = np.zeros(self.dim * self.size)
                 unit_vector[i] = 1.
-                matrix_forward += -K.dot(np.diag(L[:, i]).dot(D.T)
-                                         + np.diag(unit_vector).dot(D.dot(L))
-                                         + np.diag(L[:, i]).dot(div)) * U[i, j]
-                matrix_backward_1 += K.dot(np.diag(L[:, i]).dot(D.T)
-                                           + np.diag(L[:, i]).dot(div)) * U[i, j]
-                matrix_backward_2 += K.dot(np.diag(unit_vector).dot(D.dot(L))) * U[i, j]
-                matrix_backward_3 += np.diag(unit_vector).dot(D) * U[i, j]
+                matrix_forward += - U[i, j] * (UTK.dot(np.diag(L[:, i])).dot(DTU)
+                                               + UTK.dot(np.diag(unit_vector)).dot(DLU)
+                                               + UTK.dot(np.diag(L[:, i])).dot(divU))
+                matrix_backward_1 += U[i, j] * (UTK.dot(np.diag(L[:, i])).dot(DTU)
+                                                + UTK.dot(np.diag(L[:, i])).dot(divU))
+                matrix_backward_2 += UTK.dot(np.diag(unit_vector)).dot(DLU) * U[i, j]
+                matrix_backward_3 += U.T.dot(np.diag(unit_vector)).dot(DU) * U[i, j]
 
-            self.matrices_forward_integration.append(U.T.dot(matrix_forward).dot(U))
-            self.matrices_backward_integration_1.append(U.T.dot(matrix_backward_1).dot(U))
-            self.matrices_backward_integration_2.append(U.T.dot(matrix_backward_2).dot(U))
-            self.matrices_backward_integration_3.append(U.T.dot(matrix_backward_3).dot(U))
+            self.matrices_forward_integration.append(matrix_forward)
+            self.matrices_backward_integration_1.append(matrix_backward_1)
+            self.matrices_backward_integration_2.append(matrix_backward_2)
+            self.matrices_backward_integration_3.append(matrix_backward_3)
 
         self.time_steps = 30
         self.opt = None
