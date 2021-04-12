@@ -1,4 +1,5 @@
 import os
+import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -52,8 +53,14 @@ if __name__ == "__main__":
     plot_vector_field(v0, title="Initial vector field (translation)", interval=2)
 
     rb = v0.reshape((v0.flatten().shape[0], 1)) / np.linalg.norm(v0.flatten())
-    reduced_gs = geodesic_shooting.ReducedGeodesicShooting(rb, input_.shape, alpha=1000.,
+    reduced_gs = geodesic_shooting.ReducedGeodesicShooting(input_.shape, rb, alpha=1000.,
                                                            exponent=3)
+
+    reduced_quantities = reduced_gs.get_reduced_quantities()
+
+    with open('reduced_quantities_translation_example', 'wb') as file_obj:
+        pickle.dump(reduced_quantities, file_obj)
+
     image, v0, energies, Phi0, length = reduced_gs.register(input_, target, sigma=0.1,
                                                             epsilon=0.1, iterations=20,
                                                             return_all=True)

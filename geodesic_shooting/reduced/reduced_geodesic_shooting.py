@@ -15,7 +15,8 @@ class ReducedGeodesicShooting:
     Geodesic Shooting for Computational Anatomy.
     Miller, Trouvé, Younes, 2006
     """
-    def __init__(self, rb_velocity_fields, shape, alpha=6., exponent=1, log_level='INFO'):
+    def __init__(self, shape, rb_velocity_fields=None, alpha=6., exponent=1, log_level='INFO',
+                 precomputed_quantities={}):
         """Constructor.
 
         Parameters
@@ -30,7 +31,11 @@ class ReducedGeodesicShooting:
         exponent
             Parameter for biharmonic regularizer.
         """
-        self.rb_velocity_fields = rb_velocity_fields
+        assert rb_velocity_fields is not None or 'rb_velocity_fields' in precomputed_quantities
+        if rb_velocity_fields is not None:
+            self.rb_velocity_fields = rb_velocity_fields
+        else:
+            self.rb_velocity_fields = precomputed_quantities['rb_velocity_fields']
         self.rb_size = self.rb_velocity_fields.shape[1]
 
         self.shape = shape
@@ -47,52 +52,62 @@ class ReducedGeodesicShooting:
         self.logger.info("Initialize matrices of regularizer ...")
         self.regularizer.init_matrices(self.shape)
 
-        D = finite_difference_matrix(self.shape)
-        assert D.shape == (self.dim * self.size, self.dim * self.size)
-        div = divergence_matrix(self.shape)
-        assert div.shape == (self.dim * self.size, self.dim * self.size)
-        L = self.regularizer.cauchy_navier_matrix
-        assert L.shape == (self.dim * self.size, self.dim * self.size)
-        K = self.regularizer.cauchy_navier_inverse_matrix
-        assert K.shape == (self.dim * self.size, self.dim * self.size)
+        matrices_labels = ['matrices_forward', 'matrices_backward_1',
+                           'matrices_backward_2', 'matrices_backward_3']
 
-        self.matrices_forward_integration = []
-        self.matrices_backward_integration_1 = []
-        self.matrices_backward_integration_2 = []
-        self.matrices_backward_integration_3 = []
+        if any([label not in precomputed_quantities for label in matrices_labels]):
+            D = finite_difference_matrix(self.shape)
+            assert D.shape == (self.dim * self.size, self.dim * self.size)
+            div = divergence_matrix(self.shape)
+            assert div.shape == (self.dim * self.size, self.dim * self.size)
+            L = self.regularizer.cauchy_navier_matrix
+            assert L.shape == (self.dim * self.size, self.dim * self.size)
+            K = self.regularizer.cauchy_navier_inverse_matrix
+            assert K.shape == (self.dim * self.size, self.dim * self.size)
 
-        U = self.rb_velocity_fields
+            self.matrices_forward = []
+            self.matrices_backward_1 = []
+            self.matrices_backward_2 = []
+            self.matrices_backward_3 = []
 
-        UTK = U.T.dot(K)
-        DL = D.dot(L)
-        DTU = D.T.dot(U)
-        DLU = DL.dot(U)
-        divU = div.dot(U)
-        DU = D.dot(U)
+            U = self.rb_velocity_fields
 
-        self.logger.info("Compute reduced matrices ...")
+            UTK = U.T.dot(K)
+            DL = D.dot(L)
+            DTU = D.T.dot(U)
+            DLU = DL.dot(U)
+            divU = div.dot(U)
+            DU = D.dot(U)
 
-        for j in range(self.rb_size):
-            matrix_forward = np.zeros((self.rb_size, self.rb_size))
-            matrix_backward_1 = np.zeros((self.rb_size, self.rb_size))
-            matrix_backward_2 = np.zeros((self.rb_size, self.rb_size))
-            matrix_backward_3 = np.zeros((self.rb_size, self.rb_size))
+            self.logger.info("Compute reduced matrices ...")
 
-            for i in range(self.dim * self.size):
-                unit_vector = np.zeros(self.dim * self.size)
-                unit_vector[i] = 1.
-                matrix_forward += - U[i, j] * (UTK.dot(np.diag(L[:, i])).dot(DTU)
-                                               + UTK.dot(np.diag(unit_vector)).dot(DLU)
-                                               + UTK.dot(np.diag(L[:, i])).dot(divU))
-                matrix_backward_1 += U[i, j] * (UTK.dot(np.diag(L[:, i])).dot(DTU)
-                                                + UTK.dot(np.diag(L[:, i])).dot(divU))
-                matrix_backward_2 += UTK.dot(np.diag(unit_vector)).dot(DLU) * U[i, j]
-                matrix_backward_3 += U.T.dot(np.diag(unit_vector)).dot(DU) * U[i, j]
+            for j in range(self.rb_size):
+                matrix_forward = np.zeros((self.rb_size, self.rb_size))
+                matrix_backward_1 = np.zeros((self.rb_size, self.rb_size))
+                matrix_backward_2 = np.zeros((self.rb_size, self.rb_size))
+                matrix_backward_3 = np.zeros((self.rb_size, self.rb_size))
 
-            self.matrices_forward_integration.append(matrix_forward)
-            self.matrices_backward_integration_1.append(matrix_backward_1)
-            self.matrices_backward_integration_2.append(matrix_backward_2)
-            self.matrices_backward_integration_3.append(matrix_backward_3)
+                for i in range(self.dim * self.size):
+                    unit_vector = np.zeros(self.dim * self.size)
+                    unit_vector[i] = 1.
+                    matrix_forward += - U[i, j] * (UTK.dot(np.diag(L[:, i])).dot(DTU)
+                                                   + UTK.dot(np.diag(unit_vector)).dot(DLU)
+                                                   + UTK.dot(np.diag(L[:, i])).dot(divU))
+                    matrix_backward_1 += U[i, j] * (UTK.dot(np.diag(L[:, i])).dot(DTU)
+                                                    + UTK.dot(np.diag(L[:, i])).dot(divU))
+                    matrix_backward_2 += UTK.dot(np.diag(unit_vector)).dot(DLU) * U[i, j]
+                    matrix_backward_3 += U.T.dot(np.diag(unit_vector)).dot(DU) * U[i, j]
+                    print(f"{i}: {matrix_forward}")
+
+                self.matrices_forward.append(matrix_forward)
+                self.matrices_backward_1.append(matrix_backward_1)
+                self.matrices_backward_2.append(matrix_backward_2)
+                self.matrices_backward_3.append(matrix_backward_3)
+        else:
+            assert all([label in precomputed_quantities for label in matrices_labels])
+            self.logger.info("Use precomputed reduced matrices ...")
+            for label in matrices_labels:
+                setattr(self, label, precomputed_quantities[label])
 
         self.time_steps = 30
         self.opt = None
@@ -103,6 +118,13 @@ class ReducedGeodesicShooting:
         self.gradient_norm_threshold = 1e-3
 
         self.logger.info("Finished setting up everything ...")
+
+    def get_reduced_quantities(self):
+        return {'rb_velocity_fields': self.rb_velocity_fields,
+                'matrices_forward': self.matrices_forward,
+                'matrices_backward_1': self.matrices_backward_1,
+                'matrices_backward_2': self.matrices_backward_2,
+                'matrices_backward_3': self.matrices_backward_3}
 
     def register(self, input_, target, time_steps=30, iterations=100, sigma=1, epsilon=0.01,
                  return_all=False):
@@ -362,7 +384,7 @@ class ReducedGeodesicShooting:
             v = velocity_fields[time]
             assert v.shape == (self.rb_size, )
             rhs = np.sum(np.array([mat.dot(v) * v_i
-                                   for mat, v_i in zip(self.matrices_forward_integration, v)]),
+                                   for mat, v_i in zip(self.matrices_forward, v)]),
                          axis=0)
             assert rhs.shape == (self.rb_size, )
             velocity_fields[time+1] = velocity_fields[time] + rhs / self.time_steps
@@ -394,10 +416,10 @@ class ReducedGeodesicShooting:
             v = velocity_fields[time]
             assert v.shape == (self.rb_size, )
             rhs_v = - (np.sum(np.array([mat.dot(v) * delta_v_i for mat, delta_v_i in
-                                        zip(self.matrices_backward_integration_1, delta_v)]),
+                                        zip(self.matrices_backward_1, delta_v)]),
                               axis=0) +
                        np.sum(np.array([mat.dot(delta_v) * v_i for mat, v_i in
-                                        zip(self.matrices_backward_integration_2, v)]),
+                                        zip(self.matrices_backward_2, v)]),
                               axis=0))
             assert rhs_v.shape == (self.rb_size, )
             v_adjoint = v_adjoint - rhs_v / self.time_steps
@@ -405,16 +427,16 @@ class ReducedGeodesicShooting:
 
             rhs_delta_v = (- v_adjoint
                            - (np.sum(np.array([mat.dot(v) * delta_v_i for mat, delta_v_i in
-                                               zip(self.matrices_backward_integration_3, delta_v)]),
+                                               zip(self.matrices_backward_3, delta_v)]),
                                      axis=0) -
                               np.sum(np.array([mat.dot(delta_v) * v_i for mat, v_i in
-                                               zip(self.matrices_backward_integration_3, v)]),
+                                               zip(self.matrices_backward_3, v)]),
                                      axis=0))
                            + (np.sum(np.array([mat.dot(delta_v) * v_i for mat, v_i in
-                                               zip(self.matrices_backward_integration_1, v)]),
+                                               zip(self.matrices_backward_1, v)]),
                                      axis=0) +
                               np.sum(np.array([mat.dot(v) * delta_v_i for mat, delta_v_i in
-                                               zip(self.matrices_backward_integration_2, delta_v)]),
+                                               zip(self.matrices_backward_2, delta_v)]),
                                      axis=0)))
             assert rhs_delta_v.shape == (self.rb_size, )
             delta_v = delta_v - rhs_delta_v / self.time_steps

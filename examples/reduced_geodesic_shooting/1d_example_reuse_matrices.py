@@ -1,3 +1,4 @@
+import pickle
 import time
 import numpy as np
 
@@ -26,8 +27,12 @@ if __name__ == "__main__":
     print(f'Registration result: {image}')
     print(f'Relative norm of difference: {np.linalg.norm(target - image) / np.linalg.norm(target)}')
 
-    rb = v0.reshape((v0.flatten().shape[0], 1)) / np.linalg.norm(v0.flatten())
-    reduced_gs = geodesic_shooting.ReducedGeodesicShooting(rb, input_.shape, alpha=6., exponent=2)
+    with open('reduced_quantities_1d_example', 'rb') as file_obj:
+        reduced_matrices = pickle.load(file_obj)
+
+    rb = None
+    reduced_gs = geodesic_shooting.ReducedGeodesicShooting(input_.shape, rb, alpha=6., exponent=2,
+                                                           precomputed_quantities=reduced_matrices)
 
     start = time.time()
     image, v0, energies, Phi0, length = reduced_gs.register(input_, target, sigma=0.01,
@@ -37,7 +42,7 @@ if __name__ == "__main__":
 
     print(f'Input: {input_}')
     print(f'Target: {target}')
-    print(f'Registration result: {image}')
+    print(f'Reduced registration result: {image}')
     print(f'Relative norm of difference: {np.linalg.norm(target - image) / np.linalg.norm(target)}')
 
     print()
