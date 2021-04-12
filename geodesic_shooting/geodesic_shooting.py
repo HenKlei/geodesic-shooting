@@ -127,18 +127,19 @@ class GeodesicShooting:
                 gradient_initial_velocity = -self.integrate_backward_adjoint_Jacobi_field_equations(
                     gradient_l2_energy, velocity_fields)
 
-                # compute the norm of the gradient; stop if below threshold (updates are too small)
-                norm_gradient_initial_velocity = np.linalg.norm(gradient_initial_velocity)
-                if norm_gradient_initial_velocity < self.gradient_norm_threshold:
-                    self.logger.warning(f"Gradient norm is {norm_gradient_initial_velocity} and "
-                                        "therefore below threshold. Stopping ...")
-                    break
-
                 # compute the current energy consisting of intensity difference and regularization
                 energy_regularizer = np.linalg.norm(self.regularizer.cauchy_navier(
                     initial_velocity_field))
                 energy_intensity = 1 / sigma**2 * compute_energy(forward_pushed_input)
                 energy = energy_regularizer + energy_intensity
+
+                # compute the norm of the gradient; stop if below threshold (updates are too small)
+                norm_gradient_initial_velocity = np.linalg.norm(gradient_initial_velocity)
+                if (norm_gradient_initial_velocity < self.gradient_norm_threshold
+                   and energy > self.energy_threshold):
+                    self.logger.warning(f"Gradient norm is {norm_gradient_initial_velocity} and "
+                                        "therefore below threshold. Stopping ...")
+                    break
 
                 # stop if energy is below threshold
                 if energy < self.energy_threshold:
