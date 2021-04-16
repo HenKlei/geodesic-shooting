@@ -13,17 +13,17 @@ class LDDMM:
     Computing Large Deformation Metric Mappings via Geodesic Flows of Diffeomorphisms.
     Beg, Miller, Trouvé, Younes, 2004
     """
-    def __init__(self, alpha=6., gamma=1., log_level='INFO'):
+    def __init__(self, alpha=6., exponent=1, log_level='INFO'):
         """Constructor.
 
         Parameters
         ----------
         alpha
             Parameter for biharmonic regularizer.
-        gamma
+        exponent
             Parameter for biharmonic regularizer.
         """
-        self.regularizer = BiharmonicRegularizer(alpha, gamma)
+        self.regularizer = BiharmonicRegularizer(alpha, exponent)
 
         self.time_steps = 30
         self.shape = None
@@ -159,8 +159,8 @@ class LDDMM:
                     self.opt_energy_intensity = energy_intensity
                     self.opt = (forward_pushed_input[-1], velocity_fields, energies, forward_flows,
                                 backward_flows, forward_pushed_input, back_pulled_target)
-                    self.logger.warning(f"Energy below threshold of {self.energy_threshold}. "
-                                        "Stopping ...")
+                    self.logger.info(f"Energy below threshold of {self.energy_threshold}. "
+                                     "Stopping ...")
                     break
 
                 # update optimal energy if necessary

@@ -16,10 +16,10 @@ if __name__ == "__main__":
               + make_circle(64, np.array([40, 25]), 15) * 0.8)
 
     # perform the registration
-    geodesic_shooting = geodesic_shooting.GeodesicShooting(alpha=1000., exponent=1)
-    image, v0, energies, Phi0, length = geodesic_shooting.register(input_, target, sigma=0.1,
-                                                                   epsilon=0.1, iterations=15,
-                                                                   return_all=True)
+    gs = geodesic_shooting.TestGeodesicShooting(alpha=10., exponent=4)
+    image, v0, energies, Phi0, length = gs.register(input_, target, sigma=0.01,
+                                                    epsilon=0.001, iterations=100,
+                                                    return_all=True)
 
     norm = np.linalg.norm((target - image).flatten()) / np.linalg.norm(target.flatten())
     print(f'Relative norm of difference: {norm}')
@@ -44,9 +44,8 @@ if __name__ == "__main__":
 
     # multiply initial vector field by 0.5, integrate it forward and
     # push the input_ image along this flow
-    Phi_half = geodesic_shooting.integrate_forward_flow(
-        geodesic_shooting.integrate_forward_vector_field(v0 / 2.))
-    save_image(geodesic_shooting.push_forward(input_, Phi_half),
+    Phi_half = gs.integrate_forward_flow(gs.integrate_forward_vector_field(v0 / 2.))
+    save_image(gs.push_forward(input_, Phi_half),
                FILEPATH_RESULTS + 'translation_half_speed.png')
 
     # plot the (initial) vector field

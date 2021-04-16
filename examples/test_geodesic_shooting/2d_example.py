@@ -1,6 +1,8 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 import geodesic_shooting
+from geodesic_shooting.utils.visualization import plot_warpgrid, plot_vector_field
 
 
 if __name__ == "__main__":
@@ -13,11 +15,15 @@ if __name__ == "__main__":
     target[2*N//5:3*N//5, M//5:2*M//5] = 1
 
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=6., exponent=3)
+    gs = geodesic_shooting.TestGeodesicShooting(alpha=6., exponent=3)
     image, v0, energies, Phi0, length = gs.register(input_, target, sigma=0.001,
-                                                    epsilon=0.000005, return_all=True)
+                                                    epsilon=0.00005, return_all=True)
 
     print(f'Input: {input_}')
     print(f'Target: {target}')
     print(f'Registration result: {image}')
     print(f'Relative norm of difference: {np.linalg.norm(target - image) / np.linalg.norm(target)}')
+
+    plot_warpgrid(Phi0, title="Inverse warp grid (2d example)", interval=1)
+    plot_vector_field(v0, title="Initial vector field (2d example)", interval=1)
+    plt.show()

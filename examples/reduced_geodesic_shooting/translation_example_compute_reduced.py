@@ -1,4 +1,5 @@
 import os
+import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -16,10 +17,10 @@ if __name__ == "__main__":
               + make_circle(64, np.array([40, 25]), 15) * 0.8)
 
     # perform the registration
-    geodesic_shooting = geodesic_shooting.GeodesicShooting(alpha=1000., exponent=1)
-    image, v0, energies, Phi0, length = geodesic_shooting.register(input_, target, sigma=0.1,
-                                                                   epsilon=0.1, iterations=15,
-                                                                   return_all=True)
+    gs = geodesic_shooting.GeodesicShooting(alpha=1000., exponent=3)
+    image, v0, energies, Phi0, length = gs.register(input_, target, sigma=0.1,
+                                                    epsilon=0.1, iterations=20,
+                                                    return_all=True)
 
     norm = np.linalg.norm((target - image).flatten()) / np.linalg.norm(target.flatten())
     print(f'Relative norm of difference: {norm}')
@@ -44,12 +45,27 @@ if __name__ == "__main__":
 
     # multiply initial vector field by 0.5, integrate it forward and
     # push the input_ image along this flow
-    Phi_half = geodesic_shooting.integrate_forward_flow(
-        geodesic_shooting.integrate_forward_vector_field(v0 / 2.))
-    save_image(geodesic_shooting.push_forward(input_, Phi_half),
+    Phi_half = gs.integrate_forward_flow(gs.integrate_forward_vector_field(v0 / 2.))
+    save_image(gs.push_forward(input_, Phi_half),
                FILEPATH_RESULTS + 'translation_half_speed.png')
 
     # plot the (initial) vector field
     plot_vector_field(v0, title="Initial vector field (translation)", interval=2)
+
+    rb = v0.reshape((v0.flatten().shape[0], 1)) / np.linalg.norm(v0.flatten())
+    reduced_gs = geodesic_shooting.ReducedGeodesicShooting(input_.shape, rb, alpha=1000.,
+                                                           exponent=3)
+
+    reduced_quantities = reduced_gs.get_reduced_quantities()
+
+    with open('reduced_quantities_translation_example', 'wb') as file_obj:
+        pickle.dump(reduced_quantities, file_obj)
+
+    image, v0, energies, Phi0, length = reduced_gs.register(input_, target, sigma=0.1,
+                                                            epsilon=0.1, iterations=20,
+                                                            return_all=True)
+
+    plt.matshow(image)
+    plt.title("Result reduced")
 
     plt.show()
