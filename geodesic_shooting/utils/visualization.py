@@ -80,7 +80,7 @@ def plot_vector_field(vector_field, title='', interval=1, show_axis=False, tight
     axis.set_title(title)
     axis.invert_yaxis()
 
-    axis.quiver(vector_field[0, ::interval, ::interval].T,
+    axis.quiver(-vector_field[0, ::interval, ::interval].T,
                 vector_field[1, ::interval, ::interval].T)
 
     if tight_layout:
