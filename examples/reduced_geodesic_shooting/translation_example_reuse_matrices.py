@@ -72,6 +72,9 @@ if __name__ == "__main__":
     end = time.time()
     reduced_registration_time = end - start
 
+    norm = np.linalg.norm((target - image).flatten()) / np.linalg.norm(target.flatten())
+    print(f'Relative norm of difference: {norm}')
+
     plt.matshow(image)
     plt.title("Result reduced")
 
