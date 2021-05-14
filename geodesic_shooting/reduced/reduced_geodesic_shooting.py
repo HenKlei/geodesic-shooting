@@ -147,14 +147,15 @@ class ReducedGeodesicShooting:
         epsilon
             Learning rate, i.e. step size of the optimizer.
         return_all
-            Determines whether or not to return all information or only the final flow that led to
-            the best registration result.
+            Determines whether or not to return all information or only the initial vector field
+            that led to the best registration result.
 
         Returns
         -------
-        Either the best flow (if return_all is True) or a tuple consisting of the registered image,
-        the velocities, the energies, the flows and inverse flows, the forward-pushed input and the
-        back-pulled target at all time instances.
+        Either the best initial vector field (if return_all is False) or a tuple consisting of the
+        registered image, the velocities, the energies, the flows and inverse flows, the
+        forward-pushed input and the back-pulled target at all time instances (if return_all is
+        True).
         """
         assert isinstance(time_steps, int) and time_steps > 0
         assert isinstance(iterations, int) and iterations > 0
@@ -286,7 +287,7 @@ class ReducedGeodesicShooting:
                 length = 0.0
             return self.opt + (length,)
 
-        return self.flow
+        return initial_velocity_field
 
     def integrate_forward_flow(self, velocity_fields):
         """Computes forward integration according to given velocity fields.
