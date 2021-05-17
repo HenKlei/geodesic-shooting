@@ -1,6 +1,5 @@
-#!/usr/bin/env python
+from setuptools import setup, find_packages
 
-from distutils.core import setup
 
 setup(
     name='geodesic-shooting',
@@ -9,5 +8,5 @@ setup(
     author='Hendrik Kleikamp',
     maintainer='Hendrik Kleikamp',
     maintainer_email='hendrik.kleikamp@uni-muenster.de',
-    packages=['geodesic_shooting', 'geodesic_shooting.utils'],
+    packages=find_packages(),
 )
