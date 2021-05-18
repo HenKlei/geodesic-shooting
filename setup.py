@@ -1,6 +1,12 @@
 from setuptools import setup, find_packages
 
 
+dependencies = [
+    'numpy',
+    'scipy',
+    'scikit-image',
+]
+
 setup(
     name='geodesic-shooting',
     version='0.1.0',
@@ -9,4 +15,5 @@ setup(
     maintainer='Hendrik Kleikamp',
     maintainer_email='hendrik.kleikamp@uni-muenster.de',
     packages=find_packages(),
+    install_requires=dependencies,
 )
