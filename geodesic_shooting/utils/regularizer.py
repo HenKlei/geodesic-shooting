@@ -8,26 +8,26 @@ class BiharmonicRegularizer:
     This class implements a regularizer for vector fields to make them smooth,
     such that the corresponding flows define diffeomorphisms.
     """
-    def __init__(self, alpha=1, gamma=1):
+    def __init__(self, alpha=1, exponent=1):
         """Constructor.
 
         Parameters
         ----------
         alpha
             Smoothness parameter that determines how strong the smoothing effect should be.
-        gamma
+        exponent
             Penalty weight that ensures that the operator is non-singular.
         """
         assert alpha > 0
-        assert gamma > 0
+        assert exponent > 0
 
         self.alpha = alpha
-        self.gamma = gamma
+        self.exponent = exponent
 
         self.helper_operator = None
 
     def cauchy_navier(self, function):
-        """Application of the Cauchy-Navier type operator (-alpha * Δ + gamma * I) to a function.
+        """Application of the Cauchy-Navier type operator (-alpha * Δ + exponent * I) to a function.
 
         Parameters
         ----------
@@ -52,7 +52,7 @@ class BiharmonicRegularizer:
         dff = np.stack([convolve(function[d, ...], window)
                         for d in range(function.shape[0])], axis=0)
 
-        return - self.alpha * dff + self.gamma * function
+        return - self.alpha * dff + self.exponent * function
 
     def cauchy_navier_squared_inverse(self, function):
         """Application of the operator `K=(LL)^-1` where `L` is the Cauchy-Navier type operator.
@@ -101,7 +101,7 @@ class BiharmonicRegularizer:
             for d in range(dim):
                 helper_operator[i] += 2 * self.alpha * (1 - np.cos(2 * np.pi * i[d] / shape[d]))
 
-        helper_operator += self.gamma
+        helper_operator += self.exponent
 
         return np.stack([helper_operator, ] * dim, axis=0)
 
@@ -145,6 +145,6 @@ if __name__ == '__main__':
     v = np.zeros((2, 5, 5))
     v[0, 2, 2] = 1
 
-    regularizer = BiharmonicRegularizer(alpha=1, gamma=1)
+    regularizer = BiharmonicRegularizer(alpha=1, exponent=1)
 
     print(regularizer.cauchy_navier_squared_inverse(v)[0])

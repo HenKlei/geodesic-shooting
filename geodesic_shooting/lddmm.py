@@ -13,17 +13,17 @@ class LDDMM:
     Computing Large Deformation Metric Mappings via Geodesic Flows of Diffeomorphisms.
     Beg, Miller, Trouvé, Younes, 2004
     """
-    def __init__(self, alpha=6., gamma=1., log_level='INFO'):
+    def __init__(self, alpha=6., exponent=1., log_level='INFO'):
         """Constructor.
 
         Parameters
         ----------
         alpha
             Parameter for biharmonic regularizer.
-        gamma
+        exponent
             Parameter for biharmonic regularizer.
         """
-        self.regularizer = BiharmonicRegularizer(alpha, gamma)
+        self.regularizer = BiharmonicRegularizer(alpha, exponent)
 
         self.time_steps = 30
         self.shape = None

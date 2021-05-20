@@ -14,7 +14,7 @@ if __name__ == "__main__":
     target = make_square(64, np.array([32, 32]), 40)
 
     # perform the registration
-    lddmm = geodesic_shooting.LDDMM(alpha=1., gamma=1.)
+    lddmm = geodesic_shooting.LDDMM(alpha=1., exponent=1.)
     image, v, energies, Phi0, Phi1, J0, J1, length = lddmm.register(input_, target, sigma=0.1,
                                                                     epsilon=0.0001, iterations=50,
                                                                     return_all=True)
