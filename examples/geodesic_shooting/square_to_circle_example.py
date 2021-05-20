@@ -14,7 +14,7 @@ if __name__ == "__main__":
     input_ = make_square(64, np.array([32, 32]), 40)
 
     # perform the registration
-    geodesic_shooting = geodesic_shooting.GeodesicShooting(alpha=6., gamma=1.)
+    geodesic_shooting = geodesic_shooting.GeodesicShooting(alpha=6., exponent=1.)
     image, v0, energies, Phi0, length = geodesic_shooting.register(input_, target, sigma=0.1,
                                                                    epsilon=0.01, iterations=100,
                                                                    return_all=True)

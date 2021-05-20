@@ -13,17 +13,17 @@ class GeodesicShooting:
     Geodesic Shooting for Computational Anatomy.
     Miller, Trouvé, Younes, 2006
     """
-    def __init__(self, alpha=6., gamma=1., log_level='INFO'):
+    def __init__(self, alpha=6., exponent=1., log_level='INFO'):
         """Constructor.
 
         Parameters
         ----------
         alpha
             Parameter for biharmonic regularizer.
-        gamma
+        exponent
             Parameter for biharmonic regularizer.
         """
-        self.regularizer = BiharmonicRegularizer(alpha, gamma)
+        self.regularizer = BiharmonicRegularizer(alpha, exponent)
 
         self.time_steps = 30
         self.shape = None
@@ -128,18 +128,19 @@ class GeodesicShooting:
                 gradient_initial_velocity = -self.integrate_backward_adjoint_Jacobi_field_equations(
                     gradient_l2_energy, velocity_fields)
 
-                # compute the norm of the gradient; stop if below threshold (updates are too small)
-                norm_gradient_initial_velocity = np.linalg.norm(gradient_initial_velocity)
-                if norm_gradient_initial_velocity < self.gradient_norm_threshold:
-                    self.logger.warning(f"Gradient norm is {norm_gradient_initial_velocity} and "
-                                        "therefore below threshold. Stopping ...")
-                    break
-
                 # compute the current energy consisting of intensity difference and regularization
                 energy_regularizer = np.linalg.norm(self.regularizer.cauchy_navier(
                     initial_velocity_field))
                 energy_intensity = 1 / sigma**2 * compute_energy(forward_pushed_input)
                 energy = energy_regularizer + energy_intensity
+
+                # compute the norm of the gradient; stop if below threshold (updates are too small)
+                norm_gradient_initial_velocity = np.linalg.norm(gradient_initial_velocity)
+                if (norm_gradient_initial_velocity < self.gradient_norm_threshold
+                   and energy > self.energy_threshold):
+                    self.logger.warning(f"Gradient norm is {norm_gradient_initial_velocity} and "
+                                        "therefore below threshold. Stopping ...")
+                    break
 
                 # stop if energy is below threshold
                 if energy < self.energy_threshold:
@@ -147,8 +148,8 @@ class GeodesicShooting:
                     self.opt_energy_regularizer = energy_regularizer
                     self.opt_energy_intensity = energy_intensity
                     self.opt = (forward_pushed_input, initial_velocity_field, energies, flow)
-                    self.logger.warning(f"Energy below threshold of {self.energy_threshold}. "
-                                        "Stopping ...")
+                    self.logger.info(f"Energy below threshold of {self.energy_threshold}. "
+                                     "Stopping ...")
                     break
 
                 # update optimal energy if necessary
