@@ -101,83 +101,90 @@ class LDDMM:
         gradient_velocity_fields = np.copy(velocity_fields)
 
         with self.logger.block("Perform image matching via LDDMM algorithm ..."):
-            for k in range(iterations):
-                # update estimate of velocity
-                velocity_fields -= epsilon * gradient_velocity_fields
+            try:
+                for k in range(iterations):
+                    # update estimate of velocity
+                    velocity_fields -= epsilon * gradient_velocity_fields
 
-                # reparameterize velocity fields
-                if k % 10 == 9:
-                    velocity_fields = self.reparameterize(velocity_fields)
+                    # reparameterize velocity fields
+                    if k % 10 == 9:
+                        velocity_fields = self.reparameterize(velocity_fields)
 
-                # compute backward flows
-                backward_flows = self.integrate_backward_flow(velocity_fields)
+                    # compute backward flows
+                    backward_flows = self.integrate_backward_flow(velocity_fields)
 
-                # compute forward flows
-                forward_flows = self.integrate_forward_flow(velocity_fields)
+                    # compute forward flows
+                    forward_flows = self.integrate_forward_flow(velocity_fields)
 
-                # push-forward input_ image
-                forward_pushed_input = self.push_forward(input_, forward_flows)
+                    # push-forward input_ image
+                    forward_pushed_input = self.push_forward(input_, forward_flows)
 
-                # pull-back target image
-                back_pulled_target = self.pull_back(target, backward_flows)
+                    # pull-back target image
+                    back_pulled_target = self.pull_back(target, backward_flows)
 
-                # compute gradient of forward-pushed input_ image
-                gradient_forward_pushed_input = self.image_grad(forward_pushed_input)
+                    # compute gradient of forward-pushed input_ image
+                    gradient_forward_pushed_input = self.image_grad(forward_pushed_input)
 
-                # compute Jacobian determinant of the transformation
-                det_backward_flows = self.jacobian_determinant(backward_flows)
-                if self.is_injectivity_violated(det_backward_flows):
-                    self.logger.error("Injectivity violated. Stopping. "
-                                      "Try lowering the learning rate (epsilon).")
-                    break
+                    # compute Jacobian determinant of the transformation
+                    det_backward_flows = self.jacobian_determinant(backward_flows)
+                    if self.is_injectivity_violated(det_backward_flows):
+                        self.logger.error("Injectivity violated. Stopping. "
+                                          "Try lowering the learning rate (epsilon).")
+                        break
 
-                # compute the gradient of the energy
-                for time in range(0, self.time_steps):
-                    grad = compute_grad_energy(det_backward_flows[time],
-                                               gradient_forward_pushed_input[time],
-                                               forward_pushed_input[time],
-                                               back_pulled_target[time])
-                    gradient_velocity_fields[time] = 2 * velocity_fields[time] - 1 / sigma**2 * grad
+                    # compute the gradient of the energy
+                    for time in range(0, self.time_steps):
+                        grad = compute_grad_energy(det_backward_flows[time],
+                                                   gradient_forward_pushed_input[time],
+                                                   forward_pushed_input[time],
+                                                   back_pulled_target[time])
+                        gradient_velocity_fields[time] = (2 * velocity_fields[time]
+                                                          - 1 / sigma**2 * grad)
 
-                # compute the norm of the gradient of the energy; stop if small
-                norm_gradient_velocity_fields = np.linalg.norm(gradient_velocity_fields)
-                if norm_gradient_velocity_fields < self.gradient_norm_threshold:
-                    self.logger.warning(f"Gradient norm is {norm_gradient_velocity_fields} and "
-                                        "therefore below threshold. Stopping ...")
-                    break
+                    # compute the norm of the gradient of the energy; stop if small
+                    norm_gradient_velocity_fields = np.linalg.norm(gradient_velocity_fields)
+                    if norm_gradient_velocity_fields < self.gradient_norm_threshold:
+                        self.logger.warning(f"Gradient norm is {norm_gradient_velocity_fields} "
+                                            "and therefore below threshold. Stopping ...")
+                        break
 
-                # compute the current energy consisting of intensity difference and regularization
-                energy_regularizer = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(
-                    velocity_fields[time])) for time in range(self.time_steps)])
-                energy_intensity = 1 / sigma**2 * compute_energy(forward_pushed_input[-1])
-                energy = energy_regularizer + energy_intensity
+                    # compute the current energy consisting of intensity difference
+                    # and regularization
+                    energy_regularizer = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(
+                        velocity_fields[time])) for time in range(self.time_steps)])
+                    energy_intensity = 1 / sigma**2 * compute_energy(forward_pushed_input[-1])
+                    energy = energy_regularizer + energy_intensity
 
-                # stop if energy is below threshold
-                if energy < self.energy_threshold:
-                    self.opt_energy = energy
-                    self.opt_energy_regularizer = energy_regularizer
-                    self.opt_energy_intensity = energy_intensity
-                    self.opt = (forward_pushed_input[-1], velocity_fields, energies, forward_flows,
-                                backward_flows, forward_pushed_input, back_pulled_target)
-                    self.logger.warning(f"Energy below threshold of {self.energy_threshold}. "
-                                        "Stopping ...")
-                    break
+                    # stop if energy is below threshold
+                    if energy < self.energy_threshold:
+                        self.opt_energy = energy
+                        self.opt_energy_regularizer = energy_regularizer
+                        self.opt_energy_intensity = energy_intensity
+                        self.opt = (forward_pushed_input[-1], velocity_fields, energies,
+                                    forward_flows, backward_flows, forward_pushed_input,
+                                    back_pulled_target)
+                        self.logger.warning(f"Energy below threshold of {self.energy_threshold}. "
+                                            "Stopping ...")
+                        break
 
-                # update optimal energy if necessary
-                if self.opt_energy is None or energy < self.opt_energy:
-                    self.opt_energy = energy
-                    self.opt_energy_regularizer = energy_regularizer
-                    self.opt_energy_intensity = energy_intensity
-                    self.opt = (forward_pushed_input[-1], velocity_fields, energies, forward_flows,
-                                backward_flows, forward_pushed_input, back_pulled_target)
+                    # update optimal energy if necessary
+                    if self.opt_energy is None or energy < self.opt_energy:
+                        self.opt_energy = energy
+                        self.opt_energy_regularizer = energy_regularizer
+                        self.opt_energy_intensity = energy_intensity
+                        self.opt = (forward_pushed_input[-1], velocity_fields, energies,
+                                    forward_flows, backward_flows, forward_pushed_input,
+                                    back_pulled_target)
 
-                energies.append(energy)
+                    energies.append(energy)
 
-                # output of current iteration and energies
-                self.logger.info(f"iter: {k:3d}, "
-                                 f"energy: {energy:4.2f}, "
-                                 f"L2: {energy_intensity:4.2f}, "
-                                 f"reg: {energy_regularizer:4.2f}")
+                    # output of current iteration and energies
+                    self.logger.info(f"iter: {k:3d}, "
+                                     f"energy: {energy:4.2f}, "
+                                     f"L2: {energy_intensity:4.2f}, "
+                                     f"reg: {energy_regularizer:4.2f}")
+            except KeyboardInterrupt:
+                self.logger.warning("Aborting registration ...")
 
         self.logger.info("Finished registration ...")
 

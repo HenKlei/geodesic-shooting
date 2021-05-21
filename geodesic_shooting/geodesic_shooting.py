@@ -103,69 +103,75 @@ class GeodesicShooting:
         gradient_initial_velocity = np.copy(initial_velocity_field)
 
         with self.logger.block("Perform image matching via geodesic shooting ..."):
-            for k in range(iterations):
-                # update estimate of initial velocity
-                initial_velocity_field -= epsilon * gradient_initial_velocity
+            try:
+                for k in range(iterations):
+                    # update estimate of initial velocity
+                    initial_velocity_field -= epsilon * gradient_initial_velocity
 
-                # integrate initial velocity field forward in time
-                velocity_fields = self.integrate_forward_vector_field(initial_velocity_field)
+                    # integrate initial velocity field forward in time
+                    velocity_fields = self.integrate_forward_vector_field(initial_velocity_field)
 
-                # compute forward flows according to the velocity fields
-                flow = self.integrate_forward_flow(velocity_fields)
+                    # compute forward flows according to the velocity fields
+                    flow = self.integrate_forward_flow(velocity_fields)
 
-                # push-forward input_ image
-                forward_pushed_input = self.push_forward(input_, flow)
+                    # push-forward input_ image
+                    forward_pushed_input = self.push_forward(input_, flow)
 
-                # compute gradient of the forward-pushed image
-                gradient_forward_pushed_input = self.image_grad(forward_pushed_input)
+                    # compute gradient of the forward-pushed image
+                    gradient_forward_pushed_input = self.image_grad(forward_pushed_input)
 
-                # compute gradient of the intensity difference
-                gradient_l2_energy = (1 / sigma**2
-                                      * compute_grad_energy(gradient_forward_pushed_input,
-                                                            forward_pushed_input))
+                    # compute gradient of the intensity difference
+                    gradient_l2_energy = (1 / sigma**2
+                                          * compute_grad_energy(gradient_forward_pushed_input,
+                                                                forward_pushed_input))
 
-                # compute gradient of the intensity difference with respect to the initial velocity
-                gradient_initial_velocity = -self.integrate_backward_adjoint_Jacobi_field_equations(
-                    gradient_l2_energy, velocity_fields)
+                    # compute gradient of the intensity difference with respect to the
+                    # initial velocity
+                    gradient_initial_velocity = -self.integrate_backward_adjoint_Jacobi_field(
+                        gradient_l2_energy, velocity_fields)
 
-                # compute the current energy consisting of intensity difference and regularization
-                energy_regularizer = np.linalg.norm(self.regularizer.cauchy_navier(
-                    initial_velocity_field))
-                energy_intensity = 1 / sigma**2 * compute_energy(forward_pushed_input)
-                energy = energy_regularizer + energy_intensity
+                    # compute the current energy consisting of intensity difference
+                    # and regularization
+                    energy_regularizer = np.linalg.norm(self.regularizer.cauchy_navier(
+                        initial_velocity_field))
+                    energy_intensity = 1 / sigma**2 * compute_energy(forward_pushed_input)
+                    energy = energy_regularizer + energy_intensity
 
-                # compute the norm of the gradient; stop if below threshold (updates are too small)
-                norm_gradient_initial_velocity = np.linalg.norm(gradient_initial_velocity)
-                if (norm_gradient_initial_velocity < self.gradient_norm_threshold
-                   and energy > self.energy_threshold):
-                    self.logger.warning(f"Gradient norm is {norm_gradient_initial_velocity} and "
-                                        "therefore below threshold. Stopping ...")
-                    break
+                    # compute the norm of the gradient; stop if below threshold
+                    # (updates are too small)
+                    norm_gradient_initial_velocity = np.linalg.norm(gradient_initial_velocity)
+                    if (norm_gradient_initial_velocity < self.gradient_norm_threshold
+                       and energy > self.energy_threshold):
+                        self.logger.warning(f"Gradient norm is {norm_gradient_initial_velocity} "
+                                            "and therefore below threshold. Stopping ...")
+                        break
 
-                # stop if energy is below threshold
-                if energy < self.energy_threshold:
-                    self.opt_energy = energy
-                    self.opt_energy_regularizer = energy_regularizer
-                    self.opt_energy_intensity = energy_intensity
-                    self.opt = (forward_pushed_input, initial_velocity_field, energies, flow)
-                    self.logger.info(f"Energy below threshold of {self.energy_threshold}. "
-                                     "Stopping ...")
-                    break
+                    # stop if energy is below threshold
+                    if energy < self.energy_threshold:
+                        self.opt_energy = energy
+                        self.opt_energy_regularizer = energy_regularizer
+                        self.opt_energy_intensity = energy_intensity
+                        self.opt = (forward_pushed_input, initial_velocity_field, energies, flow)
+                        self.logger.info(f"Energy below threshold of {self.energy_threshold}. "
+                                         "Stopping ...")
+                        break
 
-                # update optimal energy if necessary
-                if self.opt_energy is None or energy < self.opt_energy:
-                    self.opt_energy = energy
-                    self.opt_energy_regularizer = energy_regularizer
-                    self.opt_energy_intensity = energy_intensity
-                    self.opt = (forward_pushed_input, initial_velocity_field, energies, flow)
+                    # update optimal energy if necessary
+                    if self.opt_energy is None or energy < self.opt_energy:
+                        self.opt_energy = energy
+                        self.opt_energy_regularizer = energy_regularizer
+                        self.opt_energy_intensity = energy_intensity
+                        self.opt = (forward_pushed_input, initial_velocity_field, energies, flow)
 
-                energies.append(energy)
+                    energies.append(energy)
 
-                # output of current iteration and energies
-                self.logger.info(f"iter: {k:3d}, "
-                                 f"energy: {energy:4.2f}, "
-                                 f"L2: {energy_intensity:4.2f}, "
-                                 f"reg: {energy_regularizer:4.2f}")
+                    # output of current iteration and energies
+                    self.logger.info(f"iter: {k:3d}, "
+                                     f"energy: {energy:4.2f}, "
+                                     f"L2: {energy_intensity:4.2f}, "
+                                     f"reg: {energy_regularizer:4.2f}")
+            except KeyboardInterrupt:
+                self.logger.warning("Aborting registration ...")
 
         self.logger.info("Finished registration ...")
 
@@ -294,8 +300,7 @@ class GeodesicShooting:
 
         return velocity_fields
 
-    def integrate_backward_adjoint_Jacobi_field_equations(self, gradient_l2_energy,
-                                                          velocity_fields):
+    def integrate_backward_adjoint_Jacobi_field(self, gradient_l2_energy, velocity_fields):
         """Performs backward integration of the adjoint jacobi field equations.
 
         Parameters
