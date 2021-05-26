@@ -37,8 +37,8 @@ class GeodesicShooting:
 
         self.logger = getLogger('geodesic_shooting', level=log_level)
 
-    def register(self, input_, target, time_steps=30, iterations=100, sigma=1, epsilon=0.01,
-                 return_all=False):
+    def register(self, input_, target, time_steps=30, iterations=1000, sigma=1, epsilon=0.01,
+                 early_stopping=10, return_all=False):
         """Performs actual registration according to LDDMM algorithm with time-varying velocity
            fields that are chosen via geodesics.
 
@@ -57,6 +57,9 @@ class GeodesicShooting:
             image); the smaller sigma, the larger the influence of the L2 loss.
         epsilon
             Learning rate, i.e. step size of the optimizer.
+        early_stopping
+            Number of iterations with non-decreasing energy after which to stop registration.
+            If `None`, no early stopping is used.
         return_all
             Determines whether or not to return all information or only the initial vector field
             that led to the best registration result.
@@ -72,6 +75,7 @@ class GeodesicShooting:
         assert isinstance(iterations, int) and iterations > 0
         assert sigma > 0
         assert 0 < epsilon < 1
+        assert (isinstance(early_stopping, int) and early_stopping > 0) or early_stopping is None
         assert input_.shape == target.shape
 
         input_ = input_.astype('double')
@@ -96,6 +100,8 @@ class GeodesicShooting:
         self.gradient_norm_threshold = 1e-3
 
         energies = []
+
+        energy_not_decreasing = 0
 
         # define vector fields
         initial_velocity_field = np.zeros((self.dim, *self.shape), dtype=np.double)
@@ -162,6 +168,14 @@ class GeodesicShooting:
                         self.opt_energy_regularizer = energy_regularizer
                         self.opt_energy_intensity = energy_intensity
                         self.opt = (forward_pushed_input, initial_velocity_field, energies, flow)
+                        energy_not_decreasing = 0
+                    else:
+                        energy_not_decreasing += 1
+
+                    if early_stopping is not None and energy_not_decreasing >= early_stopping:
+                        self.logger.info(f"Energy did not decrease for {early_stopping} "
+                                         "iterations. Early stopping ...")
+                        break
 
                     energies.append(energy)
 
