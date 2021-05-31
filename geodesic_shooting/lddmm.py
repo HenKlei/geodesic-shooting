@@ -158,7 +158,8 @@ class LDDMM:
                     # and regularization
                     energy_regularizer = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(
                         velocity_fields[time])) for time in range(self.time_steps)])
-                    energy_intensity = 1 / sigma**2 * compute_energy(forward_pushed_input[-1])
+                    energy_intensity_unscaled = compute_energy(forward_pushed_input[-1])
+                    energy_intensity = 1 / sigma**2 * energy_intensity_unscaled
                     energy = energy_regularizer + energy_intensity
 
                     # stop if energy is below threshold
@@ -166,6 +167,7 @@ class LDDMM:
                         self.opt_energy = energy
                         self.opt_energy_regularizer = energy_regularizer
                         self.opt_energy_intensity = energy_intensity
+                        self.opt_energy_intensity_unscaled = energy_intensity_unscaled
                         self.opt = (forward_pushed_input[-1], velocity_fields, energies,
                                     forward_flows, backward_flows, forward_pushed_input,
                                     back_pulled_target)
@@ -178,6 +180,7 @@ class LDDMM:
                         self.opt_energy = energy
                         self.opt_energy_regularizer = energy_regularizer
                         self.opt_energy_intensity = energy_intensity
+                        self.opt_energy_intensity_unscaled = energy_intensity_unscaled
                         self.opt = (forward_pushed_input[-1], velocity_fields, energies,
                                     forward_flows, backward_flows, forward_pushed_input,
                                     back_pulled_target)
@@ -195,7 +198,7 @@ class LDDMM:
                     # output of current iteration and energies
                     self.logger.info(f"iter: {k:3d}, "
                                      f"energy: {energy:4.2f}, "
-                                     f"L2: {energy_intensity:4.2f}, "
+                                     f"L2 (w/o scale): {energy_intensity_unscaled:4.4f}, "
                                      f"reg: {energy_regularizer:4.2f}")
             except KeyboardInterrupt:
                 self.logger.warning("Aborting registration ...")
@@ -204,7 +207,10 @@ class LDDMM:
 
         if self.opt_energy is not None:
             self.logger.info(f"Optimal energy: {self.opt_energy:4.4f}")
-            self.logger.info(f"Optimal intensity difference: {self.opt_energy_intensity:4.4f}")
+            self.logger.info("Optimal intensity difference (with scale): "
+                             f"{self.opt_energy_intensity:4.4f}")
+            self.logger.info("Optimal intensity difference (without scale): "
+                             f"{self.opt_energy_intensity_unscaled:4.4f}")
             self.logger.info(f"Optimal regularization: {self.opt_energy_regularizer:4.4f}")
 
         if self.opt[1] is not None:
