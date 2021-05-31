@@ -140,7 +140,8 @@ class GeodesicShooting:
                     # and regularization
                     energy_regularizer = np.linalg.norm(self.regularizer.cauchy_navier(
                         initial_velocity_field))
-                    energy_intensity = 1 / sigma**2 * compute_energy(forward_pushed_input)
+                    energy_intensity_unscaled = compute_energy(forward_pushed_input)
+                    energy_intensity = 1 / sigma**2 * energy_intensity_unscaled
                     energy = energy_regularizer + energy_intensity
 
                     # compute the norm of the gradient; stop if below threshold
@@ -157,6 +158,7 @@ class GeodesicShooting:
                         self.opt_energy = energy
                         self.opt_energy_regularizer = energy_regularizer
                         self.opt_energy_intensity = energy_intensity
+                        self.opt_energy_intensity_unscaled = energy_intensity_unscaled
                         self.opt = (forward_pushed_input, initial_velocity_field, energies, flow)
                         self.logger.info(f"Energy below threshold of {self.energy_threshold}. "
                                          "Stopping ...")
@@ -167,6 +169,7 @@ class GeodesicShooting:
                         self.opt_energy = energy
                         self.opt_energy_regularizer = energy_regularizer
                         self.opt_energy_intensity = energy_intensity
+                        self.opt_energy_intensity_unscaled = energy_intensity_unscaled
                         self.opt = (forward_pushed_input, initial_velocity_field, energies, flow)
                         energy_not_decreasing = 0
                     else:
@@ -182,7 +185,7 @@ class GeodesicShooting:
                     # output of current iteration and energies
                     self.logger.info(f"iter: {k:3d}, "
                                      f"energy: {energy:4.2f}, "
-                                     f"L2: {energy_intensity:4.2f}, "
+                                     f"L2 (w/o scale): {energy_intensity_unscaled:4.4f}, "
                                      f"reg: {energy_regularizer:4.2f}")
             except KeyboardInterrupt:
                 self.logger.warning("Aborting registration ...")
@@ -191,7 +194,10 @@ class GeodesicShooting:
 
         if self.opt_energy is not None:
             self.logger.info(f"Optimal energy: {self.opt_energy:4.4f}")
-            self.logger.info(f"Optimal intensity difference: {self.opt_energy_intensity:4.4f}")
+            self.logger.info("Optimal intensity difference (with scale): "
+                             f"{self.opt_energy_intensity:4.4f}")
+            self.logger.info("Optimal intensity difference (without scale): "
+                             f"{self.opt_energy_intensity_unscaled:4.4f}")
             self.logger.info(f"Optimal regularization: {self.opt_energy_regularizer:4.4f}")
 
         if self.opt[1] is not None:
