@@ -15,18 +15,27 @@ if __name__ == "__main__":
 
     # perform the registration
     lddmm = geodesic_shooting.LDDMM(alpha=1., exponent=1.)
-    image, v, energies, Phi0, Phi1, J0, J1, length = lddmm.register(input_, target, sigma=0.1,
-                                                                    epsilon=0.0001, iterations=50,
-                                                                    return_all=True)
+    result = lddmm.register(input_, target, sigma=0.1, epsilon=0.0001, iterations=50,
+                            return_all=True)
 
-    norm = np.linalg.norm((target - image).flatten()) / np.linalg.norm(target.flatten())
+    transformed_input = result['transformed_input']
+    J0 = result['forward_pushed_input']
+    Phi0 = result['forward_flows']
+    Phi1 = result['backward_flows']
+    v = result['velocity_fields']
+
+    print(f"Registration finished after {result['iterations']} iterations.")
+    print(f"Registration took {result['time']} seconds.")
+    print(f"Reason for the registration algorithm to stop: {result['reason_registration_ended']}.")
+
+    norm = np.linalg.norm((target - transformed_input).flatten()) / np.linalg.norm(target.flatten())
     print(f'Relative norm of difference: {norm}')
 
     plt.matshow(input_)
     plt.title("Input")
     plt.matshow(target)
     plt.title("Target")
-    plt.matshow(image)
+    plt.matshow(transformed_input)
     plt.title("Result")
 
     FILEPATH_RESULTS = 'results/'
@@ -34,7 +43,7 @@ if __name__ == "__main__":
         os.makedirs(FILEPATH_RESULTS)
 
     # save input_ aligned to target
-    save_image(image, FILEPATH_RESULTS + 'circle_to_square.png')
+    save_image(transformed_input, FILEPATH_RESULTS + 'circle_to_square.png')
 
     # save animation of the transformation
     save_animation(J0, FILEPATH_RESULTS + 'circle_to_square.gif')

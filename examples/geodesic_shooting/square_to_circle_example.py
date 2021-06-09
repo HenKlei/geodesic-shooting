@@ -15,18 +15,25 @@ if __name__ == "__main__":
 
     # perform the registration
     geodesic_shooting = geodesic_shooting.GeodesicShooting(alpha=6., exponent=1.)
-    image, v0, energies, Phi0, length = geodesic_shooting.register(input_, target, sigma=0.1,
-                                                                   epsilon=0.01, iterations=100,
-                                                                   return_all=True)
+    result = geodesic_shooting.register(input_, target, sigma=0.1, epsilon=0.01, iterations=100,
+                                        return_all=True)
 
-    norm = np.linalg.norm((target - image).flatten()) / np.linalg.norm(target.flatten())
-    print(f'Relative norm of difference: {norm}')
+    transformed_input = result['transformed_input']
+    v0 = result['initial_velocity_field']
+    Phi0 = result['flow']
+
+    print(f"Registration finished after {result['iterations']} iterations.")
+    print(f"Registration took {result['time']} seconds.")
+    print(f"Reason for the registration algorithm to stop: {result['reason_registration_ended']}.")
+
+    norm = np.linalg.norm((target - transformed_input).flatten()) / np.linalg.norm(target.flatten())
+    print(f"Relative norm of difference: {norm}")
 
     plt.matshow(input_)
     plt.title("Input")
     plt.matshow(target)
     plt.title("Target")
-    plt.matshow(image)
+    plt.matshow(transformed_input)
     plt.title("Result")
 
     FILEPATH_RESULTS = 'results/'
@@ -34,7 +41,7 @@ if __name__ == "__main__":
         os.makedirs(FILEPATH_RESULTS)
 
     # save input_ aligned to target
-    save_image(image, FILEPATH_RESULTS + 'square_to_circle.png')
+    save_image(transformed_input, FILEPATH_RESULTS + 'square_to_circle.png')
 
     # plot the inverse transformation
     fig_inverse = plot_warpgrid(Phi0, title="Inverse warp grid (S2C)", interval=2)
