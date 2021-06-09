@@ -13,10 +13,16 @@ if __name__ == "__main__":
 
     # perform the registration
     lddmm = geodesic_shooting.LDDMM(alpha=10., exponent=1.)
-    image, _, _, _, _, _, _, _ = lddmm.register(input_, target, sigma=0.05, epsilon=0.01,
-                                                early_stopping=50, return_all=True)
+    result = lddmm.register(input_, target, sigma=0.05, epsilon=0.01, early_stopping=50,
+                            return_all=True)
 
-    print(f'Input: {input_}')
-    print(f'Target: {target}')
-    print(f'Registration result: {image}')
-    print(f'Relative norm of difference: {np.linalg.norm(target - image) / np.linalg.norm(target)}')
+    transformed_input = result['transformed_input']
+
+    print(f"Input: {input_}")
+    print(f"Target: {target}")
+    print(f"Registration result: {transformed_input}")
+    print(f"Registration finished after {result['iterations']} iterations.")
+    print(f"Registration took {result['time']} seconds.")
+    print(f"Reason for the registration algorithm to stop: {result['reason_registration_ended']}.")
+    print("Relative norm of difference: "
+          f"{np.linalg.norm(target - transformed_input) / np.linalg.norm(target)}")

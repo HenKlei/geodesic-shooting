@@ -14,10 +14,15 @@ if __name__ == "__main__":
 
     # perform the registration
     gs = geodesic_shooting.GeodesicShooting(alpha=6., exponent=1.)
-    image, v0, energies, Phi0, length = gs.register(input_, target, sigma=0.01,
-                                                    epsilon=0.0001, return_all=True)
+    result = gs.register(input_, target, sigma=0.01, epsilon=0.0001, return_all=True)
 
-    print(f'Input: {input_}')
-    print(f'Target: {target}')
-    print(f'Registration result: {image}')
-    print(f'Relative norm of difference: {np.linalg.norm(target - image) / np.linalg.norm(target)}')
+    transformed_input = result['transformed_input']
+
+    print(f"Input: {input_}")
+    print(f"Target: {target}")
+    print(f"Registration result: {transformed_input}")
+    print(f"Registration finished after {result['iterations']} iterations.")
+    print(f"Registration took {result['time']} seconds.")
+    print(f"Reason for the registration algorithm to stop: {result['reason_registration_ended']}.")
+    print("Relative norm of difference: "
+          f"{np.linalg.norm(target - transformed_input) / np.linalg.norm(target)}")

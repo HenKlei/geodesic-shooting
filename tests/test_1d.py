@@ -13,7 +13,9 @@ def test_1d():
 
     # perform the registration
     gs = geodesic_shooting.GeodesicShooting(alpha=6., exponent=1.)
-    image, _, _, _, _ = gs.register(input_, target, sigma=0.05, epsilon=0.01,
-                                    early_stopping=20, return_all=True)
+    result = gs.register(input_, target, sigma=0.05, epsilon=0.01, early_stopping=20,
+                         return_all=True)
 
-    assert np.abs(np.linalg.norm(target - image) / np.linalg.norm(target)) < 1e-3
+    transformed_input = result['transformed_input']
+
+    assert np.abs(np.linalg.norm(target - transformed_input) / np.linalg.norm(target)) < 1e-3
