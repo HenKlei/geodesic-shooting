@@ -15,7 +15,9 @@ if __name__ == "__main__":
 
     # perform the registration
     gs = geodesic_shooting.LandmarkShooting()
-    final_momenta, final_positions = gs.register(input_landmarks, target_landmarks)
+    result = gs.register(input_landmarks, target_landmarks, return_all=True)
+    final_momenta = result['initial_momenta']
+    final_positions = result['transformed_landmarks']
 
     fig = plt.figure()
     axis = fig.add_subplot(1, 1, 1)
@@ -37,6 +39,7 @@ if __name__ == "__main__":
 
     print(f"Input: {input_landmarks}")
     print(f"Target: {target_landmarks}")
+    print(f"Result: {final_positions}")
     rel_error = (np.linalg.norm(target_landmarks - final_positions)
                  / np.linalg.norm(target_landmarks))
     print(f"Relative norm of difference: {rel_error}")

@@ -80,7 +80,7 @@ class GeodesicShooting:
         assert iterations is None or (isinstance(iterations, int) and iterations > 0)
         assert sigma > 0
         assert 0 < epsilon < 1
-        assert (isinstance(early_stopping, int) and early_stopping > 0) or early_stopping is None
+        assert early_stopping is None or (isinstance(early_stopping, int) and early_stopping > 0)
         assert input_.shape == target.shape
 
         input_ = input_.astype('double')
