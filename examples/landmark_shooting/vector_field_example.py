@@ -24,16 +24,16 @@ if __name__ == "__main__":
     max_y = 2.
 
     plot_initial_momenta_and_landmarks(initial_momenta.flatten(), input_landmarks.flatten(), kernel=gs.kernel,
-                                       dim=gs.dim, min_x=min_x, max_x=max_x, min_y=min_y, max_y=max_y, N=N)
+                                       min_x=min_x, max_x=max_x, min_y=min_y, max_y=max_y, N=N)
     plt.show()
 
     momenta, positions = gs.integrate_forward_Hamiltonian(initial_momenta.flatten(),
                                                           input_landmarks.flatten())
 
-    plot_landmark_trajectories(momenta, positions, kernel=gs.kernel, dim=gs.dim,
+    plot_landmark_trajectories(momenta, positions, kernel=gs.kernel,
                                min_x=min_x, max_x=max_x, min_y=min_y, max_y=max_y, N=N)
     plt.show()
 
-    ani = animate_landmark_trajectories(momenta, positions, kernel=gs.kernel, dim=gs.dim,
+    ani = animate_landmark_trajectories(momenta, positions, kernel=gs.kernel,
                                         min_x=min_x, max_x=max_x, min_y=min_y, max_y=max_y, N=N)
     plt.show()

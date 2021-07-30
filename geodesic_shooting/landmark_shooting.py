@@ -69,8 +69,8 @@ class LandmarkShooting:
         Returns
         -------
         Either the best initial momenta (if return_all is False) or a dictionary consisting of the
-        transformed landmarks, the initial momenta and the energies (if return_all is
-        True).
+        transformed/registered landmarks, the initial momenta, the energies and the time evolutions
+        of momenta and positions (if return_all is True).
         """
         assert isinstance(time_steps, int)
         self.time_steps = time_steps
@@ -96,22 +96,25 @@ class LandmarkShooting:
             return 2. * (positions - target_landmarks.flatten()) / sigma**2
 
         def set_opt(opt, energy, energy_regularizer, energy_l2, energy_l2_unscaled,
-                    transformed_landmarks, initial_momenta):
+                    initial_momenta, registered_landmarks, time_evolution_momenta, time_evolution_positions):
             opt['energy'] = energy
             opt['energy_regularizer'] = energy_regularizer
             opt['energy_l2'] = energy_l2
             opt['energy_l2_unscaled'] = energy_l2_unscaled
-            opt['transformed_landmarks'] = transformed_landmarks
             opt['initial_momenta'] = initial_momenta
+            opt['registered_landmarks'] = registered_landmarks
+            opt['time_evolution_momenta'] = time_evolution_momenta
+            opt['time_evolution_positions'] = time_evolution_positions
             return opt
-
-        opt = set_opt({}, None, None, None, None, input_landmarks, initial_momenta)
-
-        k = 0
-        reason_registration_ended = 'reached maximum number of iterations'
 
         momenta_time_dependent, positions_time_dependent = self.integrate_forward_Hamiltonian(
             momenta, input_landmarks.flatten())
+
+        opt = set_opt({}, None, None, None, None, initial_momenta, input_landmarks,
+                      momenta_time_dependent, positions_time_dependent)
+
+        k = 0
+        reason_registration_ended = 'reached maximum number of iterations'
 
         start_time = time.perf_counter()
 
@@ -135,8 +138,9 @@ class LandmarkShooting:
                     # update optimal energy if necessary
                     if opt['energy'] is None or energy < opt['energy']:
                         opt = set_opt(opt, energy, energy_regularizer, energy_l2,
-                                      energy_l2_unscaled, positions.reshape((-1, self.dim)),
-                                      momenta.reshape((-1, self.dim)))
+                                      energy_l2_unscaled, momenta.reshape((-1, self.dim)),
+                                      positions.reshape((-1, self.dim)), momenta_time_dependent,
+                                      positions_time_dependent)
                         energy_not_decreasing = 0
                     else:
                         energy_not_decreasing += 1

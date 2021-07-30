@@ -3,6 +3,11 @@ import matplotlib.pyplot as plt
 
 import geodesic_shooting
 
+from geodesic_shooting.utils.visualization import (animate_landmark_trajectories,
+                                                   plot_initial_momenta_and_landmarks,
+                                                   plot_landmark_matchings,
+                                                   plot_landmark_trajectories)
+
 
 if __name__ == "__main__":
     # define greyscale images
@@ -17,29 +22,28 @@ if __name__ == "__main__":
     gs = geodesic_shooting.LandmarkShooting()
     result = gs.register(input_landmarks, target_landmarks, return_all=True)
     final_momenta = result['initial_momenta']
-    final_positions = result['transformed_landmarks']
+    registered_landmarks = result['registered_landmarks']
 
-    fig = plt.figure()
-    axis = fig.add_subplot(1, 1, 1)
+    plot_landmark_matchings(input_landmarks, target_landmarks, registered_landmarks)
+    plt.show()
 
-    axis.set_aspect('equal')
+    plot_initial_momenta_and_landmarks(final_momenta.flatten(), registered_landmarks.flatten(),
+                                       min_x=0., max_x=7., min_y=-2., max_y=4.)
+    plt.show()
 
-    for landmark in range(input_landmarks.shape[0]):
-        axis.scatter(input_landmarks[landmark][0], input_landmarks[landmark][1],
-                     s=100, color=f'C{landmark}')
-        axis.scatter(input_landmarks[landmark][0], input_landmarks[landmark][1],
-                     s=10, color='black')
-        axis.scatter(target_landmarks[landmark][0], target_landmarks[landmark][1],
-                     s=100, color=f'C{landmark}')
-        axis.scatter(target_landmarks[landmark][0], target_landmarks[landmark][1],
-                     s=10, color='white')
-        axis.scatter(final_positions[landmark][0], final_positions[landmark][1],
-                     s=100, color=f'C{landmark}')
+    time_evolution_momenta = result['time_evolution_momenta']
+    time_evolution_positions = result['time_evolution_positions']
+    plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
+                               min_x=0., max_x=7., min_y=-2., max_y=4.)
+    plt.show()
+
+    ani = animate_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
+                                        min_x=0., max_x=7., min_y=-2., max_y=4.)
     plt.show()
 
     print(f"Input: {input_landmarks}")
     print(f"Target: {target_landmarks}")
-    print(f"Result: {final_positions}")
-    rel_error = (np.linalg.norm(target_landmarks - final_positions)
+    print(f"Result: {registered_landmarks}")
+    rel_error = (np.linalg.norm(target_landmarks - registered_landmarks)
                  / np.linalg.norm(target_landmarks))
     print(f"Relative norm of difference: {rel_error}")
