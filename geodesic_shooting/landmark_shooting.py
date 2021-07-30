@@ -311,28 +311,3 @@ class LandmarkShooting:
 #                + positions[t] @ @ positions[t]  # maybe a term is missing here...
 
         return d_momenta[-1]
-
-    def construct_vector_field(self, positions, momenta):
-        """Computes the vector field corresponding to the given positions and momenta.
-
-        Parameters
-        ----------
-        momenta
-            Array containing the momenta of the landmarks.
-        positions
-            Array containing the positions of the landmarks.
-
-        Returns
-        -------
-        Function that can be evaluated at any point of the space.
-        """
-        assert positions.ndim == 2
-        assert positions.shape == momenta.shape
-
-        def vector_field(x):
-            result = np.zeros(positions.shape[1])
-            for q, p in zip(positions, momenta):
-                result += self.kernel(x, q) @ p
-            return result
-
-        return vector_field
