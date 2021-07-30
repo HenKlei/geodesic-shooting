@@ -2,12 +2,21 @@ import numpy as np
 
 
 class Kernel:
+    """Base class for kernels."""
     def __call__(self, x, y):
         raise NotImplementedError
 
 
 class GaussianKernel(Kernel):
+    """Class that implements a Gaussian (matrix-valued, diagonal) kernel."""
     def __init__(self, sigma=1./np.sqrt(2.)):
+        """Constructor.
+
+        Parameters
+        ----------
+        sigma
+            Scaling parameter for the Gaussian bell curve.
+        """
         super().__init__()
         assert sigma > 0
         self.sigma = sigma
@@ -30,27 +39,6 @@ class GaussianKernel(Kernel):
         assert x.shape == y.shape
         assert 0 <= i < x.shape[0]
         return (x[i] - y[i]) / self.sigma**2 * self(x, y)[0][0]
-
-
-class LaplaceKernel(Kernel):
-    def __init__(self, sigma=0.1):
-        super().__init__()
-        assert sigma > 0
-        self.sigma = sigma
-
-    def __call__(self, x, y):
-        return np.exp(-np.linalg.norm(x-y) / (2*self.sigma))
-
-
-class PolynomialKernel(Kernel):
-    def __init__(self, alpha=0.1, d=2):
-        super().__init__()
-        self.alpha = alpha
-        assert isinstance(d, int)
-        self.d = d
-
-    def __call__(self, x, y):
-        return (self.alpha * x.dot(y) + 1.)**self.d
 
 
 k = GaussianKernel(sigma=1.)
