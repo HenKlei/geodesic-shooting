@@ -12,11 +12,7 @@ from geodesic_shooting.utils.visualization import (animate_landmark_trajectories
 if __name__ == "__main__":
     # define greyscale images
     input_landmarks = np.array([[5., 3.], [4., 2.], [1., 0.], [2., 3.]])
-    print(input_landmarks.shape)
-    print(input_landmarks)
     target_landmarks = np.array([[6., 2.], [5., 1.], [1., -1.], [2.5, 2.]])
-    print(target_landmarks.shape)
-    print(target_landmarks)
 
     # perform the registration
     gs = geodesic_shooting.LandmarkShooting()
