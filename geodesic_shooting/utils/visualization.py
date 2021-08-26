@@ -5,7 +5,7 @@ import matplotlib.animation as animation
 from geodesic_shooting.utils.kernels import GaussianKernel
 
 
-def plot_warpgrid(warp, title='', interval=2, show_axis=False):
+def plot_warpgrid(warp, title='', interval=2, show_axis=False, invert_yaxis=True):
     """Plot the given warpgrid.
 
     Parameters
@@ -23,6 +23,7 @@ def plot_warpgrid(warp, title='', interval=2, show_axis=False):
     -------
     The created plot.
     """
+    assert warp.ndim == 3
     assert warp.shape[0] == 2
 
     fig = plt.figure()
@@ -31,7 +32,8 @@ def plot_warpgrid(warp, title='', interval=2, show_axis=False):
     if show_axis is False:
         axis.set_axis_off()
 
-    axis.invert_yaxis()
+    if invert_yaxis:
+        axis.invert_yaxis()
     axis.set_aspect('equal')
     axis.set_title(title)
 
@@ -359,3 +361,71 @@ def plot_landmark_matchings(input_landmarks, target_landmarks, registered_landma
     plt.legend()
 
     return fig
+
+
+def animate_warpgrids(time_evolution_warp, min_x=-1., max_x=1., min_y=-1., max_y=1.,
+                      title='', interval=1, show_axis=True):
+    """Animate the trajectories of the landmarks.
+
+    Parameters
+    ----------
+    time_evolution_momenta
+        Array containing the landmark momenta at different time instances.
+    time_evolution_positions
+        Array containing the landmark positions at different time instances.
+    kernel
+        Kernel to use for extending the vector field to the whole domain.
+    min_x
+        Minimum x-value.
+    max_x
+        Maximum x-value.
+    min_y
+        Minimum y-value.
+    max_y
+        Maximum y-value.
+    N
+        Size of the vector field grid.
+    title
+        Title of the plot.
+    landmark_size
+        Size of the landmarks.
+    arrow_scale
+        Scaling factor for the arrows.
+
+    Returns
+    -------
+    The created plot.
+    """
+    assert time_evolution_warp.ndim == 4
+    assert time_evolution_warp.shape[1] == 2
+
+    fig = plt.figure()
+    axis = fig.add_subplot(1, 1, 1)
+
+    if show_axis is False:
+        axis.set_axis_off()
+
+    axis.set_aspect('equal')
+    axis.set_title(title)
+
+    axis.set_xlim([min_x, max_x])
+    axis.set_ylim([min_y, max_y])
+
+    def plot_warp(warp):
+        assert warp.ndim == 3
+        assert warp.shape[0] == 2
+        for row in range(0, warp.shape[1], interval):
+            axis.plot(warp[1, row, :], warp[0, row, :], 'k')
+        for col in range(0, warp.shape[2], interval):
+            axis.plot(warp[1, :, col], warp[0, :, col], 'k')
+        return fig
+
+    def animate(i):
+        axis.clear()
+        axis.set_xlim([min_x, max_x])
+        axis.set_ylim([min_y, max_y])
+        w = time_evolution_warp[i].reshape((-1, 2)).T.reshape(time_evolution_warp[i].shape)
+        plot_warp(w)
+
+    ani = animation.FuncAnimation(fig, animate, frames=time_evolution_warp.shape[0], interval=100)
+    return ani
