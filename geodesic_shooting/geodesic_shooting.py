@@ -15,7 +15,7 @@ class GeodesicShooting:
     Geodesic Shooting for Computational Anatomy.
     Miller, Trouvé, Younes, 2006
     """
-    def __init__(self, alpha=6., exponent=1., dim=2, shape=(100, 100), log_level='INFO'):
+    def __init__(self, alpha=6., exponent=1, dim=2, shape=(100, 100), log_level='INFO'):
         """Constructor.
 
         Parameters
