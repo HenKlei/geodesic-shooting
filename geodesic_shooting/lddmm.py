@@ -48,7 +48,8 @@ class LDDMM:
         time_steps
             Number of discrete time steps to perform.
         iterations
-            Number of iterations of the optimizer to perform.
+            Number of iterations of the optimizer to perform. The value `None` is also possible
+            to not bound the number of iterations.
         sigma
             Weight for the similarity measurement (L2 difference of the target and the registered
             image); the smaller sigma, the larger the influence of the L2 loss.
@@ -68,7 +69,7 @@ class LDDMM:
         back-pulled target at all time instances.
         """
         assert isinstance(time_steps, int) and time_steps > 0
-        assert isinstance(iterations, int) and iterations > 0
+        assert iterations is None or (isinstance(iterations, int) and iterations > 0)
         assert sigma > 0
         assert 0 < epsilon < 1
         assert (isinstance(early_stopping, int) and early_stopping > 0) or early_stopping is None
@@ -124,7 +125,7 @@ class LDDMM:
 
         with self.logger.block("Perform image matching via LDDMM algorithm ..."):
             try:
-                while k < iterations:
+                while not (iterations is not None and k >= iterations):
                     # update estimate of velocity
                     velocity_fields -= epsilon * gradient_velocity_fields
 
