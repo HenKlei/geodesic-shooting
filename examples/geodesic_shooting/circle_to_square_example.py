@@ -15,8 +15,10 @@ if __name__ == "__main__":
 
     # perform the registration
     geodesic_shooting = geodesic_shooting.GeodesicShooting(alpha=6., exponent=1.)
-    result = geodesic_shooting.register(input_, target, sigma=0.1, epsilon=0.01, iterations=50,
-                                        return_all=True)
+    result = geodesic_shooting.register(input_, target, sigma=0.1,
+                                        parameters_line_search={'min_stepsize': 1e-4,
+                                                                'max_stepsize': 1e-1},
+                                        iterations=50, return_all=True)
 
     transformed_input = result['transformed_input']
     v0 = result['initial_velocity_field']

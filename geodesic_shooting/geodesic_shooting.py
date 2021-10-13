@@ -7,6 +7,7 @@ from geodesic_shooting.utils import sampler, grid
 from geodesic_shooting.utils.grad import finite_difference
 from geodesic_shooting.utils.logger import getLogger
 from geodesic_shooting.utils.regularizer import BiharmonicRegularizer
+from geodesic_shooting.utils.optim import GradientDescentOptimizer, ArmijoLineSearch
 
 
 class GeodesicShooting:
@@ -38,13 +39,16 @@ class GeodesicShooting:
         self.shape = shape
         self.dim = dim
         assert self.dim == len(self.shape)
-        self.energy_threshold = 1e-3
-        self.gradient_norm_threshold = 1e-3
 
         self.logger = getLogger('geodesic_shooting', level=log_level)
 
-    def register(self, input_, target, time_steps=30, iterations=1000, sigma=1., epsilon=0.01,
-                 early_stopping=10, initial_velocity_field=None, return_all=False):
+    def register(self, input_, target, time_steps=30, sigma=1.,
+                 OptimizationAlgorithm=GradientDescentOptimizer, iterations=1000, early_stopping=10,
+                 initial_velocity_field=None, LineSearchAlgorithm=ArmijoLineSearch,
+                 parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1.,
+                                         'max_num_search_steps': 10},
+                 energy_threshold=1e-6, gradient_norm_threshold=1e-6,
+                 return_all=False):
         """Performs actual registration according to LDDMM algorithm with time-varying velocity
            fields that are chosen via geodesics.
 
@@ -62,8 +66,6 @@ class GeodesicShooting:
         sigma
             Weight for the similarity measurement (L2 difference of the target and the registered
             image); the smaller sigma, the larger the influence of the L2 loss.
-        epsilon
-            Learning rate, i.e. step size of the optimizer.
         early_stopping
             Number of iterations with non-decreasing energy after which to stop registration.
             If `None`, no early stopping is used.
@@ -83,8 +85,7 @@ class GeodesicShooting:
         assert isinstance(time_steps, int) and time_steps > 0
         assert iterations is None or (isinstance(iterations, int) and iterations > 0)
         assert sigma > 0
-        assert 0 < epsilon < 1
-        assert early_stopping is None or (isinstance(early_stopping, int) and early_stopping > 0)
+        assert (isinstance(early_stopping, int) and early_stopping > 0) or early_stopping is None
         assert input_.shape == target.shape
 
         input_ = input_.astype('double')
@@ -102,8 +103,8 @@ class GeodesicShooting:
         self.shape = input_.shape
         self.dim = input_.ndim
 
-        self.energy_threshold = 1e-3
-        self.gradient_norm_threshold = 1e-3
+        self.energy_threshold = energy_threshold
+        self.gradient_norm_threshold = gradient_norm_threshold
 
         # define vector fields
         if initial_velocity_field is None:
@@ -164,18 +165,46 @@ class GeodesicShooting:
             energy_intensity = 1 / sigma**2 * energy_intensity_unscaled
             energy = energy_regularizer + energy_intensity
 
-            return energy, gradient_initial_velocity.reshape((-1,))
+            return energy, gradient_initial_velocity
 
-        def save_current_state(x):
-            res['x'] = x
+        line_search = LineSearchAlgorithm(energy_and_gradient)
+        optimizer = OptimizationAlgorithm(line_search, energy_and_gradient)
+
+        reason_registration_ended = 'reached maximum number of iterations'
 
         with self.logger.block("Perform image matching via geodesic shooting ..."):
             try:
-                res = optimize.minimize(energy_and_gradient, initial_velocity_field.reshape((-1,)),
-                                        method='L-BFGS-B', jac=True,
-                                        options={'maxiter': iterations, 'maxls': 20,
-                                                 'disp': True, 'eps': .1},
-                                        callback=save_current_state)
+                k = 0
+                energy_did_not_decrease = 0
+                x = res['x'] = initial_velocity_field
+                energy, grad = energy_and_gradient(res['x'])
+                min_energy = energy
+
+                while not (iterations is not None and k >= iterations):
+                    x, energy, grad, _ = optimizer.step(x, energy, grad, parameters_line_search)
+                    self.logger.info(f"iter: {k:3d}, energy: {energy:.4e}")
+
+                    if min_energy >= energy:
+                        res['x'] = x.copy()
+                        min_energy = energy
+                        if min_energy < self.energy_threshold:
+                            self.logger.info(f"Energy below threshold of {self.energy_threshold}. "
+                                             "Stopping ...")
+                            reason_registration_ended = 'reached energy threshold'
+                            break
+                    else:
+                        energy_did_not_decrease += 1
+
+                    norm_gradient = np.linalg.norm(grad.flatten())
+                    if norm_gradient < self.gradient_norm_threshold:
+                        self.logger.warning(f"Gradient norm is {norm_gradient} "
+                                            "and therefore below threshold. Stopping ...")
+                        reason_registration_ended = 'reached gradient norm threshold'
+                        break
+                    if early_stopping is not None and energy_did_not_decrease >= early_stopping:
+                        reason_registration_ended = 'early stopping due to non-decreasing energy'
+                        break
+                    k += 1
             except KeyboardInterrupt:
                 self.logger.warning("Aborting registration ...")
                 reason_registration_ended = 'manual abort'
