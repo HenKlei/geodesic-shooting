@@ -168,7 +168,7 @@ class GeodesicShooting:
             return energy, gradient_initial_velocity
 
         line_search = LineSearchAlgorithm(energy_and_gradient)
-        optimizer = OptimizationAlgorithm(line_search, energy_and_gradient)
+        optimizer = OptimizationAlgorithm(line_search)
 
         reason_registration_ended = 'reached maximum number of iterations'
 
