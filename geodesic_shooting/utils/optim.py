@@ -21,8 +21,9 @@ class GradientDescentOptimizer(BaseOptimizer):
 
 
 class ArmijoLineSearch:
-    def __init__(self, func, log_level='INFO'):
-        self.func = func
+    def __init__(self, energy_func, gradient_func, log_level='INFO'):
+        self.energy_func = energy_func
+        self.gradient_func = gradient_func
 
         self.logger = getLogger('armijo_line_search', level=log_level)
 
@@ -33,14 +34,16 @@ class ArmijoLineSearch:
         reducing_stepsize = False
 
         new_x = optimizer.step_given_stepsize(x, epsilon, grad)
-        new_energy, new_grad = self.func(new_x)
+        new_energy, velocity_fields, forward_pushed_input = self.energy_func(new_x)
         while epsilon > min_stepsize and new_energy >= energy:
             epsilon *= rho
             reducing_stepsize = True
             new_x = optimizer.step_given_stepsize(x, epsilon, grad)
-            new_energy, new_grad = self.func(new_x)
+            new_energy, velocity_fields, forward_pushed_input = self.energy_func(new_x)
 
         if reducing_stepsize:
             self.logger.info(f'Reducing stepsize to {epsilon:.3e} ...')
+
+        new_grad = self.gradient_func(new_x, velocity_fields, forward_pushed_input)
 
         return epsilon, new_x, new_energy, new_grad

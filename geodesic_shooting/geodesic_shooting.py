@@ -111,8 +111,6 @@ class GeodesicShooting:
             initial_velocity_field = np.zeros((self.dim, *self.shape), dtype=np.double)
         assert initial_velocity_field.shape == (self.dim, *self.shape)
 
-        velocity_fields = np.zeros((self.time_steps, self.dim, *self.shape), dtype=np.double)
-
         def set_opt(opt, energy, energy_regularizer, energy_intensity, energy_intensity_unscaled,
                     transformed_input, initial_velocity_field, flow):
             opt['energy'] = energy
@@ -125,7 +123,7 @@ class GeodesicShooting:
             return opt
 
         opt = set_opt({}, None, None, None, None, input_, initial_velocity_field,
-                      self.integrate_forward_flow(velocity_fields))
+                      self.integrate_forward_flow(self.integrate_forward_vector_field(initial_velocity_field)))
 
         k = 0
         reason_registration_ended = 'reached maximum number of iterations'
@@ -134,7 +132,7 @@ class GeodesicShooting:
 
         res = {}
 
-        def energy_and_gradient(v0):
+        def energy_func(v0, return_all=True):
             # integrate initial velocity field forward in time
             velocity_fields = self.integrate_forward_vector_field(v0)
 
@@ -144,6 +142,19 @@ class GeodesicShooting:
             # push-forward input_ image
             forward_pushed_input = self.push_forward(input_, flow)
 
+            # compute the current energy consisting of intensity difference
+            # and regularization
+            energy_regularizer = np.linalg.norm(self.regularizer.cauchy_navier(
+                initial_velocity_field))
+            energy_intensity_unscaled = compute_energy(forward_pushed_input)
+            energy_intensity = 1 / sigma**2 * energy_intensity_unscaled
+            energy = energy_regularizer + energy_intensity
+
+            if return_all:
+                return energy, velocity_fields, forward_pushed_input
+            return energy
+
+        def gradient_func(v0, velocity_fields, forward_pushed_input):
             # compute gradient of the forward-pushed image
             gradient_forward_pushed_input = self.image_grad(forward_pushed_input)
 
@@ -157,17 +168,9 @@ class GeodesicShooting:
             gradient_initial_velocity = -self.integrate_backward_adjoint_Jacobi_field(
                 gradient_l2_energy, velocity_fields)
 
-            # compute the current energy consisting of intensity difference
-            # and regularization
-            energy_regularizer = np.linalg.norm(self.regularizer.cauchy_navier(
-                initial_velocity_field))
-            energy_intensity_unscaled = compute_energy(forward_pushed_input)
-            energy_intensity = 1 / sigma**2 * energy_intensity_unscaled
-            energy = energy_regularizer + energy_intensity
+            return gradient_initial_velocity
 
-            return energy, gradient_initial_velocity
-
-        line_search = LineSearchAlgorithm(energy_and_gradient)
+        line_search = LineSearchAlgorithm(energy_func, gradient_func)
         optimizer = OptimizationAlgorithm(line_search)
 
         reason_registration_ended = 'reached maximum number of iterations'
@@ -177,7 +180,8 @@ class GeodesicShooting:
                 k = 0
                 energy_did_not_decrease = 0
                 x = res['x'] = initial_velocity_field
-                energy, grad = energy_and_gradient(res['x'])
+                energy, velocity_fields, forward_pushed_input = energy_func(res['x'])
+                grad = gradient_func(res['x'], velocity_fields, forward_pushed_input)
                 min_energy = energy
 
                 while not (iterations is not None and k >= iterations):
@@ -217,7 +221,7 @@ class GeodesicShooting:
             # push-forward input_ image
             transformed_input = self.push_forward(input_, flow)
 
-        res['fun'] = energy_and_gradient(res['x'])[0]
+        res['fun'] = energy_func(res['x'])[0]
         set_opt(opt, res['fun'], None, None, None, transformed_input,
                 res['x'].reshape((self.dim, *self.shape)), flow)
 
@@ -227,11 +231,6 @@ class GeodesicShooting:
 
         if opt['energy'] is not None:
             self.logger.info(f"Optimal energy: {opt['energy']:4.4f}")
-#            self.logger.info("Optimal intensity difference (with scale): "
-#                             f"{opt['energy_intensity']:4.4f}")
-#            self.logger.info("Optimal intensity difference (without scale): "
-#                             f"{opt['energy_intensity_unscaled']:4.4f}")
-#            self.logger.info(f"Optimal regularization: {opt['energy_regularizer']:4.4f}")
 
         if opt['initial_velocity_field'] is not None:
             # compute the length of the path on the manifold;
