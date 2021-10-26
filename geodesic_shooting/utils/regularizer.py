@@ -139,12 +139,3 @@ class BiharmonicRegularizer:
             inverse_transformed_array[i] = np.fft.ifftn(array[i])
         # convert to real here since we assume that images consist of real numbers!
         return np.real(inverse_transformed_array)
-
-
-if __name__ == '__main__':
-    v = np.zeros((2, 5, 5))
-    v[0, 2, 2] = 1
-
-    regularizer = BiharmonicRegularizer(alpha=1, exponent=1)
-
-    print(regularizer.cauchy_navier_squared_inverse(v)[0])
