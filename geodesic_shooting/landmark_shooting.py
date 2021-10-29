@@ -318,29 +318,69 @@ class LandmarkShooting:
         return d_momenta[-1]
 
     def get_vector_fields(self, momenta, positions, grid):
+        """Evaluates vector field given by positions and momenta at grid points.
+
+        Parameters
+        ----------
+        momenta
+            Array containing the time-dependent momenta of the landmarks.
+        positions
+            Array containing the time-dependent positions of the landmarks.
+        grid
+            Array containing the grid points.
+
+        Returns
+        -------
+        Vector field at the grid points.
+        """
         assert momenta.shape == (self.time_steps, self.size)
         assert positions.shape == (self.time_steps, self.size)
         assert grid.ndim == 2
         assert grid.shape[1] == self.dim
+
         vector_fields = np.zeros((self.time_steps, *grid.shape))
+
         for t in range(self.time_steps):
             vf_func = construct_vector_field(momenta[t].reshape((-1, self.dim)),
                                              positions[t].reshape((-1, self.dim)),
                                              kernel=self.kernel)
             for i in range(len(grid)):
                 vector_fields[t][i] = vf_func(grid[i])
+
         return vector_fields
 
     def compute_time_evolution_of_diffeomorphisms(self, initial_momenta, initial_positions, grid):
+        """Performs forward integration of diffeomorphism on given grid using the given
+           initial momenta and positions.
+
+        Parameters
+        ----------
+        initial_momenta
+            Array containing the initial momenta of the landmarks.
+        initial_positions
+            Array containing the initial positions of the landmarks.
+        grid
+            Array containing the grid points.
+
+        Returns
+        -------
+        Array containing the diffeomorphism at the different time instances.
+        """
         assert initial_momenta.shape == initial_positions.shape
         assert grid.ndim == 2
         assert grid.shape[1] == self.dim
+
         momenta, positions = self.integrate_forward_Hamiltonian(initial_momenta, initial_positions)
         vector_fields = self.get_vector_fields(momenta, positions, grid)
         diffeomorphisms = np.zeros((self.time_steps, *grid.shape))
         diffeomorphisms[0] = grid
+
         assert diffeomorphisms.shape == (self.time_steps, *grid.shape)
+
         for t in range(self.time_steps-1):
             # composition with diffeomorphisms[t]!!!
-            diffeomorphisms[t+1] = diffeomorphisms[t] + vector_fields[t].reshape((-1, self.dim)).T.reshape(diffeomorphisms[t].shape) / self.time_steps
+            diffeomorphisms[t+1] = (diffeomorphisms[t]
+                                    + vector_fields[t].reshape((-1, self.dim)).T.reshape(diffeomorphisms[t].shape)
+                                    / self.time_steps)
+
         return diffeomorphisms
