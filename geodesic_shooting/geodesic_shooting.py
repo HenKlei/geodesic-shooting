@@ -1,8 +1,6 @@
 import time
 import numpy as np
 
-import scipy.optimize as optimize
-
 from geodesic_shooting.utils import sampler, grid
 from geodesic_shooting.utils.grad import finite_difference
 from geodesic_shooting.utils.logger import getLogger
