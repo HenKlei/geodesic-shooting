@@ -10,16 +10,17 @@ from geodesic_shooting.utils.visualization import (animate_landmark_trajectories
 
 
 if __name__ == "__main__":
-    # define greyscale images
+    # define landmark positions
     input_landmarks = np.array([[5., 3.], [4., 2.], [1., 0.], [2., 3.]])
     target_landmarks = np.array([[6., 2.], [5., 1.], [1., -1.], [2.5, 2.]])
 
-    # perform the registration
+    # perform the registration using landmark shooting algorithm
     gs = geodesic_shooting.LandmarkShooting()
     result = gs.register(input_landmarks, target_landmarks, return_all=True)
     final_momenta = result['initial_momenta']
     registered_landmarks = result['registered_landmarks']
 
+    # plot results
     plot_landmark_matchings(input_landmarks, target_landmarks, registered_landmarks)
 
     plot_initial_momenta_and_landmarks(final_momenta.flatten(), registered_landmarks.flatten(),
@@ -37,8 +38,8 @@ if __name__ == "__main__":
     ny = 50
     x = np.linspace(0., 7., nx)
     y = np.linspace(-2., 4., ny)
-    grid = np.array(np.meshgrid(y, x))
-    warp = gs.compute_time_evolution_of_diffeomorphisms(final_momenta.flatten(), input_landmarks.flatten(),
+    grid = np.array(np.meshgrid(x, y))
+    warp = gs.compute_time_evolution_of_diffeomorphisms(final_momenta, input_landmarks,
                                                         grid.reshape((2, -1)).T)
     plot_warpgrid(warp[-1].T.reshape(grid.shape), interval=1, show_axis=True, invert_yaxis=False)
     ani2 = animate_warpgrids(warp.reshape((-1, *grid.shape)), min_x=-1., max_x=8., min_y=-3., max_y=5.)

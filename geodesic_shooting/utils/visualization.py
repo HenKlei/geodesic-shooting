@@ -38,9 +38,9 @@ def plot_warpgrid(warp, title='', interval=2, show_axis=False, invert_yaxis=True
     axis.set_title(title)
 
     for row in range(0, warp.shape[1], interval):
-        axis.plot(warp[1, row, :], warp[0, row, :], 'k')
+        axis.plot(warp[0, row, :], warp[1, row, :], 'k')
     for col in range(0, warp.shape[2], interval):
-        axis.plot(warp[1, :, col], warp[0, :, col], 'k')
+        axis.plot(warp[0, :, col], warp[1, :, col], 'k')
 
     return fig
 
@@ -415,9 +415,9 @@ def animate_warpgrids(time_evolution_warp, min_x=-1., max_x=1., min_y=-1., max_y
         assert warp.ndim == 3
         assert warp.shape[0] == 2
         for row in range(0, warp.shape[1], interval):
-            axis.plot(warp[1, row, :], warp[0, row, :], 'k')
+            axis.plot(warp[0, row, :], warp[1, row, :], 'k')
         for col in range(0, warp.shape[2], interval):
-            axis.plot(warp[1, :, col], warp[0, :, col], 'k')
+            axis.plot(warp[0, :, col], warp[1, :, col], 'k')
         return fig
 
     def animate(i):

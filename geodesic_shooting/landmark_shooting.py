@@ -344,8 +344,8 @@ class LandmarkShooting:
             vf_func = construct_vector_field(momenta[t].reshape((-1, self.dim)),
                                              positions[t].reshape((-1, self.dim)),
                                              kernel=self.kernel)
-            for i in range(len(grid)):
-                vector_fields[t][i] = vf_func(grid[i])
+            for i, pos in enumerate(grid):
+                vector_fields[t][i] = vf_func(pos)
 
         return vector_fields
 
@@ -370,7 +370,7 @@ class LandmarkShooting:
         assert grid.ndim == 2
         assert grid.shape[1] == self.dim
 
-        momenta, positions = self.integrate_forward_Hamiltonian(initial_momenta, initial_positions)
+        momenta, positions = self.integrate_forward_Hamiltonian(initial_momenta.flatten(), initial_positions.flatten())
         vector_fields = self.get_vector_fields(momenta, positions, grid)
         diffeomorphisms = np.zeros((self.time_steps, *grid.shape))
         diffeomorphisms[0] = grid
@@ -380,7 +380,7 @@ class LandmarkShooting:
         for t in range(self.time_steps-1):
             # composition with diffeomorphisms[t]!!!
             diffeomorphisms[t+1] = (diffeomorphisms[t]
-                                    + vector_fields[t].reshape((-1, self.dim)).T.reshape(diffeomorphisms[t].shape)
+                                    + vector_fields[t].reshape(diffeomorphisms[t].shape)
                                     / self.time_steps)
 
         return diffeomorphisms
