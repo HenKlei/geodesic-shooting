@@ -27,6 +27,8 @@ class GeodesicShooting:
             Dimension of the input and target images (set automatically when calling `register`).
         shape
             Shape of the input and target images (set automatically when calling `register`).
+        log_level
+            Verbosity of the logger.
         """
         self.regularizer = BiharmonicRegularizer(alpha, exponent)
 
@@ -39,7 +41,7 @@ class GeodesicShooting:
 
         self.logger = getLogger('geodesic_shooting', level=log_level)
 
-    def register(self, input_, target, time_steps=30, iterations=1000, sigma=1, epsilon=0.01,
+    def register(self, input_, target, time_steps=30, iterations=1000, sigma=1., epsilon=0.01,
                  early_stopping=10, initial_velocity_field=None, return_all=False):
         """Performs actual registration according to LDDMM algorithm with time-varying velocity
            fields that are chosen via geodesics.
@@ -71,8 +73,8 @@ class GeodesicShooting:
 
         Returns
         -------
-        Either the best initial vector field (if return_all is False) or a tuple consisting of the
-        registered image, the velocities, the energies, the flows and inverse flows, the
+        Either the best initial vector field (if return_all is False) or a dictionary consisting
+        of the registered image, the velocities, the energies, the flows and inverse flows, the
         forward-pushed input and the back-pulled target at all time instances (if return_all is
         True).
         """
@@ -80,7 +82,7 @@ class GeodesicShooting:
         assert iterations is None or (isinstance(iterations, int) and iterations > 0)
         assert sigma > 0
         assert 0 < epsilon < 1
-        assert (isinstance(early_stopping, int) and early_stopping > 0) or early_stopping is None
+        assert early_stopping is None or (isinstance(early_stopping, int) and early_stopping > 0)
         assert input_.shape == target.shape
 
         input_ = input_.astype('double')
