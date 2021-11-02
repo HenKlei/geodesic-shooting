@@ -18,7 +18,7 @@ def test_1d():
 
     transformed_input = result['transformed_input']
 
-    assert np.abs(np.linalg.norm(target - transformed_input) / np.linalg.norm(target)) < 1e-3
+    assert np.linalg.norm(target - transformed_input) / np.linalg.norm(target) < 1e-3
 
     # perform the registration
     gs = geodesic_shooting.GeodesicShooting(alpha=6., exponent=1)
@@ -27,4 +27,14 @@ def test_1d():
 
     transformed_input = result['transformed_input']
 
-    assert np.abs(np.linalg.norm(target - transformed_input) / np.linalg.norm(target)) < 1e-3
+    assert np.linalg.norm(target - transformed_input) / np.linalg.norm(target) < 1e-3
+
+    input_landmarks = np.array([[1.], [2.], [9.]])
+    target_landmarks = np.array([[3.], [4.5], [8.]])
+
+    # perform the registration using landmark shooting algorithm
+    landmark_gs = geodesic_shooting.LandmarkShooting()
+    result = landmark_gs.register(input_landmarks, target_landmarks, sigma=0.05, epsilon=0.001, return_all=True)
+    registered_landmarks = result['registered_landmarks']
+
+    assert np.linalg.norm(target_landmarks - registered_landmarks) / np.linalg.norm(target_landmarks) < 1e-3
