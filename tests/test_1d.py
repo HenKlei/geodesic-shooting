@@ -12,8 +12,9 @@ def test_1d():
     target[2*N//5:3*N//5] = 1
 
     # perform the registration
-    lddmm = geodesic_shooting.LDDMM(alpha=6., exponent=1)
-    result = lddmm.register(input_, target, sigma=0.01, epsilon=0.0001, early_stopping=20,
+    lddmm = geodesic_shooting.LDDMM(alpha=10., exponent=1)
+    result = lddmm.register(input_, target, sigma=0.05, early_stopping=50,
+                            parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1e-3},
                             return_all=True)
 
     transformed_input = result['transformed_input']

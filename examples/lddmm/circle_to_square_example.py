@@ -15,7 +15,8 @@ if __name__ == "__main__":
 
     # perform the registration
     lddmm = geodesic_shooting.LDDMM(alpha=1., exponent=1.)
-    result = lddmm.register(input_, target, sigma=0.1, epsilon=0.0001, iterations=50,
+    result = lddmm.register(input_, target, sigma=0.1, iterations=50,
+                            parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1e-3},
                             return_all=True)
 
     transformed_input = result['transformed_input']
