@@ -136,14 +136,13 @@ class GeodesicShooting:
         opt = set_opt({}, None, None, None, None, input_, initial_velocity_field,
                       self.integrate_forward_flow(self.integrate_forward_vector_field(initial_velocity_field)))
 
-        k = 0
         reason_registration_ended = 'reached maximum number of iterations'
 
         start_time = time.perf_counter()
 
         res = {}
 
-        def energy_func(v0, return_all=True):
+        def energy_func(v0, return_additional_infos=False):
             # integrate initial velocity field forward in time
             velocity_fields = self.integrate_forward_vector_field(v0)
 
@@ -161,8 +160,8 @@ class GeodesicShooting:
             energy_intensity = 1 / sigma**2 * energy_intensity_unscaled
             energy = energy_regularizer + energy_intensity
 
-            if return_all:
-                return energy, velocity_fields, forward_pushed_input
+            if return_additional_infos:
+                return energy, {'velocity_fields': velocity_fields, 'forward_pushed_input': forward_pushed_input}
             return energy
 
         def gradient_func(v0, velocity_fields, forward_pushed_input):
@@ -189,8 +188,8 @@ class GeodesicShooting:
                 k = 0
                 energy_did_not_decrease = 0
                 x = res['x'] = initial_velocity_field
-                energy, velocity_fields, forward_pushed_input = energy_func(res['x'])
-                grad = gradient_func(res['x'], velocity_fields, forward_pushed_input)
+                energy, additional_infos = energy_func(res['x'], return_additional_infos=True)
+                grad = gradient_func(res['x'], **additional_infos)
                 min_energy = energy
 
                 while not (iterations is not None and k >= iterations):
@@ -235,7 +234,7 @@ class GeodesicShooting:
             # push-forward input_ image
             transformed_input = self.push_forward(input_, flow)
 
-        res['fun'] = energy_func(res['x'])[0]
+        res['fun'] = energy_func(res['x'])
         set_opt(opt, res['fun'], None, None, None, transformed_input,
                 res['x'].reshape((self.dim, *self.shape)), flow)
 
