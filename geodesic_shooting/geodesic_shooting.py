@@ -183,7 +183,12 @@ class GeodesicShooting:
                 min_energy = energy
 
                 while not (iterations is not None and k >= iterations):
-                    x, energy, grad, _ = optimizer.step(x, energy, grad, parameters_line_search)
+                    x, energy, grad, current_stepsize = optimizer.step(x, energy, grad, parameters_line_search)
+
+                    parameters_line_search['max_stepsize'] = min(parameters_line_search['max_stepsize'],
+                                                                 current_stepsize)
+                    parameters_line_search['min_stepsize'] = min(parameters_line_search['min_stepsize'],
+                                                                 parameters_line_search['max_stepsize'])
                     self.logger.info(f"iter: {k:3d}, energy: {energy:.4e}")
 
                     if min_energy >= energy:
