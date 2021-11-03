@@ -21,7 +21,7 @@ def test_translation():
     gs = geodesic_shooting.GeodesicShooting(alpha=1000., exponent=1.)
     result = gs.register(input_, target, sigma=0.1,
                          parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1.},
-                         iterations=50, return_all=True)
+                         iterations=100, return_all=True)
 
     assert np.linalg.norm(target - result['transformed_input']) / np.linalg.norm(target) < 5e-2
 

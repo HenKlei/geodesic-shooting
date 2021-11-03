@@ -58,17 +58,30 @@ class GeodesicShooting:
             Target image as array.
         time_steps
             Number of discrete time steps to perform.
-        iterations
-            Number of iterations of the optimizer to perform. The value `None` is also possible
-            to not bound the number of iterations.
         sigma
             Weight for the similarity measurement (L2 difference of the target and the registered
             image); the smaller sigma, the larger the influence of the L2 loss.
+        OptimizationAlgorithm
+            Algorithm to use for optimization during registration. Should be a class and not an
+            instance. The class should derive from `BaseOptimizer`.
+        iterations
+            Number of iterations of the optimizer to perform. The value `None` is also possible
+            to not bound the number of iterations.
         early_stopping
             Number of iterations with non-decreasing energy after which to stop registration.
             If `None`, no early stopping is used.
         initial_velocity_field
             Used as initial guess for the initial velocity field (will be 0 if None is passed).
+        LineSearchAlgorithm
+            Algorithm to use as line search method during optimization. Should be a class and not
+            an instance. The class should derive from `BaseLineSearch`.
+        parameters_line_search
+            Additional parameters for the line search algorithm
+            (e.g. minimal and maximal stepsize, ...).
+        energy_threshold
+            If the energy drops below this threshold, the registration is stopped.
+        gradient_norm_threshold
+            If the norm of the gradient drops below this threshold, the registration is stopped.
         return_all
             Determines whether or not to return all information or only the initial vector field
             that led to the best registration result.
@@ -170,8 +183,6 @@ class GeodesicShooting:
 
         line_search = LineSearchAlgorithm(energy_func, gradient_func)
         optimizer = OptimizationAlgorithm(line_search)
-
-        reason_registration_ended = 'reached maximum number of iterations'
 
         with self.logger.block("Perform image matching via geodesic shooting ..."):
             try:
