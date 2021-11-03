@@ -19,7 +19,9 @@ def test_translation():
 
     # perform the registration with the geodesic shooting algorithm
     gs = geodesic_shooting.GeodesicShooting(alpha=1000., exponent=1.)
-    result = gs.register(input_, target, sigma=0.1, epsilon=0.1, iterations=15, return_all=True)
+    result = gs.register(input_, target, sigma=0.1,
+                         parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1.},
+                         iterations=50, return_all=True)
 
     assert np.linalg.norm(target - result['transformed_input']) / np.linalg.norm(target) < 5e-2
 
@@ -35,7 +37,8 @@ def test_translation():
 
     # perform the registration with the geodesic shooting algorithm
     gs = geodesic_shooting.GeodesicShooting(alpha=1000., exponent=1.)
-    result = gs.register(input_, target, sigma=0.1, epsilon=0.01, iterations=50, return_all=True)
+    result = gs.register(input_, target, sigma=0.1,
+                         parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1e-1},
+                         iterations=50, return_all=True)
 
-    print(np.linalg.norm(target - result['transformed_input']) / np.linalg.norm(target))
     assert np.linalg.norm(target - result['transformed_input']) / np.linalg.norm(target) < 5e-2

@@ -22,7 +22,8 @@ def test_1d():
 
     # perform the registration
     gs = geodesic_shooting.GeodesicShooting(alpha=6., exponent=1)
-    result = gs.register(input_, target, sigma=0.05, epsilon=0.01, early_stopping=20,
+    result = gs.register(input_, target, sigma=0.05, early_stopping=20,
+                         parameters_line_search={'min_stepsize': 1e-3, 'max_stepsize': 1e-2},
                          return_all=True)
 
     transformed_input = result['transformed_input']
