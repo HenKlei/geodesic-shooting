@@ -122,7 +122,7 @@ class LDDMM:
 
         res = {}
 
-        def energy_func(velocity_fields, return_additional_infos=False):
+        def energy_func(velocity_fields, return_additional_infos=False, return_all_energies=False):
             # compute forward flows
             forward_flows = self.integrate_forward_flow(velocity_fields)
 
@@ -137,8 +137,15 @@ class LDDMM:
             energy_intensity = 1 / sigma**2 * energy_intensity_unscaled
             energy = energy_regularizer + energy_intensity
 
+            energies = {'energy': energy, 'energy_regularizer': energy_regularizer,
+                        'energy_intensity': energy_intensity, 'energy_intensity_unscaled': energy_intensity_unscaled}
             if return_additional_infos:
-                return energy, {'forward_pushed_input': forward_pushed_input}
+                additional_infos = {'forward_pushed_input': forward_pushed_input}
+                if return_all_energies:
+                    return additional_infos, energies
+                return energy, additional_infos
+            if return_all_energies:
+                return energies
             return energy
 
         def gradient_func(velocity_fields, forward_pushed_input):
@@ -221,8 +228,9 @@ class LDDMM:
             # push-forward input_ image
             transformed_input = self.push_forward(input_, forward_flows)
 
-        res['fun'], additional_infos = energy_func(res['x'], return_additional_infos=True)
-        set_opt(opt, res['fun'], None, None, None,
+        additional_infos, energies = energy_func(res['x'], return_additional_infos=True, return_all_energies=True)
+        set_opt(opt, energies['energy'], energies['energy_regularizer'],
+                energies['energy_intensity'], energies['energy_intensity_unscaled'],
                 transformed_input[-1], additional_infos['forward_pushed_input'],
                 res['x'], forward_flows, backward_flows)
 

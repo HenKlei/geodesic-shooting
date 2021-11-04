@@ -142,7 +142,7 @@ class GeodesicShooting:
 
         res = {}
 
-        def energy_func(v0, return_additional_infos=False):
+        def energy_func(v0, return_additional_infos=False, return_all_energies=False):
             # integrate initial velocity field forward in time
             velocity_fields = self.integrate_forward_vector_field(v0)
 
@@ -162,6 +162,9 @@ class GeodesicShooting:
 
             if return_additional_infos:
                 return energy, {'velocity_fields': velocity_fields, 'forward_pushed_input': forward_pushed_input}
+            if return_all_energies:
+                return {'energy': energy, 'energy_regularizer': energy_regularizer,
+                        'energy_intensity': energy_intensity, 'energy_intensity_unscaled': energy_intensity_unscaled}
             return energy
 
         def gradient_func(v0, velocity_fields, forward_pushed_input):
@@ -234,9 +237,10 @@ class GeodesicShooting:
             # push-forward input_ image
             transformed_input = self.push_forward(input_, flow)
 
-        res['fun'] = energy_func(res['x'])
-        set_opt(opt, res['fun'], None, None, None, transformed_input,
-                res['x'].reshape((self.dim, *self.shape)), flow)
+        energies = energy_func(res['x'], return_all_energies=True)
+        set_opt(opt, energies['energy'], energies['energy_regularizer'],
+                energies['energy_intensity'], energies['energy_intensity_unscaled'],
+                transformed_input, res['x'].reshape((self.dim, *self.shape)), flow)
 
         elapsed_time = int(time.perf_counter() - start_time)
 
@@ -248,8 +252,7 @@ class GeodesicShooting:
         if opt['initial_velocity_field'] is not None:
             # compute the length of the path on the manifold;
             # this step only requires the initial velocity due to conservation of momentum
-            length = np.linalg.norm(self.regularizer.cauchy_navier(
-                         opt['initial_velocity_field']))
+            length = np.linalg.norm(self.regularizer.cauchy_navier(opt['initial_velocity_field']))
         else:
             length = 0.0
 
