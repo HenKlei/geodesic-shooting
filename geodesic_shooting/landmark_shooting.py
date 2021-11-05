@@ -165,7 +165,7 @@ class LandmarkShooting:
 
         elapsed_time = int(time.perf_counter() - start_time)
 
-        self.logger.info("Finished registration ...")
+        self.logger.info(f"Finished registration ({reason_registration_ended}) ...")
 
         if opt['energy'] is not None:
             self.logger.info(f"Optimal energy: {opt['energy']:4.4f}")
@@ -379,8 +379,6 @@ class LandmarkShooting:
 
         for t in range(self.time_steps-1):
             # composition with diffeomorphisms[t]!!!
-            diffeomorphisms[t+1] = (diffeomorphisms[t]
-                                    + vector_fields[t].reshape(diffeomorphisms[t].shape)
-                                    / self.time_steps)
+            diffeomorphisms[t+1] = (diffeomorphisms[t] + self.dt * vector_fields[t].reshape(diffeomorphisms[t].shape))
 
         return diffeomorphisms

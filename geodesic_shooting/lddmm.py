@@ -236,7 +236,7 @@ class LDDMM:
 
         elapsed_time = int(time.perf_counter() - start_time)
 
-        self.logger.info("Finished registration ...")
+        self.logger.info("Finished registration ({reason_registration_ended}) ...")
 
         if opt['energy'] is not None:
             self.logger.info(f"Optimal energy: {opt['energy']:4.4f}")
