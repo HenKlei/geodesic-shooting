@@ -10,7 +10,7 @@ if __name__ == "__main__":
 
     # perform the registration using landmark shooting algorithm
     gs = geodesic_shooting.LandmarkShooting()
-    result = gs.register(input_landmarks, target_landmarks, sigma=0.05, epsilon=0.001, return_all=True)
+    result = gs.register(input_landmarks, target_landmarks, sigma=0.05, return_all=True)
     registered_landmarks = result['registered_landmarks']
 
     print(f"Input: {input_landmarks}")

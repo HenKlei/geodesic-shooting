@@ -14,7 +14,9 @@ if __name__ == "__main__":
 
     # perform the registration
     gs = geodesic_shooting.GeodesicShooting(alpha=6., exponent=1.)
-    result = gs.register(input_, target, sigma=0.01, epsilon=0.0001, return_all=True)
+    result = gs.register(input_, target, sigma=0.01,
+                         parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 5e-4},
+                         return_all=True)
 
     transformed_input = result['transformed_input']
 

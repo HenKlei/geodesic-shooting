@@ -5,6 +5,7 @@ from geodesic_shooting.utils import sampler, grid
 from geodesic_shooting.utils.grad import finite_difference
 from geodesic_shooting.utils.logger import getLogger
 from geodesic_shooting.utils.regularizer import BiharmonicRegularizer
+from geodesic_shooting.utils.optim import GradientDescentOptimizer, ArmijoLineSearch
 
 
 class LDDMM:
@@ -29,13 +30,16 @@ class LDDMM:
         self.time_steps = 30
         self.shape = None
         self.dim = None
-        self.energy_threshold = 1e-3
-        self.gradient_norm_threshold = 1e-3
 
         self.logger = getLogger('lddmm', level=log_level)
 
-    def register(self, input_, target, time_steps=30, iterations=1000, sigma=1, epsilon=0.01,
-                 early_stopping=10, return_all=False):
+    def register(self, input_, target, time_steps=30, sigma=1,
+                 OptimizationAlgorithm=GradientDescentOptimizer, iterations=1000, early_stopping=10,
+                 LineSearchAlgorithm=ArmijoLineSearch,
+                 parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1.,
+                                         'max_num_search_steps': 10},
+                 energy_threshold=1e-6, gradient_norm_threshold=1e-6,
+                 return_all=False):
         """Performs actual registration according to LDDMM algorithm with time-varying velocity
            fields that can be chosen independently of each other (respecting smoothness assumption).
 
@@ -71,7 +75,6 @@ class LDDMM:
         assert isinstance(time_steps, int) and time_steps > 0
         assert iterations is None or (isinstance(iterations, int) and iterations > 0)
         assert sigma > 0
-        assert 0 < epsilon < 1
         assert (isinstance(early_stopping, int) and early_stopping > 0) or early_stopping is None
         assert input_.shape == target.shape
 
@@ -91,148 +94,156 @@ class LDDMM:
         self.shape = input_.shape
         self.dim = input_.ndim
 
-        self.energy_threshold = 1e-3
-
-        energy_not_decreasing = 0
-
         # define vector fields
         velocity_fields = np.zeros((self.time_steps, self.dim, *self.shape), dtype=np.double)
         gradient_velocity_fields = np.copy(velocity_fields)
 
         def set_opt(opt, energy, energy_regularizer, energy_intensity, energy_intensity_unscaled,
-                    transformed_input, forward_pushed_input, back_pulled_target,
-                    velocity_fields, forward_flows, backward_flows):
+                    transformed_input, forward_pushed_input, velocity_fields, forward_flows, backward_flows):
             opt['energy'] = energy
             opt['energy_regularizer'] = energy_regularizer
             opt['energy_intensity'] = energy_intensity
             opt['energy_intensity_unscaled'] = energy_intensity_unscaled
             opt['transformed_input'] = transformed_input
             opt['forward_pushed_input'] = forward_pushed_input
-            opt['back_pulled_target'] = back_pulled_target
             opt['velocity_fields'] = velocity_fields
             opt['forward_flows'] = forward_flows
             opt['backward_flows'] = backward_flows
             return opt
 
-        opt = set_opt({}, None, None, None, None, input_, input_, target, velocity_fields,
-                      self.integrate_backward_flow(velocity_fields),
-                      self.integrate_forward_flow(velocity_fields))
+        opt = set_opt({}, None, None, None, None, input_, input_, velocity_fields,
+                      self.integrate_forward_flow(velocity_fields),
+                      self.integrate_backward_flow(velocity_fields))
 
         k = 0
         reason_registration_ended = 'reached maximum number of iterations'
 
         start_time = time.perf_counter()
 
+        res = {}
+
+        def energy_func(velocity_fields, return_additional_infos=False, return_all_energies=False):
+            # compute forward flows
+            forward_flows = self.integrate_forward_flow(velocity_fields)
+
+            # push-forward input_ image
+            forward_pushed_input = self.push_forward(input_, forward_flows)
+
+            # compute the current energy consisting of intensity difference
+            # and regularization
+            energy_regularizer = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(
+                velocity_fields[t])) for t in range(self.time_steps)])
+            energy_intensity_unscaled = compute_energy(forward_pushed_input[-1])
+            energy_intensity = 1 / sigma**2 * energy_intensity_unscaled
+            energy = energy_regularizer + energy_intensity
+
+            energies = {'energy': energy, 'energy_regularizer': energy_regularizer,
+                        'energy_intensity': energy_intensity, 'energy_intensity_unscaled': energy_intensity_unscaled}
+            if return_additional_infos:
+                additional_infos = {'forward_pushed_input': forward_pushed_input}
+                if return_all_energies:
+                    return additional_infos, energies
+                return energy, additional_infos
+            if return_all_energies:
+                return energies
+            return energy
+
+        def gradient_func(velocity_fields, forward_pushed_input):
+            # compute backward flows
+            backward_flows = self.integrate_backward_flow(velocity_fields)
+
+            # pull-back target image
+            back_pulled_target = self.pull_back(target, backward_flows)
+
+            # compute gradient of forward-pushed input_ image
+            gradient_forward_pushed_input = self.image_grad(forward_pushed_input)
+
+            # compute Jacobian determinant of the transformation
+            det_backward_flows = self.jacobian_determinant(backward_flows)
+
+            # compute the gradient of the energy
+            for t in range(0, self.time_steps):
+                grad = compute_grad_energy(det_backward_flows[t],
+                                           gradient_forward_pushed_input[t],
+                                           forward_pushed_input[t],
+                                           back_pulled_target[t])
+                gradient_velocity_fields[t] = (2 * velocity_fields[t] - 1 / sigma**2 * grad)
+
+            return gradient_velocity_fields
+
+        line_search = LineSearchAlgorithm(energy_func, gradient_func)
+        optimizer = OptimizationAlgorithm(line_search)
+
         with self.logger.block("Perform image matching via LDDMM algorithm ..."):
             try:
-                while not (iterations is not None and k >= iterations):
-                    # update estimate of velocity
-                    velocity_fields -= epsilon * gradient_velocity_fields
+                k = 0
+                energy_did_not_decrease = 0
+                res['x'] = velocity_fields
+                energy, additional_infos = energy_func(res['x'], return_additional_infos=True)
+                grad = gradient_func(velocity_fields, **additional_infos)
+                min_energy = energy
 
+                while not (iterations is not None and k >= iterations):
+                    velocity_fields, energy, grad, current_stepsize = optimizer.step(velocity_fields, energy, grad,
+                                                                                     parameters_line_search)
                     # reparameterize velocity fields
                     if k % 10 == 9:
                         velocity_fields = self.reparameterize(velocity_fields)
 
-                    # compute backward flows
-                    backward_flows = self.integrate_backward_flow(velocity_fields)
+                    parameters_line_search['max_stepsize'] = min(parameters_line_search['max_stepsize'],
+                                                                 current_stepsize)
+                    parameters_line_search['min_stepsize'] = min(parameters_line_search['min_stepsize'],
+                                                                 parameters_line_search['max_stepsize'])
+                    self.logger.info(f"iter: {k:3d}, energy: {energy:.4e}")
 
-                    # compute forward flows
-                    forward_flows = self.integrate_forward_flow(velocity_fields)
+                    if min_energy >= energy:
+                        res['x'] = velocity_fields.copy()
+                        min_energy = energy
+                        if min_energy < energy_threshold:
+                            self.logger.info(f"Energy below threshold of {energy_threshold}. "
+                                             "Stopping ...")
+                            reason_registration_ended = 'reached energy threshold'
+                            break
+                    else:
+                        energy_did_not_decrease += 1
 
-                    # push-forward input_ image
-                    forward_pushed_input = self.push_forward(input_, forward_flows)
-
-                    # pull-back target image
-                    back_pulled_target = self.pull_back(target, backward_flows)
-
-                    # compute gradient of forward-pushed input_ image
-                    gradient_forward_pushed_input = self.image_grad(forward_pushed_input)
-
-                    # compute Jacobian determinant of the transformation
-                    det_backward_flows = self.jacobian_determinant(backward_flows)
-                    if self.is_injectivity_violated(det_backward_flows):
-                        self.logger.error("Injectivity violated. Stopping. "
-                                          "Try lowering the learning rate (epsilon).")
-                        break
-
-                    # compute the gradient of the energy
-                    for t in range(0, self.time_steps):
-                        grad = compute_grad_energy(det_backward_flows[t],
-                                                   gradient_forward_pushed_input[t],
-                                                   forward_pushed_input[t],
-                                                   back_pulled_target[t])
-                        gradient_velocity_fields[t] = (2 * velocity_fields[t] - 1 / sigma**2 * grad)
-
-                    # compute the norm of the gradient of the energy; stop if small
-                    norm_gradient_velocity_fields = np.linalg.norm(gradient_velocity_fields)
-                    if norm_gradient_velocity_fields < self.gradient_norm_threshold:
-                        self.logger.warning(f"Gradient norm is {norm_gradient_velocity_fields} "
+                    norm_gradient = np.linalg.norm(grad.flatten())
+                    if norm_gradient < gradient_norm_threshold:
+                        self.logger.warning(f"Gradient norm is {norm_gradient} "
                                             "and therefore below threshold. Stopping ...")
                         reason_registration_ended = 'reached gradient norm threshold'
                         break
-
-                    # compute the current energy consisting of intensity difference
-                    # and regularization
-                    energy_regularizer = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(
-                        velocity_fields[t])) for t in range(self.time_steps)])
-                    energy_intensity_unscaled = compute_energy(forward_pushed_input[-1])
-                    energy_intensity = 1 / sigma**2 * energy_intensity_unscaled
-                    energy = energy_regularizer + energy_intensity
-
-                    # stop if energy is below threshold
-                    if energy < self.energy_threshold:
-                        opt = set_opt(opt, energy, energy_regularizer, energy_intensity,
-                                      energy_intensity_unscaled, forward_pushed_input[-1],
-                                      forward_pushed_input, back_pulled_target,
-                                      velocity_fields, forward_flows, backward_flows)
-                        self.logger.warning(f"Energy below threshold of {self.energy_threshold}. "
-                                            "Stopping ...")
-                        reason_registration_ended = 'reached energy threshold'
-                        break
-
-                    # update optimal energy if necessary
-                    if opt['energy'] is None or energy < opt['energy']:
-                        opt = set_opt(opt, energy, energy_regularizer, energy_intensity,
-                                      energy_intensity_unscaled, forward_pushed_input[-1],
-                                      forward_pushed_input, back_pulled_target,
-                                      velocity_fields, forward_flows, backward_flows)
-                        energy_not_decreasing = 0
-                    else:
-                        energy_not_decreasing += 1
-
-                    if early_stopping is not None and energy_not_decreasing >= early_stopping:
-                        self.logger.info(f"Energy did not decrease for {early_stopping} "
-                                         "iterations. Early stopping ...")
+                    if early_stopping is not None and energy_did_not_decrease >= early_stopping:
                         reason_registration_ended = 'early stopping due to non-decreasing energy'
                         break
-
                     k += 1
-
-                    # output of current iteration and energies
-                    self.logger.info(f"iter: {k:3d}, "
-                                     f"energy: {energy:4.2f}, "
-                                     f"L2 (w/o scale): {energy_intensity_unscaled:4.4f}, "
-                                     f"reg: {energy_regularizer:4.2f}")
             except KeyboardInterrupt:
                 self.logger.warning("Aborting registration ...")
                 reason_registration_ended = 'manual abort'
 
+            # compute forward flows according to the velocity fields
+            forward_flows = self.integrate_forward_flow(velocity_fields)
+            backward_flows = self.integrate_backward_flow(velocity_fields)
+
+            # push-forward input_ image
+            transformed_input = self.push_forward(input_, forward_flows)
+
+        additional_infos, energies = energy_func(res['x'], return_additional_infos=True, return_all_energies=True)
+        set_opt(opt, energies['energy'], energies['energy_regularizer'],
+                energies['energy_intensity'], energies['energy_intensity_unscaled'],
+                transformed_input[-1], additional_infos['forward_pushed_input'],
+                res['x'], forward_flows, backward_flows)
+
         elapsed_time = int(time.perf_counter() - start_time)
 
-        self.logger.info("Finished registration ...")
+        self.logger.info("Finished registration ({reason_registration_ended}) ...")
 
         if opt['energy'] is not None:
             self.logger.info(f"Optimal energy: {opt['energy']:4.4f}")
-            self.logger.info("Optimal intensity difference (with scale): "
-                             f"{opt['energy_intensity']:4.4f}")
-            self.logger.info("Optimal intensity difference (without scale): "
-                             f"{opt['energy_intensity_unscaled']:4.4f}")
-            self.logger.info(f"Optimal regularization: {opt['energy_regularizer']:4.4f}")
 
         if opt['velocity_fields'] is not None:
             # compute the length of the path on the manifold
-            length = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(
-                                 opt['velocity_fields'][t]))
+            length = np.sum([np.linalg.norm(self.regularizer.cauchy_navier(opt['velocity_fields'][t]))
                              for t in range(self.time_steps)])
         else:
             length = 0.0
@@ -244,7 +255,7 @@ class LDDMM:
 
         if return_all:
             return opt
-        return forward_flows[-1]
+        return velocity_fields
 
     def reparameterize(self, velocity_fields):
         """Reparameterizes velocity fields to obtain a time-dependent velocity field
