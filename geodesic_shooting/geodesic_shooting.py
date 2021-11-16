@@ -114,9 +114,6 @@ class GeodesicShooting:
         self.shape = input_.shape
         self.dim = input_.ndim
 
-        self.energy_threshold = energy_threshold
-        self.gradient_norm_threshold = gradient_norm_threshold
-
         # define vector fields
         if initial_velocity_field is None:
             initial_velocity_field = np.zeros((self.dim, *self.shape), dtype=np.double)
@@ -207,8 +204,8 @@ class GeodesicShooting:
                     if min_energy >= energy:
                         res['x'] = x.copy()
                         min_energy = energy
-                        if min_energy < self.energy_threshold:
-                            self.logger.info(f"Energy below threshold of {self.energy_threshold}. "
+                        if min_energy < energy_threshold:
+                            self.logger.info(f"Energy below threshold of {energy_threshold}. "
                                              "Stopping ...")
                             reason_registration_ended = 'reached energy threshold'
                             break
@@ -216,7 +213,7 @@ class GeodesicShooting:
                         energy_did_not_decrease += 1
 
                     norm_gradient = np.linalg.norm(grad.flatten())
-                    if norm_gradient < self.gradient_norm_threshold:
+                    if norm_gradient < gradient_norm_threshold:
                         self.logger.warning(f"Gradient norm is {norm_gradient} "
                                             "and therefore below threshold. Stopping ...")
                         reason_registration_ended = 'reached gradient norm threshold'

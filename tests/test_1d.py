@@ -36,7 +36,7 @@ def test_1d():
 
     # perform the registration using landmark shooting algorithm
     landmark_gs = geodesic_shooting.LandmarkShooting()
-    result = landmark_gs.register(input_landmarks, target_landmarks, sigma=0.05, epsilon=0.001, return_all=True)
+    result = landmark_gs.register(input_landmarks, target_landmarks, sigma=0.05, return_all=True)
     registered_landmarks = result['registered_landmarks']
 
     assert np.linalg.norm(target_landmarks - registered_landmarks) / np.linalg.norm(target_landmarks) < 1e-3
