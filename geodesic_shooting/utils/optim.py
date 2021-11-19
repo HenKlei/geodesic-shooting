@@ -1,3 +1,4 @@
+import inspect
 import numpy as np
 
 from geodesic_shooting.utils.logger import getLogger
@@ -103,6 +104,67 @@ class BaseLineSearch:
         new_grad = self.gradient_func(new_x, **additional_infos)
 
         return epsilon, new_x, new_energy, new_grad
+
+
+class BaseStepsizeController:
+    """Base class for methods to control stepsizes and other line search parameters.
+
+    These algorithms adjust parameters like minimal or maximal stepsize before performing the next
+    optimization step. Furthermore, additional parameters of the line search algorithm can also be
+    changed using these algorithms.
+    """
+    def __init__(self, line_search):
+        """Constructor.
+
+        Parameters
+        ----------
+        line_search
+            Line search algorithm that is used in the optimization.
+        """
+        self.line_search = line_search
+
+    def _check_parameters(self, parameters_line_search):
+        """Function to check whether the parameters given to the stepsize controller can fit the
+        parameters used in the line search algorithm.
+
+        Parameters
+        ----------
+        parameters_line_search
+            Dictionary provided for updating the stepsize and that is supposed to be checked
+            whether it can be used by the line search algorithm.
+        """
+        args = inspect.getfullargspec(self.line_search.__call__)[0]
+        assert all(param in args for param in parameters_line_search)
+
+    def update(self, parameters_line_search, current_stepsize):
+        """Function that updates the minimal and maximal stepsize or other parameters of the line
+        search algorithm.
+
+        This function should always first check if the parameters fit to the line search algorithm,
+        i.e. it should first call `_check_parameters`.
+
+        Parameters
+        ----------
+        parameters_line_search
+            Dictionary with additional information for the line search algorithm that is to be
+            updated.
+        current_stepsize
+            The last stepsize that was returned by the line search algorithm.
+
+        Returns
+        -------
+        A dictionary with the adjusted parameters.
+        """
+        self._check_parameters(parameters_line_search)
+        assert 'max_stepsize' in parameters_line_search
+        assert 'min_stepsize' in parameters_line_search
+
+        parameters_line_search['max_stepsize'] = min(parameters_line_search['max_stepsize'],
+                                                     current_stepsize)
+        parameters_line_search['min_stepsize'] = min(parameters_line_search['min_stepsize'],
+                                                     parameters_line_search['max_stepsize'])
+
+        return parameters_line_search
 
 
 class GradientDescentOptimizer(BaseOptimizer):
