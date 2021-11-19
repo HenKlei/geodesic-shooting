@@ -1,26 +1,42 @@
-# Geodesic shooting
+# Image registration using LDDMM, geodesic shooting and landmark matching
+
+The field of image registration has its origins and main applications in the analysis of medical
+image data. Given two images of the same object, the goal is to find a transformation such that
+the transformed first image matches the second image.
+
+The algorithms implemented in this package use diffeomorphic transformations of the underlying
+domain to map the two images onto each other.
 
 ## Installation
-The provided software runs on python3. All required dependencies can easily be installed with pip:
+To install the software, you first have to clone the repository by running
 ```
-pip3 install -r requirements.txt
+git clone https://github.com/HenKlei/geodesic-shooting.git
 ```
-The program itself can be installed by running
+or (in case you prefer using `ssh`)
 ```
-pip3 install .
+git clone git@github.com:HenKlei/geodesic-shooting.git
 ```
+
+To install the package, switch to the folder `geodesic-shooting` and use
+```
+pip install .
+```
+This will install the required dependencies for the basic functionality and afterwards install the
+package itself. If you want to make use of the full functionality (including visualizations,
+functions for input and output of images, etc.), you can install the optional requirements via
+```
+pip install -r requirements-optional.txt
+```
+It is recommended to use a virtual environment to install the package in.
 
 ## Examples
-Four examples are provided. One- and two-dimensional examples with plain numpy arrays, a circle translation, and morphing a circle to a square.
-
-The examples can be executed in the geodesic-shooting-examples folder with:
-```
-python3 1d_example.py
-python3 2d_example.py
-python3 translation_example.py
-python3 circle_to_square_example.py
-```
-Output files are written into the directory [examples/geodesic_shooting/results/](examples/geodesic_shooting/results/).
+The package comes with several examples for all the algorithms implemented. The examples are
+collected in the `examples` folder and sorted by registration algorithm. For instance, one- and
+two-dimensional examples with plain numpy arrays, a circle translation, and morphing a circle to a
+square are included.
 
 ## Documentation
-The commented code is in the file [geodesic_shooting/geodesic_shooting.py](geodesic_shooting/geodesic_shooting.py). 
+The commented code for the three main algorithms can be found in the following files:
+- Large deformation metric mapping: [lddmm.py](geodesic_shooting/lddmm.py)
+- Geodesic shooting: [geodesic_shooting.py](geodesic_shooting/geodesic_shooting.py)
+- Landmark matching: [landmark_shooting.py](geodesic_shooting/landmark_shooting.py)
