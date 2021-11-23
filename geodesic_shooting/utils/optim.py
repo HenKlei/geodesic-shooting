@@ -113,15 +113,24 @@ class BaseStepsizeController:
     optimization step. Furthermore, additional parameters of the line search algorithm can also be
     changed using these algorithms.
     """
-    def __init__(self, line_search):
+    def __init__(self, line_search, log_frequency=10, log_level='INFO'):
         """Constructor.
 
         Parameters
         ----------
         line_search
             Line search algorithm that is used in the optimization.
+        log_frequency
+            Frequency of logging the stepsize.
+        log_level
+            Level of the log messages to display (required by the logger).
         """
         self.line_search = line_search
+
+        self.log_frequency = log_frequency
+        self.number_iterations_without_logging = 0
+
+        self.logger = getLogger('stepsize_controller', level=log_level)
 
     def _check_parameters(self, parameters_line_search):
         """Function to check whether the parameters given to the stepsize controller can fit the
@@ -159,10 +168,26 @@ class BaseStepsizeController:
         assert 'max_stepsize' in parameters_line_search
         assert 'min_stepsize' in parameters_line_search
 
+        old_max_stepsize = parameters_line_search['max_stepsize']
+        old_min_stepsize = parameters_line_search['min_stepsize']
+
         parameters_line_search['max_stepsize'] = min(parameters_line_search['max_stepsize'],
                                                      current_stepsize)
         parameters_line_search['min_stepsize'] = min(parameters_line_search['min_stepsize'],
                                                      parameters_line_search['max_stepsize'])
+
+        if not np.isclose(old_max_stepsize, parameters_line_search['max_stepsize']):
+            self.logger.info(f'Updating maximum stepsize to {parameters_line_search["max_stepsize"]:.3e} ...')
+
+        if not np.isclose(old_min_stepsize, parameters_line_search['min_stepsize']):
+            self.logger.info(f'Updating minimum stepsize to {parameters_line_search["min_stepsize"]:.3e} ...')
+
+        if self.number_iterations_without_logging >= self.log_frequency:
+            self.logger.info(f'Current maximum stepsize: {parameters_line_search["max_stepsize"]:.3e}')
+            self.logger.info(f'Current minimum stepsize: {parameters_line_search["min_stepsize"]:.3e}')
+            self.number_iterations_without_logging = 0
+
+        self.number_iterations_without_logging += 1
 
         return parameters_line_search
 
