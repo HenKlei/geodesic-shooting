@@ -4,7 +4,7 @@ import numpy as np
 from geodesic_shooting.utils.logger import getLogger
 from geodesic_shooting.utils.kernels import GaussianKernel
 from geodesic_shooting.utils.visualization import construct_vector_field
-from geodesic_shooting.utils.optim import GradientDescentOptimizer, ArmijoLineSearch
+from geodesic_shooting.utils.optim import GradientDescentOptimizer, ArmijoLineSearch, PatientStepsizeController
 
 
 class LandmarkShooting:
@@ -43,6 +43,7 @@ class LandmarkShooting:
                  initial_momenta=None, LineSearchAlgorithm=ArmijoLineSearch,
                  parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1e-3,
                                          'max_num_search_steps': 10},
+                 StepsizeControlAlgorithm=PatientStepsizeController,
                  energy_threshold=1e-6, gradient_norm_threshold=1e-6,
                  return_all=False):
         """Performs actual registration according to geodesic shooting algorithm for landmarks using
@@ -72,12 +73,16 @@ class LandmarkShooting:
         initial_momenta
             Used as initial guess for the initial momenta (will agree with the direction pointing
             from the input landmarks to the target landmarks if None is passed).
-                LineSearchAlgorithm
+        LineSearchAlgorithm
             Algorithm to use as line search method during optimization. Should be a class and not
             an instance. The class should derive from `BaseLineSearch`.
         parameters_line_search
             Additional parameters for the line search algorithm
             (e.g. minimal and maximal stepsize, ...).
+        StepsizeControlAlgorithm
+            Algorithm to use for adjusting the minimal and maximal stepsize (or other parameters
+            of the line search algorithm that are prescribed in `parameters_line_search`).
+            The class should derive from `BaseStepsizeController.
         energy_threshold
             If the energy drops below this threshold, the registration is stopped.
         gradient_norm_threshold
@@ -170,8 +175,9 @@ class LandmarkShooting:
 
             return grad
 
-        line_search = LineSearchAlgorithm(energy_func, gradient_func)
-        optimizer = OptimizationAlgorithm(line_search)
+        line_searcher = LineSearchAlgorithm(energy_func, gradient_func)
+        optimizer = OptimizationAlgorithm(line_searcher)
+        stepsize_controller = StepsizeControlAlgorithm(line_searcher)
 
         with self.logger.block("Perform image matching via geodesic shooting ..."):
             try:
@@ -185,10 +191,8 @@ class LandmarkShooting:
                 while not (iterations is not None and k >= iterations):
                     x, energy, grad, current_stepsize = optimizer.step(x, energy, grad, parameters_line_search)
 
-                    parameters_line_search['max_stepsize'] = min(parameters_line_search['max_stepsize'],
-                                                                 current_stepsize)
-                    parameters_line_search['min_stepsize'] = min(parameters_line_search['min_stepsize'],
-                                                                 parameters_line_search['max_stepsize'])
+                    parameters_line_search = stepsize_controller.update(parameters_line_search, current_stepsize)
+
                     self.logger.info(f"iter: {k:3d}, energy: {energy:.4e}")
 
                     if min_energy >= energy:

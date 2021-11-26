@@ -5,7 +5,7 @@ from geodesic_shooting.utils import sampler, grid
 from geodesic_shooting.utils.grad import finite_difference
 from geodesic_shooting.utils.logger import getLogger
 from geodesic_shooting.utils.regularizer import BiharmonicRegularizer
-from geodesic_shooting.utils.optim import GradientDescentOptimizer, ArmijoLineSearch
+from geodesic_shooting.utils.optim import GradientDescentOptimizer, ArmijoLineSearch, PatientStepsizeController
 
 
 class GeodesicShooting:
@@ -45,6 +45,7 @@ class GeodesicShooting:
                  initial_velocity_field=None, LineSearchAlgorithm=ArmijoLineSearch,
                  parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1.,
                                          'max_num_search_steps': 10},
+                 StepsizeControlAlgorithm=PatientStepsizeController,
                  energy_threshold=1e-6, gradient_norm_threshold=1e-6,
                  return_all=False):
         """Performs actual registration according to LDDMM algorithm with time-varying velocity
@@ -78,6 +79,10 @@ class GeodesicShooting:
         parameters_line_search
             Additional parameters for the line search algorithm
             (e.g. minimal and maximal stepsize, ...).
+        StepsizeControlAlgorithm
+            Algorithm to use for adjusting the minimal and maximal stepsize (or other parameters
+            of the line search algorithm that are prescribed in `parameters_line_search`).
+            The class should derive from `BaseStepsizeController`.
         energy_threshold
             If the energy drops below this threshold, the registration is stopped.
         gradient_norm_threshold
@@ -180,8 +185,9 @@ class GeodesicShooting:
 
             return gradient_initial_velocity
 
-        line_search = LineSearchAlgorithm(energy_func, gradient_func)
-        optimizer = OptimizationAlgorithm(line_search)
+        line_searcher = LineSearchAlgorithm(energy_func, gradient_func)
+        optimizer = OptimizationAlgorithm(line_searcher)
+        stepsize_controller = StepsizeControlAlgorithm(line_searcher)
 
         with self.logger.block("Perform image matching via geodesic shooting ..."):
             try:
@@ -195,10 +201,8 @@ class GeodesicShooting:
                 while not (iterations is not None and k >= iterations):
                     x, energy, grad, current_stepsize = optimizer.step(x, energy, grad, parameters_line_search)
 
-                    parameters_line_search['max_stepsize'] = min(parameters_line_search['max_stepsize'],
-                                                                 current_stepsize)
-                    parameters_line_search['min_stepsize'] = min(parameters_line_search['min_stepsize'],
-                                                                 parameters_line_search['max_stepsize'])
+                    parameters_line_search = stepsize_controller.update(parameters_line_search, current_stepsize)
+
                     self.logger.info(f"iter: {k:3d}, energy: {energy:.4e}")
 
                     if min_energy >= energy:

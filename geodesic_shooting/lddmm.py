@@ -5,7 +5,7 @@ from geodesic_shooting.utils import sampler, grid
 from geodesic_shooting.utils.grad import finite_difference
 from geodesic_shooting.utils.logger import getLogger
 from geodesic_shooting.utils.regularizer import BiharmonicRegularizer
-from geodesic_shooting.utils.optim import GradientDescentOptimizer, ArmijoLineSearch
+from geodesic_shooting.utils.optim import GradientDescentOptimizer, ArmijoLineSearch, PatientStepsizeController
 
 
 class LDDMM:
@@ -38,6 +38,7 @@ class LDDMM:
                  LineSearchAlgorithm=ArmijoLineSearch,
                  parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1.,
                                          'max_num_search_steps': 10},
+                 StepsizeControlAlgorithm=PatientStepsizeController,
                  energy_threshold=1e-6, gradient_norm_threshold=1e-6,
                  return_all=False):
         """Performs actual registration according to LDDMM algorithm with time-varying velocity
@@ -51,17 +52,34 @@ class LDDMM:
             Target image as array.
         time_steps
             Number of discrete time steps to perform.
-        iterations
-            Number of iterations of the optimizer to perform. The value `None` is also possible
-            to not bound the number of iterations.
         sigma
             Weight for the similarity measurement (L2 difference of the target and the registered
             image); the smaller sigma, the larger the influence of the L2 loss.
-        epsilon
+        OptimizationAlgorithm
+            Algorithm to use for optimization during registration. Should be a class and not an
+            instance. The class should derive from `BaseOptimizer`.
+        iterations
+            Number of iterations of the optimizer to perform. The value `None` is also possible
+            to not bound the number of iterations.
+                epsilon
             Learning rate, i.e. step size of the optimizer.
         early_stopping
             Number of iterations with non-decreasing energy after which to stop registration.
             If `None`, no early stopping is used.
+        LineSearchAlgorithm
+            Algorithm to use as line search method during optimization. Should be a class and not
+            an instance. The class should derive from `BaseLineSearch`.
+        parameters_line_search
+            Additional parameters for the line search algorithm
+            (e.g. minimal and maximal stepsize, ...).
+        StepsizeControlAlgorithm
+            Algorithm to use for adjusting the minimal and maximal stepsize (or other parameters
+            of the line search algorithm that are prescribed in `parameters_line_search`).
+            The class should derive from `BaseStepsizeController`.
+        energy_threshold
+            If the energy drops below this threshold, the registration is stopped.
+        gradient_norm_threshold
+            If the norm of the gradient drops below this threshold, the registration is stopped.
         return_all
             Determines whether or not to return all information or only the final flow that led to
             the best registration result.
@@ -171,8 +189,9 @@ class LDDMM:
 
             return gradient_velocity_fields
 
-        line_search = LineSearchAlgorithm(energy_func, gradient_func)
-        optimizer = OptimizationAlgorithm(line_search)
+        line_searcher = LineSearchAlgorithm(energy_func, gradient_func)
+        optimizer = OptimizationAlgorithm(line_searcher)
+        stepsize_controller = StepsizeControlAlgorithm(line_searcher)
 
         with self.logger.block("Perform image matching via LDDMM algorithm ..."):
             try:
@@ -190,10 +209,8 @@ class LDDMM:
                     if k % 10 == 9:
                         velocity_fields = self.reparameterize(velocity_fields)
 
-                    parameters_line_search['max_stepsize'] = min(parameters_line_search['max_stepsize'],
-                                                                 current_stepsize)
-                    parameters_line_search['min_stepsize'] = min(parameters_line_search['min_stepsize'],
-                                                                 parameters_line_search['max_stepsize'])
+                    parameters_line_search = stepsize_controller.update(parameters_line_search, current_stepsize)
+
                     self.logger.info(f"iter: {k:3d}, energy: {energy:.4e}")
 
                     if min_energy >= energy:
