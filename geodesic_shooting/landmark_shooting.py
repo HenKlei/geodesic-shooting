@@ -4,7 +4,7 @@ import numpy as np
 from geodesic_shooting.utils.logger import getLogger
 from geodesic_shooting.utils.kernels import GaussianKernel
 from geodesic_shooting.utils.visualization import construct_vector_field
-from geodesic_shooting.utils.optim import GradientDescentOptimizer, ArmijoLineSearch, BaseStepsizeController
+from geodesic_shooting.utils.optim import GradientDescentOptimizer, ArmijoLineSearch, PatientStepsizeController
 
 
 class LandmarkShooting:
@@ -43,7 +43,7 @@ class LandmarkShooting:
                  initial_momenta=None, LineSearchAlgorithm=ArmijoLineSearch,
                  parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1e-3,
                                          'max_num_search_steps': 10},
-                 StepsizeControlAlgorithm=BaseStepsizeController,
+                 StepsizeControlAlgorithm=PatientStepsizeController,
                  energy_threshold=1e-6, gradient_norm_threshold=1e-6,
                  return_all=False):
         """Performs actual registration according to geodesic shooting algorithm for landmarks using

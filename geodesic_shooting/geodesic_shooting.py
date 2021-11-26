@@ -5,7 +5,7 @@ from geodesic_shooting.utils import sampler, grid
 from geodesic_shooting.utils.grad import finite_difference
 from geodesic_shooting.utils.logger import getLogger
 from geodesic_shooting.utils.regularizer import BiharmonicRegularizer
-from geodesic_shooting.utils.optim import GradientDescentOptimizer, ArmijoLineSearch, BaseStepsizeController
+from geodesic_shooting.utils.optim import GradientDescentOptimizer, ArmijoLineSearch, PatientStepsizeController
 
 
 class GeodesicShooting:
@@ -45,7 +45,7 @@ class GeodesicShooting:
                  initial_velocity_field=None, LineSearchAlgorithm=ArmijoLineSearch,
                  parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1.,
                                          'max_num_search_steps': 10},
-                 StepsizeControlAlgorithm=BaseStepsizeController,
+                 StepsizeControlAlgorithm=PatientStepsizeController,
                  energy_threshold=1e-6, gradient_norm_threshold=1e-6,
                  return_all=False):
         """Performs actual registration according to LDDMM algorithm with time-varying velocity
