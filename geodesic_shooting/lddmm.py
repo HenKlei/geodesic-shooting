@@ -270,6 +270,8 @@ class LDDMM:
         opt['time'] = elapsed_time
         opt['reason_registration_ended'] = reason_registration_ended
 
+        stepsize_controller.reset()
+
         if return_all:
             return opt
         return velocity_fields
