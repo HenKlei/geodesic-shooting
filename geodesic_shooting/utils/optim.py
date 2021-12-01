@@ -128,14 +128,9 @@ class BaseStepsizeController:
         self.line_search = line_search
 
         self.log_frequency = log_frequency
-
-        self.reset()
+        self.number_iterations_without_logging = 0
 
         self.logger = getLogger('stepsize_controller', level=log_level)
-
-    def reset(self):
-        """Function to reset internal parameters of the stepsize controller."""
-        self.number_iterations_without_logging = 0
 
     def _check_parameters(self, parameters_line_search):
         """Function to check whether the parameters given to the stepsize controller can fit the
@@ -324,18 +319,13 @@ class PatientStepsizeController(BaseStepsizeController):
         self.line_search = line_search
 
         self.patience = patience
-
-        self.log_frequency = log_frequency
-
-        self.reset()
-
-        self.logger = getLogger('stepsize_controller', level=log_level)
-
-    def reset(self):
-        """Function to reset internal parameters of the stepsize controller."""
         self.maximal_reduced_stepsize = None
         self.number_iterations_without_changing_stepsize = 0
+
+        self.log_frequency = log_frequency
         self.number_iterations_without_logging = 0
+
+        self.logger = getLogger('stepsize_controller', level=log_level)
 
     def update(self, parameters_line_search, current_stepsize):
         """Function that updates the minimal and maximal stepsize of the line search algorithm.
