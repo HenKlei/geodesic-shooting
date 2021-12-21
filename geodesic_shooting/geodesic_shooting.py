@@ -122,6 +122,8 @@ class GeodesicShooting:
         # define vector fields
         if initial_velocity_field is None:
             initial_velocity_field = np.zeros((self.dim, *self.shape), dtype=np.double)
+        else:
+            initial_velocity_field = np.reshape(initial_velocity_field, (self.dim, *self.shape))
         assert initial_velocity_field.shape == (self.dim, *self.shape)
 
         def set_opt(opt, energy, energy_regularizer, energy_intensity, energy_intensity_unscaled,
