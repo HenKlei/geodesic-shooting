@@ -109,6 +109,8 @@ class LandmarkShooting:
         # define initial momenta
         if initial_momenta is None:
             initial_momenta = (target_landmarks - input_landmarks)
+        else:
+            initial_momenta = np.reshape(initial_momenta, input_landmarks.shape)
         assert initial_momenta.shape == input_landmarks.shape
 
         initial_momenta = initial_momenta.flatten()

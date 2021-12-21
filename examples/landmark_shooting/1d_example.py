@@ -8,9 +8,12 @@ if __name__ == "__main__":
     input_landmarks = np.array([[1.], [2.], [9.]])
     target_landmarks = np.array([[3.], [4.5], [8.]])
 
+    initial_momenta = np.ones(len(input_landmarks.flatten()))
+
     # perform the registration using landmark shooting algorithm
     gs = geodesic_shooting.LandmarkShooting()
-    result = gs.register(input_landmarks, target_landmarks, sigma=0.05, return_all=True)
+    result = gs.register(input_landmarks, target_landmarks, sigma=0.05,
+                         initial_momenta=initial_momenta, return_all=True)
     registered_landmarks = result['registered_landmarks']
 
     print(f"Input: {input_landmarks}")
