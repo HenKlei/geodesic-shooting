@@ -16,29 +16,15 @@ def sample(array, coordinates):
     -------
     The sampled array.
     """
-    assert array.ndim in [1, 2, 3]
-    assert coordinates.ndim in [1, 2, 3]
+    assert array.ndim in [coordinates.ndim, coordinates.ndim - 1]
 
-    if coordinates.ndim == 2:
-        if array.ndim == 1:
-            return skimage.transform.warp(array, coordinates, mode='edge')
-        return skimage.transform.warp(array[0, :], coordinates, mode='edge')
-
-    # add newaxis to coordinates if coordinates has only a single dimension
     if coordinates.ndim == 1:
         return skimage.transform.warp(array, coordinates[np.newaxis, ...], mode='edge')
 
-    # only a single color channel
-    if array.ndim == 2:
-        return skimage.transform.warp(array, coordinates, mode='edge')
-
-    if array.ndim == 3:
-        # the first dimension is the channel dimension,
-        # we need iterate over each channel independently
+    if array.ndim == coordinates.ndim:
         samples_channels = []
         for i in range(array.shape[0]):
-            samples_channels.append(skimage.transform.warp(array[i, :, :], coordinates,
-                                                           mode='edge'))
+            samples_channels.append(skimage.transform.warp(array[i], coordinates, mode='edge'))
         return np.stack(samples_channels, axis=0)
 
-    raise NotImplementedError
+    return skimage.transform.warp(array, coordinates, mode='edge')
