@@ -1,8 +1,10 @@
 import numpy as np
 import skimage.transform
 
+from geodesic_shooting.core import ScalarFunction, VectorField
 
-def sample(array, coordinates):
+
+def sample(f, coordinates, boundary_mode='edge'):
     """Function to sample a given input array at given coordinates.
 
     Parameters
@@ -16,15 +18,15 @@ def sample(array, coordinates):
     -------
     The sampled array.
     """
-    assert array.ndim in [coordinates.ndim, coordinates.ndim - 1]
+    assert (isinstance(f, ScalarFunction) or isinstance(f, VectorField)) and isinstance(coordinates, VectorField)
+    assert f.dim == coordinates.dim
 
-    if coordinates.ndim == 1:
-        return skimage.transform.warp(array, coordinates[np.newaxis, ...], mode='edge')
+    coordinates = np.einsum("...i->i...", coordinates.to_numpy())
 
-    if array.ndim == coordinates.ndim:
+    if isinstance(f, VectorField):
         samples_channels = []
-        for i in range(array.shape[0]):
-            samples_channels.append(skimage.transform.warp(array[i], coordinates, mode='edge'))
-        return np.stack(samples_channels, axis=0)
+        for i in range(f.dim):
+            samples_channels.append(skimage.transform.warp(f[..., i], coordinates, mode=boundary_mode))
+        return VectorField(f.spatial_shape, data=np.stack(samples_channels, axis=-1))
 
-    return skimage.transform.warp(array, coordinates, mode='edge')
+    return ScalarFunction(f.full_shape, skimage.transform.warp(f.to_numpy(), coordinates, mode=boundary_mode))

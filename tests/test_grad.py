@@ -1,19 +1,26 @@
 import numpy as np
 
 from geodesic_shooting.utils.grad import finite_difference
+from geodesic_shooting.core import ScalarFunction, VectorField
 
 
 def test_grad():
-    img = np.zeros((5, 10))
-    img[..., 2] = 1
-    derivative = np.zeros((2, 5, 10))
-    derivative[1, :, 1] = 1
-    derivative[1, :, 3] = -1
-    assert (finite_difference(img) == derivative).all()
+    f1 = ScalarFunction((5, 10))
+    f1[..., 2] = 1
+    derivative = VectorField((5, 10))
+    derivative[:, 1, 1] = 0.5
+    derivative[:, 3, 1] = -0.5
+    assert finite_difference(f1) == derivative
 
-    img = np.zeros((5, 10))
-    img[2, ...] = 1
-    derivative = np.zeros((2, 5, 10))
-    derivative[0, 1, :] = 1
-    derivative[0, 3, :] = -1
-    assert (finite_difference(img) == derivative).all()
+    f2 = ScalarFunction((5, 10))
+    f2[2, ...] = 1
+    derivative = VectorField((5, 10))
+    derivative[1, :, 0] = 0.5
+    derivative[3, :, 0] = -0.5
+    assert finite_difference(f2) == derivative
+
+    v = VectorField((5, 10))
+    v[..., 0] = f1
+    v[..., 1] = f2
+    assert (finite_difference(v) == np.stack([finite_difference(f1).to_numpy(),
+                                              finite_difference(f2).to_numpy()], axis=-1)).all()
