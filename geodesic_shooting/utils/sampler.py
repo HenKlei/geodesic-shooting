@@ -27,6 +27,7 @@ def sample(f, coordinates, boundary_mode='edge'):
         samples_channels = []
         for i in range(f.dim):
             samples_channels.append(skimage.transform.warp(f[..., i], coordinates, mode=boundary_mode))
-        return VectorField(f.spatial_shape, data=np.stack(samples_channels, axis=-1))
+        return VectorField(spatial_shape=f.spatial_shape, data=np.stack(samples_channels, axis=-1))
 
-    return ScalarFunction(f.full_shape, skimage.transform.warp(f.to_numpy(), coordinates, mode=boundary_mode))
+    transformed_function = skimage.transform.warp(f.to_numpy(), coordinates, mode=boundary_mode)
+    return ScalarFunction(spatial_shape=f.full_shape, data=transformed_function)

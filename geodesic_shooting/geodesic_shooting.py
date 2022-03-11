@@ -124,7 +124,7 @@ class GeodesicShooting:
         if initial_vector_field is None:
             initial_vector_field = VectorField(self.shape)
         else:
-            initial_vector_field = VectorField(self.shape, data=initial_vector_field)
+            initial_vector_field = VectorField(data=initial_vector_field)
         assert isinstance(initial_vector_field, VectorField)
         assert initial_vector_field.full_shape == (*self.shape, self.dim)
 
@@ -348,7 +348,7 @@ class GeodesicShooting:
             rhs = (np.einsum(einsum_string_transpose, grad_vt, momentum_t.to_numpy())
                    + np.einsum(einsum_string, grad_mt, vector_fields[t].to_numpy())
                    + momentum_t.to_numpy() * div_vt[..., np.newaxis])
-            rhs = VectorField(rhs.shape[:-1], data=rhs)
+            rhs = VectorField(data=rhs)
             vector_fields[t+1] = (vector_fields[t]
                                   - self.regularizer.cauchy_navier_squared_inverse(rhs) / self.time_steps)
 
@@ -383,10 +383,8 @@ class GeodesicShooting:
             grad_regularized_v = regularized_v.grad
 
             rhs_v = - self.regularizer.cauchy_navier_squared_inverse(
-                VectorField(regularized_v.spatial_shape,
-                            data=np.einsum(einsum_string_transpose, grad_vector_fields, regularized_v.to_numpy()))
-                + VectorField(regularized_v.spatial_shape,
-                              data=np.einsum(einsum_string, grad_regularized_v, vector_fields[t].to_numpy()))
+                VectorField(data=np.einsum(einsum_string_transpose, grad_vector_fields, regularized_v.to_numpy()))
+                + VectorField(data=np.einsum(einsum_string, grad_regularized_v, vector_fields[t].to_numpy()))
                 + regularized_v * div_vector_fields[..., np.newaxis])
             v_old = v_old - rhs_v / self.time_steps
 
@@ -399,12 +397,10 @@ class GeodesicShooting:
                            - (np.einsum(einsum_string, grad_vector_fields, delta_v.to_numpy())
                               - np.einsum(einsum_string, grad_delta_v, vector_fields[t].to_numpy()))
                            + self.regularizer.cauchy_navier_squared_inverse(
-                               VectorField(regularized_vector_fields.spatial_shape,
-                                           data=np.einsum(einsum_string_transpose,
+                               VectorField(data=np.einsum(einsum_string_transpose,
                                                           grad_delta_v,
                                                           regularized_vector_fields.to_numpy()))
-                               + VectorField(regularized_vector_fields.spatial_shape,
-                                             data=np.einsum(einsum_string,
+                               + VectorField(data=np.einsum(einsum_string,
                                                             grad_regularized_vector_fields,
                                                             delta_v.to_numpy()))
                                + regularized_vector_fields * div_delta_v[..., np.newaxis]))

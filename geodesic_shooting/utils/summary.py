@@ -4,10 +4,14 @@ import matplotlib.pyplot as plt
 
 def plot_registration_results(results, interval=1):
     fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
-    results['input'].plot("Input", axis=ax1)
-    results['target'].plot("Target", axis=ax2)
-    results['transformed_input'].plot("Result", axis=ax3)
-    (results['target'] - results['transformed_input']).plot("Difference of target and result", axis=ax4)
+    ax1, vals1 = results['input'].plot("Input", axis=ax1)
+    fig.colorbar(vals1, ax=ax1, fraction=0.046, pad=0.04)
+    ax2, vals2 = results['target'].plot("Target", axis=ax2)
+    fig.colorbar(vals2, ax=ax2, fraction=0.046, pad=0.04)
+    ax3, vals3 = results['transformed_input'].plot("Result", axis=ax3)
+    fig.colorbar(vals3, ax=ax3, fraction=0.046, pad=0.04)
+    ax4, vals4 = (results['target'] - results['transformed_input']).plot("Difference of target and result", axis=ax4)
+    fig.colorbar(vals4, ax=ax4, fraction=0.046, pad=0.04)
     plt.show()
 
     _ = results['vector_fields'].animate()

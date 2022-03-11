@@ -10,13 +10,22 @@ import geodesic_shooting.utils.grad as grad
 
 
 class VectorField:
-    def __init__(self, spatial_shape, data=None):
+    def __init__(self, spatial_shape=(), data=None):
+        if data is None:
+            assert spatial_shape != ()
+        else:
+            if spatial_shape != ():
+                assert spatial_shape == data.shape[0:-1]
+            else:
+                spatial_shape = data.shape[0:-1]
+
         self.spatial_shape = spatial_shape
         self.dim = len(self.spatial_shape)
         self.full_shape = (*self.spatial_shape, self.dim)
 
         if data is None:
             data = np.zeros(self.full_shape)
+        assert len(spatial_shape) == data.shape[-1]
         self._data = data
         assert self._data.shape == self.full_shape
 
@@ -214,7 +223,8 @@ class VectorField:
 
 
 class TimeDependentVectorField:
-    def __init__(self, spatial_shape, time_steps, data=None):
+    def __init__(self, spatial_shape=(), time_steps=1, data=None):
+        assert isinstance(time_steps, int) and time_steps > 0
         self.spatial_shape = spatial_shape
         self.dim = len(self.spatial_shape)
         self.time_steps = time_steps

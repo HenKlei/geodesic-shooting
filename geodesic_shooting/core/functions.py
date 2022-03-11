@@ -9,7 +9,15 @@ from geodesic_shooting.utils.grad import finite_difference
 
 
 class ScalarFunction:
-    def __init__(self, spatial_shape, data=None):
+    def __init__(self, spatial_shape=(), data=None):
+        if data is None:
+            assert spatial_shape != ()
+        else:
+            if spatial_shape != ():
+                assert spatial_shape == data.shape
+            else:
+                spatial_shape = data.shape
+
         self.spatial_shape = spatial_shape
         self.dim = len(self.spatial_shape)
         self.full_shape = self.spatial_shape
@@ -23,7 +31,7 @@ class ScalarFunction:
     def grad(self):
         return finite_difference(self)
 
-    def plot(self, title="", axis=None, show=True):
+    def plot(self, title="", colorbar=True, axis=None, show=True):
         assert self.dim in (1, 2)
 
         fig_created = False
@@ -33,16 +41,19 @@ class ScalarFunction:
             axis = fig.add_subplot(1, 1, 1)
 
         if self.dim == 1:
-            axis.plot(self.to_numpy())
+            vals = axis.plot(self.to_numpy())
         else:
-            axis.imshow(self.to_numpy().transpose(), origin='lower')
+            vals = axis.imshow(self.to_numpy().transpose(), origin='lower')
+
         axis.set_title(title)
 
         if fig_created:
+            if colorbar:
+                fig.colorbar(vals, ax=axis)
             if show:
                 plt.show()
             return fig
-        return axis
+        return axis, vals
 
     def save(self, filepath, title=""):
         _ = self.plot(title=title, axis=None, show=False)

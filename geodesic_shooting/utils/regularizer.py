@@ -85,7 +85,7 @@ class BiharmonicRegularizer:
         # transform back
         result_inverse_fourier = self.ifftn(result_fourier)
 
-        return VectorField(v.spatial_shape, data=result_inverse_fourier)
+        return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
 
     def compute_helper_operator(self, dim, spatial_shape):
         """Computes the helper operator for the inverse of the squared Cauchy-Navier type operator.

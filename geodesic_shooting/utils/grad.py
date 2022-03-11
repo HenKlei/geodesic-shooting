@@ -45,6 +45,6 @@ def finite_difference(f):
     if isinstance(f, core.ScalarFunction):
         for d in range(dim):
             derivatives.append(_fd_single_dim(f.to_numpy(), d))
-        return core.VectorField(f.spatial_shape, data=np.stack(derivatives, axis=-1))
+        return core.VectorField(spatial_shape=f.spatial_shape, data=np.stack(derivatives, axis=-1))
 
     raise NotImplementedError

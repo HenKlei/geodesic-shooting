@@ -25,7 +25,7 @@ def make_circle(shape, center, radius):
     val = np.linalg.norm(XY - center[np.newaxis, np.newaxis, :], axis=-1)
     result = np.zeros(shape)
     result += 1. * (val < radius)
-    return ScalarFunction(shape, data=result)
+    return ScalarFunction(spatial_shape=shape, data=result)
 
 
 def make_square(shape, center, length):
@@ -50,4 +50,4 @@ def make_square(shape, center, length):
     val = np.linalg.norm(XY - center[np.newaxis, np.newaxis, :], axis=-1, ord=np.inf)
     result = np.zeros(shape)
     result += 1. * (val < length / 2.)
-    return ScalarFunction(shape, data=result)
+    return ScalarFunction(spatial_shape=shape, data=result)
