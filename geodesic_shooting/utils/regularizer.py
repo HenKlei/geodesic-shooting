@@ -41,24 +41,23 @@ class BiharmonicRegularizer:
         `VectorField` of the same shape as the input.
         """
         assert isinstance(v, VectorField)
-        dim = v.dim
-        assert dim in [1, 2]
+        # check if helper operator is already defined
+        if self.helper_operator is None or self.helper_operator.shape != v.spatial_shape:
+            self.helper_operator = self.compute_helper_operator(v.dim, v.spatial_shape)
 
-        # window depends on the dimension and represents a simple approximation
-        # of the Laplace operator
-        if dim == 1:
-            window = np.array([1., -2., 1.])
-        elif dim == 2:
-            window = np.array([[0., 1., 0.],
-                               [1., -4., 1.],
-                               [0., 1., 0.]])
+        # transform input to Fourier space
+        function_fourier = self.fftn(v.to_numpy())
 
-        dff = np.stack([convolve(v[..., d], window) for d in range(dim)], axis=-1)
+        # perform operation in Fourier space
+        result_fourier = function_fourier * self.helper_operator
 
-        return self.exponent * v - self.alpha * dff
+        # transform back
+        result_inverse_fourier = self.ifftn(result_fourier)
+
+        return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
 
     def cauchy_navier_squared_inverse(self, v):
-        """Application of the operator `K=(LL)^-1` where `L` is the Cauchy-Navier type operator.
+        """Application of the operator `K=L^{-1}` where `L` is the Cauchy-Navier type operator.
 
         Due to the structure of the operator it is easier to apply the operator in Fourier space.
 
@@ -80,7 +79,7 @@ class BiharmonicRegularizer:
         function_fourier = self.fftn(v.to_numpy())
 
         # perform operation in Fourier space
-        result_fourier = function_fourier / self.helper_operator**2
+        result_fourier = function_fourier / self.helper_operator
 
         # transform back
         result_inverse_fourier = self.ifftn(result_fourier)
@@ -88,7 +87,7 @@ class BiharmonicRegularizer:
         return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
 
     def compute_helper_operator(self, dim, spatial_shape):
-        """Computes the helper operator for the inverse of the squared Cauchy-Navier type operator.
+        """Computes the helper operator for the Cauchy-Navier type operator.
 
         Parameters
         ----------
@@ -103,9 +102,7 @@ class BiharmonicRegularizer:
 
         for i in np.ndindex(spatial_shape):
             for d in range(dim):
-                helper_operator[i] += 2 * self.alpha * (1 - np.cos(2 * np.pi * i[d] / spatial_shape[d]))
-
-        helper_operator += self.exponent
+                helper_operator[i] += (1. + 2.*self.alpha*(1. - np.cos(2.*np.pi*i[d]/spatial_shape[d])))**self.exponent
 
         return np.stack([helper_operator, ] * dim, axis=-1)
 

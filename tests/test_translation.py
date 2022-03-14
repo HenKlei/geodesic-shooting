@@ -27,7 +27,7 @@ def test_translation():
                          parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1.},
                          iterations=100, return_all=True)
 
-    assert (target - result['transformed_input']).norm / target.norm < 5e-2
+    assert (target - result['transformed_input']).norm / target.norm < 1e-1
 
     # create images
     input_ = make_square((64, 64), np.array([24, 24]), 40)
@@ -49,4 +49,4 @@ def test_translation():
                          parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1e-1},
                          iterations=50, return_all=True)
 
-    assert (target - result['transformed_input']).norm / target.norm < 5e-2
+    assert (target - result['transformed_input']).norm / target.norm < 1e-1
