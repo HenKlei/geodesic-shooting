@@ -5,21 +5,23 @@ import geodesic_shooting.core as core
 
 
 def finite_difference(f):
-    """Finite difference scheme for approximating the derivative of the input array.
+    """Finite difference scheme for approximating the derivative of the input.
 
     This function uses central differences to compute the (discrete) derivative
-    of the input array in the different dimensions.
+    of the input in the different dimensions.
 
     Parameters
     ----------
-    array
-        Input array to compute the derivative of.
+    f
+        `ScalarFunction` or `VectorField` to compute the derivative of.
 
     Returns
     -------
-    Array containing the derivatives in the different dimensions.
+    In the case of a `ScalarFunction` `f`, the result is a gradient `VectorField`,
+    in the case of a `VectorField` `f`, the result is a numpy-array containing the
+    gradient/Jacobian of the `VectorField` at the spatial points.
     """
-    assert isinstance(f, core.VectorField) or isinstance(f, core.ScalarFunction)
+    assert isinstance(f, (core.ScalarFunction, core.VectorField))
 
     window = np.array([-1., 0., 1.]) * 0.5
     dim = f.dim

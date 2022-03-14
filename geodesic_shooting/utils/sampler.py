@@ -5,20 +5,22 @@ from geodesic_shooting.core import ScalarFunction, VectorField
 
 
 def sample(f, coordinates, boundary_mode='edge'):
-    """Function to sample a given input array at given coordinates.
+    """Function to sample a given `ScalarFunction` or `VectorField` at given coordinates.
+
+    Remark: The coordinates at which to sample have to be givenas a `VectorField`.
 
     Parameters
     ----------
-    array
-        Input image.
+    f
+        `ScalarFunction` or `VectorField` to transform.
     coordinates
-        Array containing the coordinates to sample at.
+        `VectorField` containing the coordinates to sample at.
 
     Returns
     -------
-    The sampled array.
+    The sampled `ScalarFunction` or `VectorField`.
     """
-    assert (isinstance(f, ScalarFunction) or isinstance(f, VectorField)) and isinstance(coordinates, VectorField)
+    assert isinstance(f, (ScalarFunction, VectorField)) and isinstance(coordinates, VectorField)
     assert f.dim == coordinates.dim
 
     coordinates = np.einsum("...i->i...", coordinates.to_numpy())

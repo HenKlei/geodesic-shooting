@@ -3,6 +3,15 @@ import matplotlib.pyplot as plt
 
 
 def plot_registration_results(results, interval=1):
+    """Plots some of the results from registration via geodesic shooting.
+
+    Parameters
+    ----------
+    results
+        Dictionary containing the results obtained via geodesic shooting.
+    interval
+        Interval in which to sample.
+    """
     fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
     ax1, vals1 = results['input'].plot("Input", axis=ax1)
     fig.colorbar(vals1, ax=ax1, fraction=0.046, pad=0.04)
@@ -14,7 +23,7 @@ def plot_registration_results(results, interval=1):
     fig.colorbar(vals4, ax=ax4, fraction=0.046, pad=0.04)
     plt.show()
 
-    _ = results['vector_fields'].animate()
+    _ = results['vector_fields'].animate("Time-evolution of the vector field", interval=interval)
     plt.show()
 
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
@@ -28,6 +37,15 @@ def plot_registration_results(results, interval=1):
 
 
 def save_plots_registration_results(results, filepath='results/'):
+    """Saves some plots of the results from registration via geodesic shooting.
+
+    Parameters
+    ----------
+    results
+        Dictionary containing the results obtained via geodesic shooting.
+    filepath
+        Directory to save the images to.
+    """
     if not os.path.exists(filepath):
         os.makedirs(filepath)
 

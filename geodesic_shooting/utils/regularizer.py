@@ -33,12 +33,12 @@ class BiharmonicRegularizer:
 
         Parameters
         ----------
-        function
-            Array that holds the function values.
+        v
+            `VectorField` to apply the operator to.
 
         Returns
         -------
-        Array of the same shape as the input.
+        `VectorField` of the same shape as the input.
         """
         assert isinstance(v, VectorField)
         dim = v.dim
@@ -64,12 +64,12 @@ class BiharmonicRegularizer:
 
         Parameters
         ----------
-        function
-            Array that holds the function values.
+        v
+            `VectorField` to apply the inverse operator to.
 
         Returns
         -------
-        Array of the same shape as the input.
+        `VectorField` of the same shape as the input.
         """
         assert isinstance(v, VectorField)
         # check if helper operator is already defined

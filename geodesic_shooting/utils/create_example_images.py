@@ -11,13 +11,13 @@ def make_circle(shape, center, radius):
     shape
         Shape of the resulting image (number of pixels in the two directions of the image).
     center
-        Center of the circle (in pixels).
+        Center of the circle (numpy-array; in pixels).
     radius
         Radius of the circle (in pixels).
 
     Returns
     -------
-    The image as numpy array.
+    The image as a `ScalarFunction`.
     """
     l = [np.arange(s) for s in shape]
     XX, YY = np.meshgrid(*l, indexing='ij')
@@ -36,13 +36,13 @@ def make_square(shape, center, length):
     shape
         Shape of the resulting image (number of pixels in the two directions of the image).
     center
-        Center of the square (in pixels).
+        Center of the square (numpy-array; in pixels).
     length
-        Length of each side of the square.
+        Length of each side of the square (in pixels).
 
     Returns
     -------
-    The image as numpy array.
+    The image as a `ScalarFunction`.
     """
     l = [np.arange(s) for s in shape]
     XX, YY = np.meshgrid(*l, indexing='ij')

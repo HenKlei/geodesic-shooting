@@ -10,7 +10,24 @@ import geodesic_shooting.utils.grad as grad
 
 
 class VectorField:
+    """Class that represents a vector-valued function, i.e. a vector field."""
     def __init__(self, spatial_shape=(), data=None):
+        """Constructor.
+
+        Parameters
+        ----------
+        spatial_shape
+            Spatial shape of the underlying domain, i.e. number of components
+            in each coordinate direction.
+        data
+            numpy-array containing the values of the `VectorField`. If `None`,
+            one has to provide `spatial_shape` and a numpy-array containing zeros
+            with shape `(*spatial_shape, dim)` is created as data, where `dim` is
+            the dimension of the underlying domain (given as `len(spatial_shape)`).
+            If not `None`, either `spatial_shape` is the empty tuple or the first
+            components of the shape of `data` (without the last component)
+            fit to the provided `spatial_shape`.
+        """
         if data is None:
             assert spatial_shape != ()
         else:
@@ -31,31 +48,57 @@ class VectorField:
 
     @property
     def grad(self):
+        """Computes the (discrete, approximate) gradient/Jacobian using finite differences.
+
+        Returns
+        -------
+        Finite difference approximation of the gradient/Jacobian.
+        """
         return grad.finite_difference(self)
 
-    def plot(self, title="", interval=1, show_axis=False, scale=None, axis=None, show=True):
-        """Plot the given (two-dimensional) vector field.
+    def to_numpy(self, shape=None):
+        """Returns the `VectorField` represented as a numpy-array.
 
         Parameters
         ----------
-        vector_field
-            Field to plot.
+        shape
+            If not `None`, the numpy-array is reshaped according to `shape`.
+
+        Returns
+        -------
+        Numpy-array containing the entries of the `VectorField`.
+        """
+        if shape:
+            return self._data.reshape(shape)
+        return self._data
+
+    def plot(self, title="", interval=1, show_axis=False, scale=None, axis=None):
+        """Plots the `VectorField` using `matplotlib`'s `quiver` function.
+
+        Parameters
+        ----------
         title
-            Title of the plot.
+            The title of the plot.
         interval
             Interval in which to sample.
         show_axis
             Determines whether or not to show the axes.
+        scale
+            Factor used for scaling the arrows in the `quiver`-plot.
+            If `None`, a default auto-scaling from `matplotlib` is applied.
+            For realistic arrow lengths without scaling, a value of `scale=1.`
+            has to be used.
+        axis
+            If not `None`, the function is plotted on the provided axis.
 
         Returns
         -------
-        The created plot.
+        If `axis` is None, the created figure is returned, otherwise the axis
+        is returned.
         """
         assert self.dim == 2
 
-        fig_created = False
         if not axis:
-            fig_created = True
             fig = plt.figure()
             axis = fig.add_subplot(1, 1, 1)
 
@@ -73,39 +116,47 @@ class VectorField:
                     self[::interval, ::interval, 0], self[::interval, ::interval, 1],
                     units='xy', scale=scale)
 
-        if fig_created:
-            if show:
-                plt.show()
+        if not axis:
             return fig
         return axis
 
     def save(self, filepath, title=""):
-        _ = self.plot(title=title, axis=None, show=False)
-        plt.savefig(filepath)
-
-    def plot_as_warpgrid(self, title="", interval=1, show_axis=False, invert_yaxis=True, axis=None):
-        """Plot the given warpgrid.
+        """Saves the plot of the `VectorField` produced by the `plot`-function.
 
         Parameters
         ----------
-        warp
-            Warp grid to plot.
+        filepath
+            Path to save the plot to.
         title
             Title of the plot.
+        """
+        _ = self.plot(title=title, axis=None)
+        plt.savefig(filepath)
+
+    def plot_as_warpgrid(self, title="", interval=1, show_axis=False, invert_yaxis=True, axis=None):
+        """Plots the `VectorField` as a warpgrid using `matplotlib`.
+
+        Parameters
+        ----------
+        title
+            The title of the plot.
         interval
             Interval in which to sample.
         show_axis
             Determines whether or not to show the axes.
+        invert_yaxis
+            Determines whether or not to invert the vertical axis.
+        axis
+            If not `None`, the function is plotted on the provided axis.
 
         Returns
         -------
-        The created plot.
+        If `axis` is None, the created figure is returned, otherwise the axis
+        is returned.
         """
         assert self.dim == 2
 
-        fig_created = False
         if not axis:
-            fig_created = True
             fig = plt.figure()
             axis = fig.add_subplot(1, 1, 1)
 
@@ -122,15 +173,36 @@ class VectorField:
         for col in range(0, self.spatial_shape[1], interval):
             axis.plot(self[:, col, 0], self[:, col, 1], 'k')
 
-        if fig_created:
+        if not axis:
             return fig
         return axis
 
-    @property
-    def norm(self):
-        return np.linalg.norm(self.to_numpy())
+    def get_norm(self, order=None):
+        """Computes the norm of the `VectorField`.
+
+        Remark: If `order=None` and `self.dim >= 2`, the 2-norm of `self.to_numpy().ravel()` is returned,
+        see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
+
+        Parameters
+        ----------
+        order
+            Order of the norm, see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
+
+        Returns
+        -------
+        The norm of the `VectorField`.
+        """
+        return np.linalg.norm(self.to_numpy(), ord=order)
+
+    norm = property(get_norm)
 
     def copy(self):
+        """Returns a deepcopy of the `VectorField`.
+
+        Returns
+        -------
+        Deepcopy of the whole `VectorField`.
+        """
         return deepcopy(self)
 
     def __add__(self, other):
@@ -216,14 +288,28 @@ class VectorField:
     def __str__(self):
         return str(self.to_numpy())
 
-    def to_numpy(self, shape=None):
-        if shape:
-            return self._data.reshape(shape)
-        return self._data
-
 
 class TimeDependentVectorField:
+    """Class that represents a time-dependent vector field."""
     def __init__(self, spatial_shape=(), time_steps=1, data=None):
+        """Constructor.
+
+        Parameters
+        ----------
+        spatial_shape
+            Spatial shape of the underlying domain, i.e. number of components
+            in each coordinate direction.
+        time_steps
+            Number of time steps represented in this vector field.
+        data
+            numpy-array containing the values of the `TimeDependentVectorFieldVectorField`.
+            If `None`, one has to provide `spatial_shape` and `time_steps` and a
+            list containing for each time step a `VectorField` of zeros with shape
+            `(*spatial_shape, dim)` is created as data, where `dim` is the dimension of
+            the underlying domain (given as `len(spatial_shape)`).
+            If not `None`, either a numpy-array or a `TimeDependentVectorField`
+            has to be provided.
+        """
         assert isinstance(time_steps, int) and time_steps > 0
         self.spatial_shape = spatial_shape
         self.dim = len(self.spatial_shape)
@@ -239,11 +325,44 @@ class TimeDependentVectorField:
                     or (isinstance(data, TimeDependentVectorField) and data.full_shape == self.full_shape))
             for elem in data:
                 if isinstance(elem, VectorField):
-                    self._data.append(elem)
+                    self._data.append(elem.copy())
                 else:
                     self._data.append(VectorField(self.spatial_shape, data=elem))
 
+    def to_numpy(self, shape=None):
+        """Returns the `TimeDependentVectorField` represented as a numpy-array.
+
+        Parameters
+        ----------
+        shape
+            If not `None`, the numpy-array is reshaped according to `shape`.
+
+        Returns
+        -------
+        Numpy-array containing the entries of the `TimeDependentVectorField`.
+        """
+        result = np.array([a.to_numpy() for a in self._data])
+        assert result.shape == self.full_shape
+        if shape:
+            return result.reshape(shape)
+        return result
+
     def animate(self, title="", interval=1, show_axis=False):
+        """Animates the time-dependent vector field.
+
+        Parameters
+        ----------
+        title
+            The title of the plot.
+        interval
+            Interval in which to sample.
+        show_axis
+            Determines whether or not to show the axes.
+
+        Returns
+        -------
+        The animation object.
+        """
         fig = plt.figure()
         axis = fig.add_subplot(1, 1, 1)
 
@@ -255,14 +374,29 @@ class TimeDependentVectorField:
 
         def animate(i):
             axis.clear()
-            self[i].plot(axis=axis)
+            self[i].plot(title=title, interval=interval, axis=axis)
 
         ani = animation.FuncAnimation(fig, animate, frames=self.time_steps, interval=100)
         return ani
 
-    @property
-    def norm(self):
-        return np.linalg.norm(self.to_numpy())
+    def get_norm(self, order=None):
+        """Computes the norm of the `TimeDependentVectorField`.
+
+        Remark: If `order=None` and `self.dim >= 2`, the 2-norm of `self.to_numpy().ravel()` is returned,
+        see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
+
+        Parameters
+        ----------
+        order
+            Order of the norm, see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
+
+        Returns
+        -------
+        The norm of the `TimeDependentVectorField`.
+        """
+        return np.linalg.norm(self.to_numpy(), ord=order)
+
+    norm = property(get_norm)
 
     def __setitem__(self, index, val):
         assert isinstance(val, VectorField) and val.full_shape == (*self.spatial_shape, self.dim)
@@ -281,10 +415,3 @@ class TimeDependentVectorField:
 
     def __str__(self):
         return str(self.to_numpy())
-
-    def to_numpy(self, shape=None):
-        result = np.array([a.to_numpy() for a in self._data])
-        assert result.shape == self.full_shape
-        if shape:
-            return result.reshape(shape)
-        return result

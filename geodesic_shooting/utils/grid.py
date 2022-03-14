@@ -13,7 +13,7 @@ def coordinate_grid(shape):
 
     Returns
     -------
-    The coordinate grid of size (dim x shape).
+    The `VectorField` with spatial_shape `shape`.
     """
     assert len(shape) > 0
 
