@@ -1,4 +1,4 @@
-# Image registration using LDDMM, geodesic shooting and landmark matching
+# Image registration using geodesic shooting and landmark matching
 
 The field of image registration has its origins and main applications in the analysis of medical
 image data. Given two images of the same object, the goal is to find a transformation such that
@@ -36,7 +36,6 @@ two-dimensional examples with plain numpy arrays, a circle translation, and morp
 square are included.
 
 ## Documentation
-The commented code for the three main algorithms can be found in the following files:
-- Large deformation metric mapping: [lddmm.py](geodesic_shooting/lddmm.py)
+The commented code for the two main algorithms can be found in the following files:
 - Geodesic shooting: [geodesic_shooting.py](geodesic_shooting/geodesic_shooting.py)
 - Landmark matching: [landmark_shooting.py](geodesic_shooting/landmark_shooting.py)

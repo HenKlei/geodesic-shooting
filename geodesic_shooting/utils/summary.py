@@ -32,9 +32,6 @@ def plot_registration_results(results, interval=1):
     ax3 = (results['vector_fields'][0] - results['vector_fields'][-1]).plot("Difference", axis=ax3)
     plt.show()
 
-    results['flow'].plot_as_warpgrid(title="Inverse warp grid", interval=interval)
-    plt.show()
-
 
 def save_plots_registration_results(results, filepath='results/'):
     """Saves some plots of the results from registration via geodesic shooting.
