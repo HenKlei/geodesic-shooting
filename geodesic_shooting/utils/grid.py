@@ -20,6 +20,6 @@ def coordinate_grid(shape):
     if len(shape) == 1:
         return core.VectorField(spatial_shape=shape, data=np.mgrid[:shape[0]][..., np.newaxis].astype(np.double))
 
-    l = [np.arange(s) for s in shape]
+    ranges = [np.arange(s) for s in shape]
     return core.VectorField(spatial_shape=shape,
-                            data=np.stack(np.meshgrid(*l, indexing='ij'), axis=-1).astype(np.double))
+                            data=np.stack(np.meshgrid(*ranges, indexing='ij'), axis=-1).astype(np.double))

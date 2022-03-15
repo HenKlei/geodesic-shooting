@@ -2,8 +2,6 @@ import numpy as np
 from numbers import Number
 from copy import deepcopy
 import matplotlib.pyplot as plt
-import imageio
-from PIL import Image
 
 from geodesic_shooting.utils.grad import finite_difference
 
@@ -121,13 +119,14 @@ class ScalarFunction:
     def get_norm(self, order=None):
         """Computes the norm of the `ScalarFunction`.
 
-        Remark: If `order=None` and `self.dim >= 2`, the 2-norm of `self.to_numpy().ravel()` is returned,
-        see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
+        Remark: If `order=None` and `self.dim >= 2`, the 2-norm of `self.to_numpy().ravel()`
+        is returned, see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
 
         Parameters
         ----------
         order
-            Order of the norm, see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
+            Order of the norm,
+            see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
 
         Returns
         -------
@@ -139,7 +138,7 @@ class ScalarFunction:
 
     @property
     def size(self):
-        """Returns the size of the `ScalarFunction`, i.e. the number of entries of the corresponding numpy-array.
+        """Returns the size of the `ScalarFunction`, i.e. the number of entries of the numpy-array.
 
         Returns
         -------

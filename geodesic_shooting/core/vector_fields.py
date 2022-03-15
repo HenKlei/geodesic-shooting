@@ -180,13 +180,14 @@ class VectorField:
     def get_norm(self, order=None):
         """Computes the norm of the `VectorField`.
 
-        Remark: If `order=None` and `self.dim >= 2`, the 2-norm of `self.to_numpy().ravel()` is returned,
-        see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
+        Remark: If `order=None` and `self.dim >= 2`, the 2-norm of `self.to_numpy().ravel()`
+        is returned, see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
 
         Parameters
         ----------
         order
-            Order of the norm, see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
+            Order of the norm,
+            see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
 
         Returns
         -------
@@ -382,13 +383,14 @@ class TimeDependentVectorField:
     def get_norm(self, order=None):
         """Computes the norm of the `TimeDependentVectorField`.
 
-        Remark: If `order=None` and `self.dim >= 2`, the 2-norm of `self.to_numpy().ravel()` is returned,
-        see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
+        Remark: If `order=None` and `self.dim >= 2`, the 2-norm of `self.to_numpy().ravel()`
+        is returned, see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
 
         Parameters
         ----------
         order
-            Order of the norm, see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
+            Order of the norm,
+            see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
 
         Returns
         -------

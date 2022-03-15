@@ -3,6 +3,11 @@ import numpy as np
 from geodesic_shooting.core import ScalarFunction
 
 
+def _create_mesh(shape):
+    xx, yy = np.meshgrid(*[np.arange(s) for s in shape], indexing='ij')
+    return np.stack([xx, yy], axis=-1)
+
+
 def make_circle(shape, center, radius):
     """Creates a square image with a circle in it.
 
@@ -19,10 +24,7 @@ def make_circle(shape, center, radius):
     -------
     The image as a `ScalarFunction`.
     """
-    l = [np.arange(s) for s in shape]
-    XX, YY = np.meshgrid(*l, indexing='ij')
-    XY = np.stack([XX, YY], axis=-1)
-    val = np.linalg.norm(XY - center[np.newaxis, np.newaxis, :], axis=-1)
+    val = np.linalg.norm(_create_mesh(shape) - center[np.newaxis, np.newaxis, :], axis=-1)
     result = np.zeros(shape)
     result += 1. * (val < radius)
     return ScalarFunction(spatial_shape=shape, data=result)
@@ -44,10 +46,7 @@ def make_square(shape, center, length):
     -------
     The image as a `ScalarFunction`.
     """
-    l = [np.arange(s) for s in shape]
-    XX, YY = np.meshgrid(*l, indexing='ij')
-    XY = np.stack([XX, YY], axis=-1)
-    val = np.linalg.norm(XY - center[np.newaxis, np.newaxis, :], axis=-1, ord=np.inf)
+    val = np.linalg.norm(_create_mesh(shape) - center[np.newaxis, np.newaxis, :], axis=-1, ord=np.inf)
     result = np.zeros(shape)
     result += 1. * (val < length / 2.)
     return ScalarFunction(spatial_shape=shape, data=result)

@@ -1,5 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
 
 import geodesic_shooting
 from geodesic_shooting.core import ScalarFunction
