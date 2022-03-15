@@ -115,7 +115,7 @@ class ArmijoLineSearch(BaseLineSearch):
         assert max_num_search_steps >= 1
 
         epsilon = max_stepsize
-        rho = pow(min_stepsize / max_stepsize, 1./max_num_search_steps)
+        rho = pow(min_stepsize / max_stepsize, 1. / max_num_search_steps)
         epsilon = max_stepsize
         reducing_stepsize = False
 

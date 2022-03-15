@@ -1,49 +1,52 @@
 import numpy as np
 
+from geodesic_shooting.core import ScalarFunction
 
-def make_circle(N, center, radius):
+
+def _create_mesh(shape):
+    xx, yy = np.meshgrid(*[np.arange(s) for s in shape], indexing='ij')
+    return np.stack([xx, yy], axis=-1)
+
+
+def make_circle(shape, center, radius):
     """Creates a square image with a circle in it.
 
     Parameters
     ----------
-    N
-        Number of pixels in both directions of the image.
+    shape
+        Shape of the resulting image (number of pixels in the two directions of the image).
     center
-        Center of the circle (in pixels).
+        Center of the circle (numpy-array; in pixels).
     radius
         Radius of the circle (in pixels).
 
     Returns
     -------
-    The image as numpy array.
+    The image as a `ScalarFunction`.
     """
-    XX, YY = np.meshgrid(np.arange(N), np.arange(N))
-    XY = np.stack([XX, YY], axis=-1)
-    val = np.linalg.norm(XY - center[np.newaxis, np.newaxis, :], axis=2)
-    result = np.zeros((N, N))
+    val = np.linalg.norm(_create_mesh(shape) - center[np.newaxis, np.newaxis, :], axis=-1)
+    result = np.zeros(shape)
     result += 1. * (val < radius)
-    return result
+    return ScalarFunction(spatial_shape=shape, data=result)
 
 
-def make_square(N, center, length):
+def make_square(shape, center, length):
     """Creates a square image with a square in it.
 
     Parameters
     ----------
-    N
-        Number of pixels in both directions of the image.
+    shape
+        Shape of the resulting image (number of pixels in the two directions of the image).
     center
-        Center of the square (in pixels).
+        Center of the square (numpy-array; in pixels).
     length
-        Length of each side of the square.
+        Length of each side of the square (in pixels).
 
     Returns
     -------
-    The image as numpy array.
+    The image as a `ScalarFunction`.
     """
-    XX, YY = np.meshgrid(np.arange(N), np.arange(N))
-    XY = np.stack([XX, YY], axis=-1)
-    val = np.linalg.norm(XY - center[np.newaxis, np.newaxis, :], axis=2, ord=np.inf)
-    result = np.zeros((N, N))
+    val = np.linalg.norm(_create_mesh(shape) - center[np.newaxis, np.newaxis, :], axis=-1, ord=np.inf)
+    result = np.zeros(shape)
     result += 1. * (val < length / 2.)
-    return result
+    return ScalarFunction(spatial_shape=shape, data=result)

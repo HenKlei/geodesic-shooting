@@ -1,10 +1,11 @@
 import numpy as np
 
 from geodesic_shooting.utils.regularizer import BiharmonicRegularizer
+from geodesic_shooting.core import VectorField
 
 
-v = np.zeros((2, 5, 5))
-v[0, 2, 2] = 1
+v = VectorField((5, 5))
+v[2, 2, 0] = 1
 
 regularizer = BiharmonicRegularizer(alpha=1, exponent=1)
 

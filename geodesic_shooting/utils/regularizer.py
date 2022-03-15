@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.ndimage import convolve
 
+from geodesic_shooting.core import VectorField
+
 
 class BiharmonicRegularizer:
     """Biharmonic regularizer implementing smoothing functions.
@@ -26,63 +28,66 @@ class BiharmonicRegularizer:
 
         self.helper_operator = None
 
-    def cauchy_navier(self, function):
+    def cauchy_navier(self, v):
         """Application of the Cauchy-Navier type operator (-alpha * Δ + exponent * I) to a function.
 
         Parameters
         ----------
-        function
-            Array that holds the function values.
+        v
+            `VectorField` to apply the operator to.
 
         Returns
         -------
-        Array of the same shape as the input.
+        `VectorField` of the same shape as the input.
         """
-        assert function.ndim in [2, 3]
+        assert isinstance(v, VectorField)
+        # check if helper operator is already defined
+        if self.helper_operator is None or self.helper_operator.shape != v.spatial_shape:
+            self.helper_operator = self.compute_helper_operator(v.dim, v.spatial_shape)
 
-        # window depends on the dimension and represents a simple approximation
-        # of the Laplace operator
-        if function.ndim == 2:
-            window = np.array([1., -2., 1.])
-        elif function.ndim == 3:
-            window = np.array([[0., 1., 0.],
-                               [1., -4., 1.],
-                               [0., 1., 0.]])
+        # transform input to Fourier space
+        function_fourier = self.fftn(v.to_numpy())
 
-        dff = np.stack([convolve(function[d, ...], window)
-                        for d in range(function.shape[0])], axis=0)
+        # perform operation in Fourier space
+        result_fourier = function_fourier * self.helper_operator
 
-        return - self.alpha * dff + self.exponent * function
+        # transform back
+        result_inverse_fourier = self.ifftn(result_fourier)
 
-    def cauchy_navier_squared_inverse(self, function):
-        """Application of the operator `K=(LL)^-1` where `L` is the Cauchy-Navier type operator.
+        return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
+
+    def cauchy_navier_squared_inverse(self, v):
+        """Application of the operator `K=L^{-1}` where `L` is the Cauchy-Navier type operator.
 
         Due to the structure of the operator it is easier to apply the operator in Fourier space.
 
         Parameters
         ----------
-        function
-            Array that holds the function values.
+        v
+            `VectorField` to apply the inverse operator to.
 
         Returns
         -------
-        Array of the same shape as the input.
+        `VectorField` of the same shape as the input.
         """
+        assert isinstance(v, VectorField)
         # check if helper operator is already defined
-        if self.helper_operator is None or self.helper_operator.shape != function.shape[1:]:
-            self.helper_operator = self.compute_helper_operator(function.shape)
+        if self.helper_operator is None or self.helper_operator.shape != v.spatial_shape:
+            self.helper_operator = self.compute_helper_operator(v.dim, v.spatial_shape)
 
         # transform input to Fourier space
-        function_fourier = self.fftn(function)
+        function_fourier = self.fftn(v.to_numpy())
 
         # perform operation in Fourier space
-        result_fourier = function_fourier / self.helper_operator**2
+        result_fourier = function_fourier / self.helper_operator
 
         # transform back
-        return self.ifftn(result_fourier)
+        result_inverse_fourier = self.ifftn(result_fourier)
 
-    def compute_helper_operator(self, shape):
-        """Computes the helper operator for the inverse of the squared Cauchy-Navier type operator.
+        return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
+
+    def compute_helper_operator(self, dim, spatial_shape):
+        """Computes the helper operator for the Cauchy-Navier type operator.
 
         Parameters
         ----------
@@ -93,17 +98,13 @@ class BiharmonicRegularizer:
         -------
         Operator as array.
         """
-        dim = shape[0]
-        shape = shape[1:]
-        helper_operator = np.zeros(shape, dtype=np.double)
+        helper_operator = np.zeros(spatial_shape, dtype=np.double)
 
-        for i in np.ndindex(shape):
+        for i in np.ndindex(spatial_shape):
             for d in range(dim):
-                helper_operator[i] += 2 * self.alpha * (1 - np.cos(2 * np.pi * i[d] / shape[d]))
+                helper_operator[i] += (1. + 2.*self.alpha*(1. - np.cos(2.*np.pi*i[d]/spatial_shape[d])))**self.exponent
 
-        helper_operator += self.exponent
-
-        return np.stack([helper_operator, ] * dim, axis=0)
+        return np.stack([helper_operator, ] * dim, axis=-1)
 
     def fftn(self, array):
         """Performs `n`-dimensional FFT along the first `n` axes of an `n+1`-dimensional array.
@@ -118,8 +119,8 @@ class BiharmonicRegularizer:
         Array of the same shape.
         """
         transformed_array = np.zeros(array.shape, dtype=np.complex128)
-        for i in range(array.shape[0]):
-            transformed_array[i] = np.fft.fftn(array[i])
+        for i in range(array.shape[-1]):
+            transformed_array[..., i] = np.fft.fftn(array[..., i])
         return transformed_array
 
     def ifftn(self, array):
@@ -135,7 +136,7 @@ class BiharmonicRegularizer:
         Array of the same shape.
         """
         inverse_transformed_array = np.zeros(array.shape, dtype=np.complex128)
-        for i in range(array.shape[0]):
-            inverse_transformed_array[i] = np.fft.ifftn(array[i])
+        for i in range(array.shape[-1]):
+            inverse_transformed_array[..., i] = np.fft.ifftn(array[..., i])
         # convert to real here since we assume that images consist of real numbers!
         return np.real(inverse_transformed_array)

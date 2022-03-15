@@ -1,5 +1,7 @@
 import numpy as np
 
+import geodesic_shooting.core as core
+
 
 def coordinate_grid(shape):
     """Function for generating a coordinate grid that corresponds to the identity mapping.
@@ -11,11 +13,13 @@ def coordinate_grid(shape):
 
     Returns
     -------
-    The coordinate grid of size (dim x shape).
+    The `VectorField` with spatial_shape `shape`.
     """
     assert len(shape) > 0
 
     if len(shape) == 1:
-        return np.mgrid[:shape[0]][np.newaxis, ...]
+        return core.VectorField(spatial_shape=shape, data=np.mgrid[:shape[0]][..., np.newaxis].astype(np.double))
 
-    return np.mgrid[[slice(0, s) for s in shape]]
+    ranges = [np.arange(s) for s in shape]
+    return core.VectorField(spatial_shape=shape,
+                            data=np.stack(np.meshgrid(*ranges, indexing='ij'), axis=-1).astype(np.double))

@@ -1,11 +1,13 @@
 import time
 import numpy as np
 
+from copy import deepcopy
+
 from geodesic_shooting.utils import sampler, grid
-from geodesic_shooting.utils.grad import finite_difference
 from geodesic_shooting.utils.logger import getLogger
 from geodesic_shooting.utils.regularizer import BiharmonicRegularizer
 from geodesic_shooting.utils.optim import GradientDescentOptimizer, ArmijoLineSearch, PatientStepsizeController
+from geodesic_shooting.core import ScalarFunction, VectorField, TimeDependentVectorField
 
 
 class GeodesicShooting:
@@ -15,7 +17,7 @@ class GeodesicShooting:
     Geodesic Shooting for Computational Anatomy.
     Miller, Trouvé, Younes, 2006
     """
-    def __init__(self, alpha=6., exponent=1., dim=2, shape=(100, 100), log_level='INFO'):
+    def __init__(self, alpha=6., exponent=2., dim=2, shape=(100, 100), log_level='INFO'):
         """Constructor.
 
         Parameters
@@ -42,13 +44,13 @@ class GeodesicShooting:
 
     def register(self, input_, target, time_steps=30, sigma=1.,
                  OptimizationAlgorithm=GradientDescentOptimizer, iterations=1000, early_stopping=10,
-                 initial_velocity_field=None, LineSearchAlgorithm=ArmijoLineSearch,
+                 initial_vector_field=None, LineSearchAlgorithm=ArmijoLineSearch,
                  parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1.,
                                          'max_num_search_steps': 10},
                  StepsizeControlAlgorithm=PatientStepsizeController,
                  energy_threshold=1e-6, gradient_norm_threshold=1e-6,
-                 return_all=False):
-        """Performs actual registration according to LDDMM algorithm with time-varying velocity
+                 return_all=False, log_summary=True):
+        """Performs actual registration according to LDDMM algorithm with time-varying vector
            fields that are chosen via geodesics.
 
         Parameters
@@ -71,8 +73,8 @@ class GeodesicShooting:
         early_stopping
             Number of iterations with non-decreasing energy after which to stop registration.
             If `None`, no early stopping is used.
-        initial_velocity_field
-            Used as initial guess for the initial velocity field (will be 0 if None is passed).
+        initial_vector_field
+            Used as initial guess for the initial vector field (will be 0 if None is passed).
         LineSearchAlgorithm
             Algorithm to use as line search method during optimization. Should be a class and not
             an instance. The class should derive from `BaseLineSearch`.
@@ -90,6 +92,9 @@ class GeodesicShooting:
         return_all
             Determines whether or not to return all information or only the initial vector field
             that led to the best registration result.
+        log_summary
+            Determines whether or not to print a summary of the registration results to the
+            console.
 
         Returns
         -------
@@ -102,43 +107,50 @@ class GeodesicShooting:
         assert iterations is None or (isinstance(iterations, int) and iterations > 0)
         assert sigma > 0
         assert (isinstance(early_stopping, int) and early_stopping > 0) or early_stopping is None
-        assert input_.shape == target.shape
 
-        input_ = input_.astype('double')
-        target = target.astype('double')
+        assert isinstance(input_, ScalarFunction)
+        assert isinstance(target, ScalarFunction)
+        assert input_.full_shape == target.full_shape
 
+        # function to compute the L2-error between a given image and the target
         def compute_energy(image):
-            return np.sum((image - target)**2)
+            return np.sum(((image - target)**2).to_numpy())
 
-        def compute_grad_energy(image_gradient, image):
-            return self.regularizer.cauchy_navier_squared_inverse(
-                image_gradient * (image - target)[np.newaxis, ...])
+        # function to compute the gradient of the overall energy function
+        # with respect to the final vector field
+        def compute_grad_energy(image):
+            return self.regularizer.cauchy_navier_squared_inverse(image.grad * (image - target)[..., np.newaxis])
 
         # set up variables
         self.time_steps = time_steps
-        self.shape = input_.shape
-        self.dim = input_.ndim
+        self.shape = input_.spatial_shape
+        self.dim = input_.dim
 
-        # define vector fields
-        if initial_velocity_field is None:
-            initial_velocity_field = np.zeros((self.dim, *self.shape), dtype=np.double)
+        # define initial vector fields
+        if initial_vector_field is None:
+            initial_vector_field = VectorField(self.shape)
         else:
-            initial_velocity_field = np.reshape(initial_velocity_field, (self.dim, *self.shape))
-        assert initial_velocity_field.shape == (self.dim, *self.shape)
+            if not isinstance(initial_vector_field, VectorField):
+                initial_vector_field = VectorField(data=initial_vector_field)
+        assert isinstance(initial_vector_field, VectorField)
+        assert initial_vector_field.full_shape == (*self.shape, self.dim)
 
+        # updates dictionary with (current) optimal values
         def set_opt(opt, energy, energy_regularizer, energy_intensity, energy_intensity_unscaled,
-                    transformed_input, initial_velocity_field, flow):
+                    transformed_input, initial_vector_field, flow, vector_fields):
             opt['energy'] = energy
             opt['energy_regularizer'] = energy_regularizer
             opt['energy_intensity'] = energy_intensity
             opt['energy_intensity_unscaled'] = energy_intensity_unscaled
             opt['transformed_input'] = transformed_input
-            opt['initial_velocity_field'] = initial_velocity_field
+            opt['initial_vector_field'] = initial_vector_field
             opt['flow'] = flow
+            opt['vector_fields'] = vector_fields
             return opt
 
-        opt = set_opt({}, None, None, None, None, input_, initial_velocity_field,
-                      self.integrate_forward_flow(self.integrate_forward_vector_field(initial_velocity_field)))
+        vector_fields = self.integrate_forward_vector_field(initial_vector_field)
+        opt = set_opt({}, None, None, None, None, input_, initial_vector_field,
+                      self.integrate_forward_flow(vector_fields), vector_fields)
 
         reason_registration_ended = 'reached maximum number of iterations'
 
@@ -146,69 +158,68 @@ class GeodesicShooting:
 
         res = {}
 
+        # function that computes the energy
         def energy_func(v0, return_additional_infos=False, return_all_energies=False):
-            # integrate initial velocity field forward in time
-            velocity_fields = self.integrate_forward_vector_field(v0)
+            # integrate initial vector field forward in time
+            vector_fields = self.integrate_forward_vector_field(v0)
 
-            # compute forward flows according to the velocity fields
-            flow = self.integrate_forward_flow(velocity_fields)
+            # compute forward flows according to the vector fields
+            flow = self.integrate_forward_flow(vector_fields)
 
             # push-forward input_ image
             forward_pushed_input = self.push_forward(input_, flow)
 
             # compute the current energy consisting of intensity difference
             # and regularization
-            energy_regularizer = np.linalg.norm(self.regularizer.cauchy_navier(
-                initial_velocity_field))
+            energy_regularizer = self.regularizer.cauchy_navier(v0).norm
             energy_intensity_unscaled = compute_energy(forward_pushed_input)
             energy_intensity = 1 / sigma**2 * energy_intensity_unscaled
             energy = energy_regularizer + energy_intensity
 
             if return_additional_infos:
-                return energy, {'velocity_fields': velocity_fields, 'forward_pushed_input': forward_pushed_input}
+                return energy, {'vector_fields': vector_fields, 'forward_pushed_input': forward_pushed_input}
             if return_all_energies:
                 return {'energy': energy, 'energy_regularizer': energy_regularizer,
                         'energy_intensity': energy_intensity, 'energy_intensity_unscaled': energy_intensity_unscaled}
             return energy
 
-        def gradient_func(v0, velocity_fields, forward_pushed_input):
-            # compute gradient of the forward-pushed image
-            gradient_forward_pushed_input = self.image_grad(forward_pushed_input)
-
+        # function that computes the gradient of the energy
+        def gradient_func(v0, vector_fields, forward_pushed_input):
             # compute gradient of the intensity difference
-            gradient_l2_energy = (1 / sigma**2
-                                  * compute_grad_energy(gradient_forward_pushed_input,
-                                                        forward_pushed_input))
+            gradient_l2_energy = compute_grad_energy(forward_pushed_input) / sigma**2
 
-            # compute gradient of the intensity difference with respect to the
-            # initial velocity
-            gradient_initial_velocity = -self.integrate_backward_adjoint_Jacobi_field(
-                gradient_l2_energy, velocity_fields)
+            # compute gradient of the intensity difference with respect to the initial vector field
+            gradient_initial_vector = -self.integrate_backward_adjoint_Jacobi_field(gradient_l2_energy, vector_fields)
 
-            return gradient_initial_velocity
+            return gradient_initial_vector
 
         line_searcher = LineSearchAlgorithm(energy_func, gradient_func)
         optimizer = OptimizationAlgorithm(line_searcher)
         stepsize_controller = StepsizeControlAlgorithm(line_searcher)
 
+        # beginning of the main registration routine
         with self.logger.block("Perform image matching via geodesic shooting ..."):
             try:
+                # set initial values
                 k = 0
                 energy_did_not_decrease = 0
-                x = res['x'] = initial_velocity_field
+                x = res['x'] = initial_vector_field
                 energy, additional_infos = energy_func(res['x'], return_additional_infos=True)
                 grad = gradient_func(res['x'], **additional_infos)
                 min_energy = energy
 
+                # registration iteration
                 while not (iterations is not None and k >= iterations):
+                    # perform optimization step
                     x, energy, grad, current_stepsize = optimizer.step(x, energy, grad, parameters_line_search)
-
+                    # update the stepsize controller
                     parameters_line_search = stepsize_controller.update(parameters_line_search, current_stepsize)
 
                     self.logger.info(f"iter: {k:3d}, energy: {energy:.4e}")
 
+                    # check if objective function value decreased
                     if min_energy >= energy:
-                        res['x'] = x.copy()
+                        res['x'] = deepcopy(x)
                         min_energy = energy
                         if min_energy < energy_threshold:
                             self.logger.info(f"Energy below threshold of {energy_threshold}. "
@@ -218,7 +229,8 @@ class GeodesicShooting:
                     else:
                         energy_did_not_decrease += 1
 
-                    norm_gradient = np.linalg.norm(grad.flatten())
+                    # check the norm of the gradient
+                    norm_gradient = grad.norm
                     if norm_gradient < gradient_norm_threshold:
                         self.logger.warning(f"Gradient norm is {norm_gradient} "
                                             "and therefore below threshold. Stopping ...")
@@ -232,18 +244,19 @@ class GeodesicShooting:
                 self.logger.warning("Aborting registration ...")
                 reason_registration_ended = 'manual abort'
 
-            velocity_fields = self.integrate_forward_vector_field(res['x'])
+            # compute time-dependent vector field from optimal initial vector field
+            vector_fields = self.integrate_forward_vector_field(res['x'])
 
-            # compute forward flows according to the velocity fields
-            flow = self.integrate_forward_flow(velocity_fields)
+            # compute forward flows according to the vector fields
+            flow = self.integrate_forward_flow(vector_fields)
 
-            # push-forward input_ image
+            # push-forward input-image
             transformed_input = self.push_forward(input_, flow)
 
+        # update optimal values
         energies = energy_func(res['x'], return_all_energies=True)
-        set_opt(opt, energies['energy'], energies['energy_regularizer'],
-                energies['energy_intensity'], energies['energy_intensity_unscaled'],
-                transformed_input, res['x'].reshape((self.dim, *self.shape)), flow)
+        set_opt(opt, energies['energy'], energies['energy_regularizer'], energies['energy_intensity'],
+                energies['energy_intensity_unscaled'], transformed_input, res['x'], flow, vector_fields)
 
         elapsed_time = int(time.perf_counter() - start_time)
 
@@ -252,29 +265,52 @@ class GeodesicShooting:
         if opt['energy'] is not None:
             self.logger.info(f"Optimal energy: {opt['energy']:4.4f}")
 
-        if opt['initial_velocity_field'] is not None:
+        if opt['initial_vector_field'] is not None:
             # compute the length of the path on the manifold;
-            # this step only requires the initial velocity due to conservation of momentum
-            length = np.linalg.norm(self.regularizer.cauchy_navier(opt['initial_velocity_field']))
+            # this step only requires the initial vector due to conservation of momentum
+            length = self.regularizer.cauchy_navier(opt['initial_vector_field']).norm
         else:
             length = 0.0
+
+        opt['input'] = input_
+        opt['target'] = target
 
         opt['length'] = length
         opt['iterations'] = k
         opt['time'] = elapsed_time
         opt['reason_registration_ended'] = reason_registration_ended
 
+        if log_summary:
+            self.summarize_results(opt)
+
         if return_all:
             return opt
-        return initial_velocity_field
+        return initial_vector_field
 
-    def integrate_forward_flow(self, velocity_fields):
-        """Computes forward integration according to given velocity fields.
+    def summarize_results(self, results):
+        """Log a summary of the results to the console.
 
         Parameters
         ----------
-        velocity_fields
-            Sequence of velocity fields (i.e. time-depending velocity field).
+        results
+            Dictionary with the results obtained from the `register`-function.
+        """
+        self.logger.info("")
+        self.logger.info("Registration summary")
+        self.logger.info("====================")
+        self.logger.info(f"Registration finished after {results['iterations']} iterations.")
+        self.logger.info(f"Registration took {results['time']} seconds.")
+        self.logger.info(f"Reason for the registration algorithm to stop: {results['reason_registration_ended']}.")
+        self.logger.info("Relative norm of difference: "
+                         f"{(results['target'] - results['transformed_input']).norm / results['target'].norm}")
+
+    def integrate_forward_flow(self, vector_fields):
+        """Computes forward integration according to given vector fields.
+
+        Parameters
+        ----------
+        vector_fields
+            Sequence of vector fields (i.e. time-depending vector field).
 
         Returns
         -------
@@ -283,37 +319,14 @@ class GeodesicShooting:
         # make identity grid
         identity_grid = grid.coordinate_grid(self.shape)
 
-        # create flow
-        flow = np.zeros((self.dim, *self.shape), dtype=np.double)
-
         # initial flow is the identity mapping
-        flow = identity_grid.astype(np.double)
+        flow = identity_grid.copy()
 
+        # perform forward integration
         for t in range(0, self.time_steps-1):
-            alpha = self.forward_alpha(velocity_fields[t])
-            flow = sampler.sample(flow, identity_grid - alpha)
+            flow = sampler.sample(flow, identity_grid - vector_fields[t])
 
         return flow
-
-    def forward_alpha(self, velocity_field):
-        """Helper function to estimate the updated positions (forward calculation).
-
-        Parameters
-        ----------
-        velocity_field
-            Array containing the velocity field used for updating the positions.
-
-        Returns
-        -------
-        Array with the update of the positions.
-        """
-        # make identity grid
-        identity_grid = grid.coordinate_grid(self.shape)
-
-        alpha = np.zeros(velocity_field.shape, dtype=np.double)
-        for _ in range(5):
-            alpha = sampler.sample(velocity_field, identity_grid - 0.5 * alpha)
-        return alpha
 
     def push_forward(self, image, flow):
         """Pushes forward an image along a flow.
@@ -321,9 +334,9 @@ class GeodesicShooting:
         Parameters
         ----------
         image
-            Array to push forward.
+            `ScalarFunction` to push forward.
         flow
-            Array containing the flow along which to push the input forward.
+            `VectorField` containing the flow according to which to push the input forward.
 
         Returns
         -------
@@ -331,99 +344,122 @@ class GeodesicShooting:
         """
         return sampler.sample(image, flow)
 
-    def image_grad(self, image):
-        """Computes the gradients of the given image.
+    def integrate_forward_vector_field(self, initial_vector_field):
+        """Performs forward integration of the initial vector field.
+
+        Hint: See "Finite-Dimensional Lie Algebras for Fast Diffeomorphic Image Registration"
+        by Miaomiao Zhang and P. Thomas Fletcher, Section 2, Equation (3), or "Data-driven
+        Model Order Reduction For Diffeomorphic Image Registration" by Jian Wang, Wei Xing,
+        Robert M. Kirby, and Miaomiao Zhang, Section 2, Equation (3), for more information
+        on the equations used here.
 
         Parameters
         ----------
-        image
-            Array containing the (forward) pushed image.
+        initial_vector_field
+            Initial `VectorField` to integrate forward.
 
         Returns
         -------
-        Array with the gradients of the input image.
+        Sequence of vector fields obtained via forward integration of the initial vector field.
         """
-        return finite_difference(image)
+        # set up time-dependent vector field and set initial value
+        vector_fields = TimeDependentVectorField(self.shape, self.time_steps)
+        vector_fields[0] = initial_vector_field
 
-    def integrate_forward_vector_field(self, initial_velocity_field):
-        """Performs forward integration of the initial velocity field.
+        # einsum strings used for multiplication of (transposed) Jacobian matrix of vector fields
+        einsum_string = '...lk,...k->...l'
+        einsum_string_transpose = '...kl,...k->...l'
 
-        Parameters
-        ----------
-        initial_velocity_field
-            Array with the initial velocity field to integrate forward.
+        # perform forward in time integration of initial vector field
+        for t in range(0, self.time_steps-1):
+            # compute the current momentum
+            momentum_t = self.regularizer.cauchy_navier(vector_fields[t])
+            # compute the gradient (Jacobian) of the current momentum
+            grad_mt = momentum_t.grad
+            # compute the gradient (Jacobian) of the current vector field
+            grad_vt = vector_fields[t].grad
+            # compute the divergence of the current vector field
+            div_vt = np.sum(np.array([grad_vt[..., d, d] for d in range(self.dim)]), axis=0)
+            # compute the right hand side, i.e. Dv^T m + Dm v + m div v
+            rhs = (np.einsum(einsum_string_transpose, grad_vt, momentum_t.to_numpy())
+                   + np.einsum(einsum_string, grad_mt, vector_fields[t].to_numpy())
+                   + momentum_t.to_numpy() * div_vt[..., np.newaxis])
+            rhs = VectorField(data=rhs)
+            # perform the explicit Euler integration step
+            vector_fields[t+1] = vector_fields[t] - self.regularizer.cauchy_navier_squared_inverse(rhs)/self.time_steps
 
-        Returns
-        -------
-        Sequence of velocity fields obtained via forward integration of the initial velocity field.
-        """
-        velocity_fields = np.zeros((self.time_steps, self.dim, *self.shape), dtype=np.double)
-        velocity_fields[0] = initial_velocity_field.reshape((self.dim, *self.shape))
+        return vector_fields
 
-        einsum_string = 'kl...,l...->k...'
-        einsum_string_transpose = 'lk...,l...->k...'
-
-        for t in range(0, self.time_steps-2):
-            momentum_t = self.regularizer.cauchy_navier(velocity_fields[t])
-            grad_mt = finite_difference(momentum_t)
-            grad_vt = finite_difference(velocity_fields[t])
-            div_vt = np.sum(np.array([grad_vt[d, d, ...] for d in range(self.dim)]), axis=0)
-            rhs = (np.einsum(einsum_string_transpose, grad_vt, momentum_t)
-                   + np.einsum(einsum_string, grad_mt, velocity_fields[t])
-                   + momentum_t * div_vt[np.newaxis, ...])
-            velocity_fields[t+1] = (velocity_fields[t]
-                                    - self.regularizer.cauchy_navier_squared_inverse(rhs)
-                                    / self.time_steps)
-
-        return velocity_fields
-
-    def integrate_backward_adjoint_Jacobi_field(self, gradient_l2_energy, velocity_fields):
+    def integrate_backward_adjoint_Jacobi_field(self, gradient_l2_energy, vector_fields):
         """Performs backward integration of the adjoint jacobi field equations.
+
+        Hint: See "Finite-Dimensional Lie Algebras for Fast Diffeomorphic Image Registration"
+        by Miaomiao Zhang and P. Thomas Fletcher, Section 4.2, for more information on the
+        equations used here.
 
         Parameters
         ----------
         gradient_l2_energy
             Array containing the gradient of the L2 energy functional.
-        velocity_fields
-            Sequence of velocity fields (i.e. time-dependent velocity field) to integrate backwards.
+        vector_fields
+            Sequence of vector fields (i.e. time-dependent vector field) to integrate backwards.
 
         Returns
         -------
-        Gradient of the energy with respect to the initial velocity field.
+        Gradient of the energy with respect to the initial vector field.
         """
+        # introduce adjoint variables
         v_old = gradient_l2_energy
-        delta_v_old = np.zeros(v_old.shape, dtype=np.double)
-        delta_v = delta_v_old
+        delta_v_old = VectorField(v_old.spatial_shape)
+        delta_v = delta_v_old.copy()
 
-        einsum_string = 'kl...,l...->k...'
-        einsum_string_transpose = 'lk...,l...->k...'
+        # einsum strings used for multiplication of (transposed) Jacobian matrix of vector fields
+        einsum_string = '...lk,...l->...k'
+        einsum_string_transpose = '...kl,...l->...k'
 
+        # perform backward in time integration of the gradient of the energy function
         for t in range(self.time_steps-2, -1, -1):
-            grad_velocity_fields = finite_difference(velocity_fields[t])
-            div_velocity_fields = np.sum(np.array([grad_velocity_fields[d, d, ...]
-                                                   for d in range(self.dim)]), axis=0)
+            # get gradient of the current vector field
+            grad_vector_fields = vector_fields[t].grad
+            # get divergence of the current vector field
+            div_vector_fields = np.sum(np.array([grad_vector_fields[..., d, d]
+                                                 for d in range(self.dim)]), axis=0)
+            # get momentum corresponding to the adjoint variable `v_old`
             regularized_v = self.regularizer.cauchy_navier(v_old)
-            grad_regularized_v = finite_difference(regularized_v)
+            # get gradient of the momentum of `v_old`
+            grad_regularized_v = regularized_v.grad
+
+            # update adjoint variable `v_old`
             rhs_v = - self.regularizer.cauchy_navier_squared_inverse(
-                np.einsum(einsum_string_transpose, grad_velocity_fields, regularized_v)
-                + np.einsum(einsum_string, grad_regularized_v, velocity_fields[t])
-                + regularized_v * div_velocity_fields[np.newaxis, ...])
+                VectorField(data=np.einsum(einsum_string_transpose, grad_vector_fields, regularized_v.to_numpy()))
+                + VectorField(data=np.einsum(einsum_string, grad_regularized_v, vector_fields[t].to_numpy()))
+                + regularized_v * div_vector_fields[..., np.newaxis])
             v_old = v_old - rhs_v / self.time_steps
 
-            grad_delta_v = finite_difference(delta_v)
-            div_delta_v = np.sum(np.array([grad_delta_v[d, d, ...]
+            # get gradient of the adjoint variable `delta_v`
+            grad_delta_v = delta_v.grad
+            # get divergence of the adjoint variable `delta_v`
+            div_delta_v = np.sum(np.array([grad_delta_v[..., d, d]
                                            for d in range(self.dim)]), axis=0)
-            regularized_velocity_fields = self.regularizer.cauchy_navier(velocity_fields[t])
-            grad_regularized_velocity_fields = finite_difference(regularized_velocity_fields)
+            # get momentum corresponding to the current vector field
+            regularized_vector_fields = self.regularizer.cauchy_navier(vector_fields[t])
+            # get gradient of the momentum of the current vector field
+            grad_regularized_vector_fields = regularized_vector_fields.grad
+            # update the adjoint variable `delta_v`
             rhs_delta_v = (- v_old
-                           - (np.einsum(einsum_string, grad_velocity_fields, delta_v)
-                              - np.einsum(einsum_string, grad_delta_v, velocity_fields[t]))
+                           - (np.einsum(einsum_string, grad_vector_fields, delta_v.to_numpy())
+                              - np.einsum(einsum_string, grad_delta_v, vector_fields[t].to_numpy()))
                            + self.regularizer.cauchy_navier_squared_inverse(
-                               np.einsum(einsum_string_transpose, grad_delta_v,
-                                         regularized_velocity_fields)
-                               + np.einsum(einsum_string, grad_regularized_velocity_fields, delta_v)
-                               + regularized_velocity_fields * div_delta_v[np.newaxis, ...]))
+                               VectorField(data=np.einsum(einsum_string_transpose,
+                                                          grad_delta_v,
+                                                          regularized_vector_fields.to_numpy()))
+                               + VectorField(data=np.einsum(einsum_string,
+                                                            grad_regularized_vector_fields,
+                                                            delta_v.to_numpy()))
+                               + regularized_vector_fields * div_delta_v[..., np.newaxis]))
             delta_v = delta_v_old - rhs_delta_v / self.time_steps
             delta_v_old = delta_v
 
+        # return adjoint variable `delta_v` that corresponds to the gradient
+        # of the objective function at the initial time instance
         return delta_v

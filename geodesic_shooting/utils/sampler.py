@@ -1,30 +1,35 @@
 import numpy as np
 import skimage.transform
 
+from geodesic_shooting.core import ScalarFunction, VectorField
 
-def sample(array, coordinates):
-    """Function to sample a given input array at given coordinates.
+
+def sample(f, coordinates, boundary_mode='edge'):
+    """Function to sample a given `ScalarFunction` or `VectorField` at given coordinates.
+
+    Remark: The coordinates at which to sample have to be givenas a `VectorField`.
 
     Parameters
     ----------
-    array
-        Input image.
+    f
+        `ScalarFunction` or `VectorField` to transform.
     coordinates
-        Array containing the coordinates to sample at.
+        `VectorField` containing the coordinates to sample at.
 
     Returns
     -------
-    The sampled array.
+    The sampled `ScalarFunction` or `VectorField`.
     """
-    assert array.ndim in [coordinates.ndim, coordinates.ndim - 1]
+    assert isinstance(f, (ScalarFunction, VectorField)) and isinstance(coordinates, VectorField)
+    assert f.dim == coordinates.dim
 
-    if coordinates.ndim == 1:
-        return skimage.transform.warp(array, coordinates[np.newaxis, ...], mode='edge')
+    coordinates = np.einsum("...i->i...", coordinates.to_numpy())
 
-    if array.ndim == coordinates.ndim:
+    if isinstance(f, VectorField):
         samples_channels = []
-        for i in range(array.shape[0]):
-            samples_channels.append(skimage.transform.warp(array[i], coordinates, mode='edge'))
-        return np.stack(samples_channels, axis=0)
+        for i in range(f.dim):
+            samples_channels.append(skimage.transform.warp(f[..., i], coordinates, mode=boundary_mode))
+        return VectorField(spatial_shape=f.spatial_shape, data=np.stack(samples_channels, axis=-1))
 
-    return skimage.transform.warp(array, coordinates, mode='edge')
+    transformed_function = skimage.transform.warp(f.to_numpy(), coordinates, mode=boundary_mode)
+    return ScalarFunction(spatial_shape=f.full_shape, data=transformed_function)
