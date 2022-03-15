@@ -15,10 +15,10 @@ jobs:
       ${{ github.event.workflow_run.event == 'pull_request' }}
     steps:
       - name: 'Download artifact'
-        uses: actions/github-script@v3.1.0
+        uses: actions/github-script@v5
         with:
           script: |
-            var artifacts = await github.actions.listWorkflowRunArtifacts({
+            var artifacts = await github.rest.actions.listWorkflowRunArtifacts({
                owner: context.repo.owner,
                repo: context.repo.repo,
                run_id: ${{github.event.workflow_run.id }},
@@ -26,7 +26,7 @@ jobs:
             var matchArtifact = artifacts.data.artifacts.filter((artifact) => {
               return artifact.name == "linter_output"
             })[0];
-            var download = await github.actions.downloadArtifact({
+            var download = await github.rest.actions.downloadArtifact({
                owner: context.repo.owner,
                repo: context.repo.repo,
                artifact_id: matchArtifact.id,
@@ -36,10 +36,10 @@ jobs:
             fs.writeFileSync('${{github.workspace}}/linter_output.zip', Buffer.from(download.data));
       - run: unzip linter_output.zip
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
       # pinned to lintly 0.5.0 due to https://github.com/grantmcconnaughey/Lintly/issues/41
       - name: Install dependencies
-        run: pip install lintly==0.5.0
+        run: pip install lintly==0.5.0 markupsafe==2.0.1
       - name: 'Comment on PR'
         run: |
           cat ./flake8.out | lintly --use-checks \
