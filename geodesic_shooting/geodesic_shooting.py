@@ -56,9 +56,11 @@ class GeodesicShooting:
             Weight for the similarity measurement (L2 difference of the target and the registered
             image); the smaller sigma, the larger the influence of the L2 loss.
         optimization_method
-
+            Optimizer from `scipy`, see `method` under
+            https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html.
         optimizer_options
-
+            Additional options passed to the `scipy.optimize.minimize`-function, see `options` under
+            https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html.
         initial_vector_field
             Used as initial guess for the initial vector field (will be 0 if None is passed).
             If the norm of the gradient drops below this threshold, the registration is stopped.
@@ -140,6 +142,7 @@ class GeodesicShooting:
         def save_current_state(x):
             opt['x'] = x
 
+        # use scipy optimizer for minimizing energy function
         with self.logger.block("Perform image matching via geodesic shooting ..."):
             res = optimize.minimize(energy_and_gradient, initial_vector_field.to_numpy().flatten(),
                                     method=optimization_method, jac=True, options=optimizer_options,

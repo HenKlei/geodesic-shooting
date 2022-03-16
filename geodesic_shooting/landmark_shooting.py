@@ -62,9 +62,11 @@ class LandmarkShooting:
             Weight for the similarity measurement (L2 difference of the target and the registered
             landmarks); the smaller sigma, the larger the influence of the L2 loss.
         optimization_method
-
+            Optimizer from `scipy`, see `method` under
+            https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html.
         optimizer_options
-
+            Additional options passed to the `scipy.optimize.minimize`-function, see `options` under
+            https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html.
         initial_momenta
             Used as initial guess for the initial momenta (will agree with the direction pointing
             from the input landmarks to the target landmarks if None is passed).
@@ -124,6 +126,7 @@ class LandmarkShooting:
 
             return energy, grad.flatten()
 
+        # use scipy optimizer for minimizing energy function
         with self.logger.block("Perform landmark matching via geodesic shooting ..."):
             res = optimize.minimize(energy_and_gradient, initial_momenta.flatten(),
                                     method=optimization_method, jac=True, options=optimizer_options,
