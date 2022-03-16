@@ -6,7 +6,6 @@ import scipy.optimize as optimize
 from geodesic_shooting.utils.logger import getLogger
 from geodesic_shooting.utils.kernels import GaussianKernel
 from geodesic_shooting.utils.visualization import construct_vector_field
-from geodesic_shooting.utils.optim import GradientDescentOptimizer, ArmijoLineSearch, PatientStepsizeController
 
 
 class LandmarkShooting:
