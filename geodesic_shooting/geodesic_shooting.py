@@ -18,7 +18,7 @@ class GeodesicShooting:
     Geodesic Shooting for Computational Anatomy.
     Miller, Trouvé, Younes, 2006
     """
-    def __init__(self, alpha=6., exponent=2., dim=2, shape=(100, 100), log_level='INFO'):
+    def __init__(self, alpha=6., exponent=2., time_steps=30, log_level='INFO'):
         """Constructor.
 
         Parameters
@@ -27,25 +27,20 @@ class GeodesicShooting:
             Parameter for biharmonic regularizer.
         exponent
             Parameter for biharmonic regularizer.
-        dim
-            Dimension of the input and target images (set automatically when calling `register`).
-        shape
-            Shape of the input and target images (set automatically when calling `register`).
+        time_steps
+            Number of time steps performed during forward and backward integration.
         log_level
             Verbosity of the logger.
         """
         self.regularizer = BiharmonicRegularizer(alpha, exponent)
 
-        self.time_steps = 30
-        self.shape = shape
-        self.dim = dim
-        assert self.dim == len(self.shape)
+        self.time_steps = time_steps
 
         self.logger = getLogger('geodesic_shooting', level=log_level)
 
-    def register(self, input_, target, time_steps=30, sigma=1.,
+    def register(self, input_, target, sigma=1.,
                  optimization_method='L-BFGS-B',
-                 optimizer_options={'maxiter': 1000, 'maxls': 20, 'disp': True, 'eps': .1},
+                 optimizer_options={'maxiter': 1000, 'maxls': 20, 'disp': True},
                  initial_vector_field=None,
                  return_all=False, log_summary=True):
         """Performs actual registration according to LDDMM algorithm with time-varying vector
@@ -57,11 +52,13 @@ class GeodesicShooting:
             Input image as array.
         target
             Target image as array.
-        time_steps
-            Number of discrete time steps to perform.
         sigma
             Weight for the similarity measurement (L2 difference of the target and the registered
             image); the smaller sigma, the larger the influence of the L2 loss.
+        optimization_method
+
+        optimizer_options
+
         initial_vector_field
             Used as initial guess for the initial vector field (will be 0 if None is passed).
             If the norm of the gradient drops below this threshold, the registration is stopped.
@@ -79,7 +76,6 @@ class GeodesicShooting:
         forward-pushed input and the back-pulled target at all time instances (if return_all is
         True).
         """
-        assert isinstance(time_steps, int) and time_steps > 0
         assert sigma > 0
 
         assert isinstance(input_, ScalarFunction)
@@ -96,7 +92,6 @@ class GeodesicShooting:
             return self.regularizer.cauchy_navier_squared_inverse(image.grad * (image - target)[..., np.newaxis])
 
         # set up variables
-        self.time_steps = time_steps
         self.shape = input_.spatial_shape
         self.dim = input_.dim
 
@@ -150,19 +145,19 @@ class GeodesicShooting:
                                     method=optimization_method, jac=True, options=optimizer_options,
                                     callback=save_current_state)
 
-            # compute time-dependent vector field from optimal initial vector field
-            vector_fields = self.integrate_forward_vector_field(VectorField(data=res['x'].reshape((*self.shape, self.dim))))
+        # compute time-dependent vector field from optimal initial vector field
+        vector_fields = self.integrate_forward_vector_field(VectorField(data=res['x'].reshape((*self.shape, self.dim))))
 
-            # compute forward flows according to the vector fields
-            flow = self.integrate_forward_flow(vector_fields)
+        # compute forward flows according to the vector fields
+        flow = self.integrate_forward_flow(vector_fields)
 
-            # push-forward input-image
-            transformed_input = self.push_forward(input_, flow)
+        # push-forward input-image
+        transformed_input = self.push_forward(input_, flow)
 
-            opt['initial_vector_field'] = VectorField(data=res['x'].reshape((*self.shape, self.dim)))
-            opt['transformed_input'] = transformed_input
-            opt['flow'] = flow
-            opt['vector_fields'] = vector_fields
+        opt['initial_vector_field'] = VectorField(data=res['x'].reshape((*self.shape, self.dim)))
+        opt['transformed_input'] = transformed_input
+        opt['flow'] = flow
+        opt['vector_fields'] = vector_fields
 
         elapsed_time = int(time.perf_counter() - start_time)
 
