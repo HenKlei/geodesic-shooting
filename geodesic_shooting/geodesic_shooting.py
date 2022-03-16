@@ -3,10 +3,11 @@ import numpy as np
 
 from copy import deepcopy
 
+import scipy.optimize as optimize
+
 from geodesic_shooting.utils import sampler, grid
 from geodesic_shooting.utils.logger import getLogger
 from geodesic_shooting.utils.regularizer import BiharmonicRegularizer
-from geodesic_shooting.utils.optim import GradientDescentOptimizer, ArmijoLineSearch, PatientStepsizeController
 from geodesic_shooting.core import ScalarFunction, VectorField, TimeDependentVectorField
 
 
@@ -43,12 +44,9 @@ class GeodesicShooting:
         self.logger = getLogger('geodesic_shooting', level=log_level)
 
     def register(self, input_, target, time_steps=30, sigma=1.,
-                 OptimizationAlgorithm=GradientDescentOptimizer, iterations=1000, early_stopping=10,
-                 initial_vector_field=None, LineSearchAlgorithm=ArmijoLineSearch,
-                 parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1.,
-                                         'max_num_search_steps': 10},
-                 StepsizeControlAlgorithm=PatientStepsizeController,
-                 energy_threshold=1e-6, gradient_norm_threshold=1e-6,
+                 optimization_method='L-BFGS-B',
+                 optimizer_options={'maxiter': 1000, 'maxls': 20, 'disp': True, 'eps': .1},
+                 initial_vector_field=None,
                  return_all=False, log_summary=True):
         """Performs actual registration according to LDDMM algorithm with time-varying vector
            fields that are chosen via geodesics.
@@ -64,30 +62,8 @@ class GeodesicShooting:
         sigma
             Weight for the similarity measurement (L2 difference of the target and the registered
             image); the smaller sigma, the larger the influence of the L2 loss.
-        OptimizationAlgorithm
-            Algorithm to use for optimization during registration. Should be a class and not an
-            instance. The class should derive from `BaseOptimizer`.
-        iterations
-            Number of iterations of the optimizer to perform. The value `None` is also possible
-            to not bound the number of iterations.
-        early_stopping
-            Number of iterations with non-decreasing energy after which to stop registration.
-            If `None`, no early stopping is used.
         initial_vector_field
             Used as initial guess for the initial vector field (will be 0 if None is passed).
-        LineSearchAlgorithm
-            Algorithm to use as line search method during optimization. Should be a class and not
-            an instance. The class should derive from `BaseLineSearch`.
-        parameters_line_search
-            Additional parameters for the line search algorithm
-            (e.g. minimal and maximal stepsize, ...).
-        StepsizeControlAlgorithm
-            Algorithm to use for adjusting the minimal and maximal stepsize (or other parameters
-            of the line search algorithm that are prescribed in `parameters_line_search`).
-            The class should derive from `BaseStepsizeController`.
-        energy_threshold
-            If the energy drops below this threshold, the registration is stopped.
-        gradient_norm_threshold
             If the norm of the gradient drops below this threshold, the registration is stopped.
         return_all
             Determines whether or not to return all information or only the initial vector field
@@ -104,9 +80,7 @@ class GeodesicShooting:
         True).
         """
         assert isinstance(time_steps, int) and time_steps > 0
-        assert iterations is None or (isinstance(iterations, int) and iterations > 0)
         assert sigma > 0
-        assert (isinstance(early_stopping, int) and early_stopping > 0) or early_stopping is None
 
         assert isinstance(input_, ScalarFunction)
         assert isinstance(target, ScalarFunction)
@@ -135,31 +109,15 @@ class GeodesicShooting:
         assert isinstance(initial_vector_field, VectorField)
         assert initial_vector_field.full_shape == (*self.shape, self.dim)
 
-        # updates dictionary with (current) optimal values
-        def set_opt(opt, energy, energy_regularizer, energy_intensity, energy_intensity_unscaled,
-                    transformed_input, initial_vector_field, flow, vector_fields):
-            opt['energy'] = energy
-            opt['energy_regularizer'] = energy_regularizer
-            opt['energy_intensity'] = energy_intensity
-            opt['energy_intensity_unscaled'] = energy_intensity_unscaled
-            opt['transformed_input'] = transformed_input
-            opt['initial_vector_field'] = initial_vector_field
-            opt['flow'] = flow
-            opt['vector_fields'] = vector_fields
-            return opt
-
-        vector_fields = self.integrate_forward_vector_field(initial_vector_field)
-        opt = set_opt({}, None, None, None, None, input_, initial_vector_field,
-                      self.integrate_forward_flow(vector_fields), vector_fields)
+        opt = {'input': input_, 'target': target}
 
         reason_registration_ended = 'reached maximum number of iterations'
 
         start_time = time.perf_counter()
 
-        res = {}
-
         # function that computes the energy
-        def energy_func(v0, return_additional_infos=False, return_all_energies=False):
+        def energy_and_gradient(v0):
+            v0 = VectorField(data=v0.reshape((*self.shape, self.dim)))
             # integrate initial vector field forward in time
             vector_fields = self.integrate_forward_vector_field(v0)
 
@@ -176,76 +134,24 @@ class GeodesicShooting:
             energy_intensity = 1 / sigma**2 * energy_intensity_unscaled
             energy = energy_regularizer + energy_intensity
 
-            if return_additional_infos:
-                return energy, {'vector_fields': vector_fields, 'forward_pushed_input': forward_pushed_input}
-            if return_all_energies:
-                return {'energy': energy, 'energy_regularizer': energy_regularizer,
-                        'energy_intensity': energy_intensity, 'energy_intensity_unscaled': energy_intensity_unscaled}
-            return energy
-
-        # function that computes the gradient of the energy
-        def gradient_func(v0, vector_fields, forward_pushed_input):
             # compute gradient of the intensity difference
             gradient_l2_energy = compute_grad_energy(forward_pushed_input) / sigma**2
 
             # compute gradient of the intensity difference with respect to the initial vector field
             gradient_initial_vector = -self.integrate_backward_adjoint_Jacobi_field(gradient_l2_energy, vector_fields)
 
-            return gradient_initial_vector
+            return energy, gradient_initial_vector.to_numpy().flatten()
 
-        line_searcher = LineSearchAlgorithm(energy_func, gradient_func)
-        optimizer = OptimizationAlgorithm(line_searcher)
-        stepsize_controller = StepsizeControlAlgorithm(line_searcher)
+        def save_current_state(x):
+            opt['x'] = x
 
-        # beginning of the main registration routine
         with self.logger.block("Perform image matching via geodesic shooting ..."):
-            try:
-                # set initial values
-                k = 0
-                energy_did_not_decrease = 0
-                x = res['x'] = initial_vector_field
-                energy, additional_infos = energy_func(res['x'], return_additional_infos=True)
-                grad = gradient_func(res['x'], **additional_infos)
-                min_energy = energy
-
-                # registration iteration
-                while not (iterations is not None and k >= iterations):
-                    # perform optimization step
-                    x, energy, grad, current_stepsize = optimizer.step(x, energy, grad, parameters_line_search)
-                    # update the stepsize controller
-                    parameters_line_search = stepsize_controller.update(parameters_line_search, current_stepsize)
-
-                    self.logger.info(f"iter: {k:3d}, energy: {energy:.4e}")
-
-                    # check if objective function value decreased
-                    if min_energy >= energy:
-                        res['x'] = deepcopy(x)
-                        min_energy = energy
-                        if min_energy < energy_threshold:
-                            self.logger.info(f"Energy below threshold of {energy_threshold}. "
-                                             "Stopping ...")
-                            reason_registration_ended = 'reached energy threshold'
-                            break
-                    else:
-                        energy_did_not_decrease += 1
-
-                    # check the norm of the gradient
-                    norm_gradient = grad.norm
-                    if norm_gradient < gradient_norm_threshold:
-                        self.logger.warning(f"Gradient norm is {norm_gradient} "
-                                            "and therefore below threshold. Stopping ...")
-                        reason_registration_ended = 'reached gradient norm threshold'
-                        break
-                    if early_stopping is not None and energy_did_not_decrease >= early_stopping:
-                        reason_registration_ended = 'early stopping due to non-decreasing energy'
-                        break
-                    k += 1
-            except KeyboardInterrupt:
-                self.logger.warning("Aborting registration ...")
-                reason_registration_ended = 'manual abort'
+            res = optimize.minimize(energy_and_gradient, initial_vector_field.to_numpy().flatten(),
+                                    method=optimization_method, jac=True, options=optimizer_options,
+                                    callback=save_current_state)
 
             # compute time-dependent vector field from optimal initial vector field
-            vector_fields = self.integrate_forward_vector_field(res['x'])
+            vector_fields = self.integrate_forward_vector_field(VectorField(data=res['x'].reshape((*self.shape, self.dim))))
 
             # compute forward flows according to the vector fields
             flow = self.integrate_forward_flow(vector_fields)
@@ -253,17 +159,14 @@ class GeodesicShooting:
             # push-forward input-image
             transformed_input = self.push_forward(input_, flow)
 
-        # update optimal values
-        energies = energy_func(res['x'], return_all_energies=True)
-        set_opt(opt, energies['energy'], energies['energy_regularizer'], energies['energy_intensity'],
-                energies['energy_intensity_unscaled'], transformed_input, res['x'], flow, vector_fields)
+            opt['initial_vector_field'] = VectorField(data=res['x'].reshape((*self.shape, self.dim)))
+            opt['transformed_input'] = transformed_input
+            opt['flow'] = flow
+            opt['vector_fields'] = vector_fields
 
         elapsed_time = int(time.perf_counter() - start_time)
 
         self.logger.info(f"Finished registration ({reason_registration_ended}) ...")
-
-        if opt['energy'] is not None:
-            self.logger.info(f"Optimal energy: {opt['energy']:4.4f}")
 
         if opt['initial_vector_field'] is not None:
             # compute the length of the path on the manifold;
@@ -272,13 +175,10 @@ class GeodesicShooting:
         else:
             length = 0.0
 
-        opt['input'] = input_
-        opt['target'] = target
-
         opt['length'] = length
-        opt['iterations'] = k
+        opt['iterations'] = res['nit']
         opt['time'] = elapsed_time
-        opt['reason_registration_ended'] = reason_registration_ended
+        opt['reason_registration_ended'] = res['message']
 
         if log_summary:
             self.summarize_results(opt)
