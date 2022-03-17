@@ -15,8 +15,6 @@ if __name__ == "__main__":
 
     # perform the registration
     gs = geodesic_shooting.GeodesicShooting(alpha=10., exponent=3.)
-    result = gs.register(input_, target, sigma=0.005,
-                         parameters_line_search={'min_stepsize': 1e-5, 'max_stepsize': 1e-2},
-                         early_stopping=200, return_all=True)
+    result = gs.register(input_, target, sigma=0.005, return_all=True)
 
     plot_registration_results(result)
