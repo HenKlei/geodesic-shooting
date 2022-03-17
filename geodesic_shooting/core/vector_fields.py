@@ -98,7 +98,9 @@ class VectorField:
         """
         assert self.dim == 2
 
+        created_figure = False
         if not axis:
+            created_figure = True
             fig = plt.figure()
             axis = fig.add_subplot(1, 1, 1)
 
@@ -116,7 +118,7 @@ class VectorField:
                     self[::interval, ::interval, 0], self[::interval, ::interval, 1],
                     units='xy', scale=scale)
 
-        if not axis:
+        if created_figure:
             return fig
         return axis
 
@@ -130,8 +132,9 @@ class VectorField:
         title
             Title of the plot.
         """
-        _ = self.plot(title=title, axis=None)
-        plt.savefig(filepath)
+        fig = self.plot(title=title, axis=None)
+        fig.savefig(filepath)
+        plt.close(fig)
 
     def plot_as_warpgrid(self, title="", interval=1, show_axis=False, invert_yaxis=True, axis=None):
         """Plots the `VectorField` as a warpgrid using `matplotlib`.

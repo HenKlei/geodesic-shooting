@@ -86,7 +86,9 @@ class ScalarFunction:
         """
         assert self.dim in (1, 2)
 
+        created_figure = False
         if not axis:
+            created_figure = True
             fig = plt.figure()
             axis = fig.add_subplot(1, 1, 1)
 
@@ -97,7 +99,7 @@ class ScalarFunction:
 
         axis.set_title(title)
 
-        if not axis:
+        if created_figure:
             if colorbar:
                 fig.colorbar(vals, ax=axis)
             return fig
@@ -113,8 +115,9 @@ class ScalarFunction:
         title
             Title of the plot.
         """
-        _ = self.plot(title=title, axis=None)
-        plt.savefig(filepath)
+        fig = self.plot(title=title, axis=None)
+        fig.savefig(filepath)
+        plt.close(fig)
 
     def get_norm(self, order=None):
         """Computes the norm of the `ScalarFunction`.
