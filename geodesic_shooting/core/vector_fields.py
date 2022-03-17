@@ -348,7 +348,7 @@ class TimeDependentVectorField:
             return result.reshape(shape)
         return result
 
-    def animate(self, title="", interval=1, show_axis=False):
+    def animate(self, title="", interval=1, scale=None, show_axis=False):
         """Animates the time-dependent vector field.
 
         Parameters
@@ -357,6 +357,11 @@ class TimeDependentVectorField:
             The title of the plot.
         interval
             Interval in which to sample.
+        scale
+            Factor used for scaling the arrows in the `quiver`-plot.
+            If `None`, a default auto-scaling from `matplotlib` is applied.
+            For realistic arrow lengths without scaling, a value of `scale=1.`
+            has to be used.
         show_axis
             Determines whether or not to show the axes.
 
@@ -375,7 +380,7 @@ class TimeDependentVectorField:
 
         def animate(i):
             axis.clear()
-            self[i].plot(title=title, interval=interval, axis=axis)
+            self[i].plot(title=title, interval=interval, scale=scale, axis=axis)
 
         ani = animation.FuncAnimation(fig, animate, frames=self.time_steps, interval=100)
         return ani

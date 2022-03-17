@@ -40,7 +40,7 @@ class GeodesicShooting:
 
     def register(self, input_, target, sigma=1.,
                  optimization_method='L-BFGS-B',
-                 optimizer_options={'maxiter': 1000, 'maxls': 20, 'disp': True},
+                 optimizer_options={'disp': True},
                  initial_vector_field=None,
                  return_all=False, log_summary=True):
         """Performs actual registration according to LDDMM algorithm with time-varying vector

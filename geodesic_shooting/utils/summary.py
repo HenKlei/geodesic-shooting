@@ -2,7 +2,7 @@ import os
 import matplotlib.pyplot as plt
 
 
-def plot_registration_results(results, interval=1):
+def plot_registration_results(results, interval=1, scale=None):
     """Plots some of the results from registration via geodesic shooting.
 
     Parameters
@@ -28,13 +28,13 @@ def plot_registration_results(results, interval=1):
     plt.show()
 
     if results['vector_fields'].dim == 2:
-        _ = results['vector_fields'].animate("Time-evolution of the vector field", interval=interval)
+        _ = results['vector_fields'].animate("Time-evolution of the vector field", interval=interval, scale=scale)
         plt.show()
 
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
-        ax1 = results['vector_fields'][0].plot("Initial vector field", axis=ax1)
-        ax2 = results['vector_fields'][-1].plot("Final vector field", axis=ax2)
-        ax3 = (results['vector_fields'][0] - results['vector_fields'][-1]).plot("Difference", axis=ax3)
+        ax1 = results['vector_fields'][0].plot("Initial vector field", axis=ax1, scale=scale)
+        ax2 = results['vector_fields'][-1].plot("Final vector field", axis=ax2, scale=scale)
+        ax3 = (results['vector_fields'][0] - results['vector_fields'][-1]).plot("Difference", axis=ax3, scale=scale)
         plt.show()
 
 
