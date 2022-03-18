@@ -6,7 +6,7 @@ import geodesic_shooting
 from geodesic_shooting.utils.visualization import (animate_landmark_trajectories,
                                                    plot_initial_momenta_and_landmarks,
                                                    plot_landmark_matchings,
-                                                   plot_landmark_trajectories, plot_warpgrid, animate_warpgrids)
+                                                   plot_landmark_trajectories, animate_warpgrids)
 
 
 if __name__ == "__main__":
@@ -17,7 +17,6 @@ if __name__ == "__main__":
     # perform the registration using landmark shooting algorithm
     gs = geodesic_shooting.LandmarkShooting()
     result = gs.register(input_landmarks, target_landmarks,
-                         parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1e-4},
                          return_all=True)
     final_momenta = result['initial_momenta']
     registered_landmarks = result['registered_landmarks']
@@ -43,7 +42,6 @@ if __name__ == "__main__":
     grid = np.array(np.meshgrid(x, y))
     warp = gs.compute_time_evolution_of_diffeomorphisms(final_momenta, input_landmarks,
                                                         grid.reshape((2, -1)).T)
-    plot_warpgrid(warp[-1].T.reshape(grid.shape), interval=1, show_axis=True, invert_yaxis=False)
     ani2 = animate_warpgrids(warp.reshape((-1, *grid.shape)), min_x=-1., max_x=8., min_y=-3., max_y=5.)
 
     plt.show()

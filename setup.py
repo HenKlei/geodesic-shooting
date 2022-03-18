@@ -5,6 +5,7 @@ dependencies = [
     'numpy',
     'scipy',
     'scikit-image',
+    'matplotlib',
 ]
 
 setup(

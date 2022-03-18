@@ -98,7 +98,9 @@ class VectorField:
         """
         assert self.dim == 2
 
+        created_figure = False
         if not axis:
+            created_figure = True
             fig = plt.figure()
             axis = fig.add_subplot(1, 1, 1)
 
@@ -116,7 +118,7 @@ class VectorField:
                     self[::interval, ::interval, 0], self[::interval, ::interval, 1],
                     units='xy', scale=scale)
 
-        if not axis:
+        if created_figure:
             return fig
         return axis
 
@@ -130,8 +132,9 @@ class VectorField:
         title
             Title of the plot.
         """
-        _ = self.plot(title=title, axis=None)
-        plt.savefig(filepath)
+        fig = self.plot(title=title, axis=None)
+        fig.savefig(filepath)
+        plt.close(fig)
 
     def plot_as_warpgrid(self, title="", interval=1, show_axis=False, invert_yaxis=True, axis=None):
         """Plots the `VectorField` as a warpgrid using `matplotlib`.
@@ -348,7 +351,7 @@ class TimeDependentVectorField:
             return result.reshape(shape)
         return result
 
-    def animate(self, title="", interval=1, show_axis=False):
+    def animate(self, title="", interval=1, scale=None, show_axis=False):
         """Animates the time-dependent vector field.
 
         Parameters
@@ -357,6 +360,11 @@ class TimeDependentVectorField:
             The title of the plot.
         interval
             Interval in which to sample.
+        scale
+            Factor used for scaling the arrows in the `quiver`-plot.
+            If `None`, a default auto-scaling from `matplotlib` is applied.
+            For realistic arrow lengths without scaling, a value of `scale=1.`
+            has to be used.
         show_axis
             Determines whether or not to show the axes.
 
@@ -375,7 +383,7 @@ class TimeDependentVectorField:
 
         def animate(i):
             axis.clear()
-            self[i].plot(title=title, interval=interval, axis=axis)
+            self[i].plot(title=title, interval=interval, scale=scale, axis=axis)
 
         ani = animation.FuncAnimation(fig, animate, frames=self.time_steps, interval=100)
         return ani

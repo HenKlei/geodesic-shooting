@@ -11,10 +11,8 @@ if __name__ == "__main__":
     input_ = make_square((64, 64), np.array([32, 32]), 40)
 
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=6., exponent=2.)
-    result = gs.register(input_, target, sigma=0.01,
-                         parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1e-3},
-                         iterations=100, return_all=True)
+    gs = geodesic_shooting.GeodesicShooting(alpha=10., exponent=4.)
+    result = gs.register(input_, target, sigma=0.01, return_all=True)
 
     plot_registration_results(result)
     save_plots_registration_results(result, filepath='results_square_to_circle/')

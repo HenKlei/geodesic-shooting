@@ -1,10 +1,11 @@
 import time
 import numpy as np
 
+import scipy.optimize as optimize
+
 from geodesic_shooting.utils.logger import getLogger
 from geodesic_shooting.utils.kernels import GaussianKernel
 from geodesic_shooting.utils.visualization import construct_vector_field
-from geodesic_shooting.utils.optim import GradientDescentOptimizer, ArmijoLineSearch, PatientStepsizeController
 
 
 class LandmarkShooting:
@@ -14,21 +15,26 @@ class LandmarkShooting:
     Geodesic Shooting and Diffeomorphic Matching Via Textured Meshes.
     Allassonnière, Trouvé, Younes, 2005
     """
-    def __init__(self, kernel=GaussianKernel, dim=2, num_landmarks=1, log_level='INFO', kwargs_kernel={}):
+    def __init__(self, kernel=GaussianKernel, kwargs_kernel={}, dim=2, num_landmarks=1,
+                 time_steps=30, log_level='INFO'):
         """Constructor.
 
         Parameters
         ----------
         kernel
             Kernel to use for extending the velocity fields to the whole domain.
+        kwargs_kernel
+            Additional arguments passed to the constructor of the kernel.
         dim
             Dimension of the landmarks (set automatically when calling `register`).
         num_landmarks
             Number of landmarks to register (set automatically when calling `register`).
+        time_steps
+            Number of time steps performed during forward and backward integration.
         log_level
             Verbosity of the logger.
         """
-        self.time_steps = 30
+        self.time_steps = time_steps
         self.dt = 1. / self.time_steps
 
         self.dim = dim
@@ -38,14 +44,10 @@ class LandmarkShooting:
 
         self.logger = getLogger('landmark_shooting', level=log_level)
 
-    def register(self, input_landmarks, target_landmarks, time_steps=30, sigma=1.,
-                 OptimizationAlgorithm=GradientDescentOptimizer, iterations=1000, early_stopping=10,
-                 initial_momenta=None, LineSearchAlgorithm=ArmijoLineSearch,
-                 parameters_line_search={'min_stepsize': 1e-4, 'max_stepsize': 1e-3,
-                                         'max_num_search_steps': 10},
-                 StepsizeControlAlgorithm=PatientStepsizeController,
-                 energy_threshold=1e-6, gradient_norm_threshold=1e-6,
-                 return_all=False):
+    def register(self, input_landmarks, target_landmarks, sigma=1.,
+                 optimization_method='L-BFGS-B',
+                 optimizer_options={'maxiter': 1000, 'maxls': 20, 'disp': True},
+                 initial_momenta=None, return_all=False):
         """Performs actual registration according to geodesic shooting algorithm for landmarks using
            a Hamiltonian setting.
 
@@ -55,38 +57,18 @@ class LandmarkShooting:
             Initial positions of the landmarks.
         target_landmarks
             Target positions of the landmarks.
-        time_steps
-            Number of discrete time steps to perform.
         sigma
             Weight for the similarity measurement (L2 difference of the target and the registered
             landmarks); the smaller sigma, the larger the influence of the L2 loss.
-        OptimizationAlgorithm
-            Algorithm to use for optimization during registration. Should be a class and not an
-            instance. The class should derive from `BaseOptimizer`.
-        iterations
-            Number of iterations of the optimizer to perform.
-                epsilon
-            Learning rate, i.e. step size of the optimizer.
-        early_stopping
-            Number of iterations with non-decreasing energy after which to stop registration.
-            If `None`, no early stopping is used.
+        optimization_method
+            Optimizer from `scipy`, see `method` under
+            https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html.
+        optimizer_options
+            Additional options passed to the `scipy.optimize.minimize`-function, see `options` under
+            https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html.
         initial_momenta
             Used as initial guess for the initial momenta (will agree with the direction pointing
             from the input landmarks to the target landmarks if None is passed).
-        LineSearchAlgorithm
-            Algorithm to use as line search method during optimization. Should be a class and not
-            an instance. The class should derive from `BaseLineSearch`.
-        parameters_line_search
-            Additional parameters for the line search algorithm
-            (e.g. minimal and maximal stepsize, ...).
-        StepsizeControlAlgorithm
-            Algorithm to use for adjusting the minimal and maximal stepsize (or other parameters
-            of the line search algorithm that are prescribed in `parameters_line_search`).
-            The class should derive from `BaseStepsizeController.
-        energy_threshold
-            If the energy drops below this threshold, the registration is stopped.
-        gradient_norm_threshold
-            If the norm of the gradient drops below this threshold, the registration is stopped.
         return_all
             Determines whether or not to return all information or only the initial momenta
             that led to the best registration result.
@@ -97,10 +79,6 @@ class LandmarkShooting:
         transformed/registered landmarks, the initial momenta, the energies and the time evolutions
         of momenta and positions (if return_all is True).
         """
-        assert isinstance(time_steps, int)
-        self.time_steps = time_steps
-        self.dt = 1. / self.time_steps
-        assert early_stopping is None or (isinstance(early_stopping, int) and early_stopping > 0)
         assert input_landmarks.ndim == 2
         assert input_landmarks.shape == target_landmarks.shape
         self.dim = input_landmarks.shape[1]
@@ -122,31 +100,14 @@ class LandmarkShooting:
         def compute_gradient_matching_function(positions):
             return 2. * (positions - target_landmarks.flatten()) / sigma**2
 
-        def set_opt(opt, energy, energy_regularizer, energy_l2, energy_l2_unscaled,
-                    initial_momenta, registered_landmarks, time_evolution_momenta, time_evolution_positions):
-            opt['energy'] = energy
-            opt['energy_regularizer'] = energy_regularizer
-            opt['energy_l2'] = energy_l2
-            opt['energy_l2_unscaled'] = energy_l2_unscaled
-            opt['initial_momenta'] = initial_momenta.reshape(input_landmarks.shape)
-            opt['registered_landmarks'] = registered_landmarks.reshape(input_landmarks.shape)
-            opt['time_evolution_momenta'] = time_evolution_momenta
-            opt['time_evolution_positions'] = time_evolution_positions
-            return opt
-
-        momenta_time_dependent, positions_time_dependent = self.integrate_forward_Hamiltonian(
-            initial_momenta, initial_positions)
-
-        opt = set_opt({}, None, None, None, None, initial_momenta, initial_positions,
-                      momenta_time_dependent, positions_time_dependent)
-
-        reason_registration_ended = 'reached maximum number of iterations'
+        opt = {'input_landmarks': input_landmarks, 'target_landmarks': target_landmarks}
 
         start_time = time.perf_counter()
 
-        res = {}
+        def save_current_state(x):
+            opt['x'] = x
 
-        def energy_func(initial_momenta, return_additional_infos=False, return_all_energies=False):
+        def energy_and_gradient(initial_momenta):
             momenta_time_dependent, positions_time_dependent = self.integrate_forward_Hamiltonian(
                 initial_momenta, initial_positions)
             positions = positions_time_dependent[-1]
@@ -156,91 +117,32 @@ class LandmarkShooting:
             energy_l2 = 1. / sigma**2 * energy_l2_unscaled
             energy = energy_regularizer + energy_l2
 
-            energies = {'energy': energy, 'energy_regularizer': energy_regularizer,
-                        'energy_l2': energy_l2, 'energy_l2_unscaled': energy_l2_unscaled}
-            if return_additional_infos:
-                additional_infos = {'momenta_time_dependent': momenta_time_dependent,
-                                    'positions_time_dependent': positions_time_dependent}
-                if return_all_energies:
-                    return additional_infos, energies
-                return energy, additional_infos
-            if return_all_energies:
-                return energies
-            return energy
-
-        def gradient_func(momenta, momenta_time_dependent, positions_time_dependent):
             d_momenta_1 = self.integrate_forward_variational_Hamiltonian(momenta_time_dependent,
                                                                          positions_time_dependent)
             positions = positions_time_dependent[-1]
             grad_g = compute_gradient_matching_function(positions)
-            grad = (self.K(initial_positions) @ momenta + d_momenta_1.T @ grad_g)
+            grad = (self.K(initial_positions) @ initial_momenta + d_momenta_1.T @ grad_g)
 
-            return grad
+            return energy, grad.flatten()
 
-        line_searcher = LineSearchAlgorithm(energy_func, gradient_func)
-        optimizer = OptimizationAlgorithm(line_searcher)
-        stepsize_controller = StepsizeControlAlgorithm(line_searcher)
+        # use scipy optimizer for minimizing energy function
+        with self.logger.block("Perform landmark matching via geodesic shooting ..."):
+            res = optimize.minimize(energy_and_gradient, initial_momenta.flatten(),
+                                    method=optimization_method, jac=True, options=optimizer_options,
+                                    callback=save_current_state)
 
-        with self.logger.block("Perform image matching via geodesic shooting ..."):
-            try:
-                k = 0
-                energy_did_not_decrease = 0
-                x = res['x'] = initial_momenta
-                energy, additional_infos = energy_func(res['x'], return_additional_infos=True)
-                grad = gradient_func(x, **additional_infos)
-                min_energy = energy
-
-                while not (iterations is not None and k >= iterations):
-                    x, energy, grad, current_stepsize = optimizer.step(x, energy, grad, parameters_line_search)
-
-                    parameters_line_search = stepsize_controller.update(parameters_line_search, current_stepsize)
-
-                    self.logger.info(f"iter: {k:3d}, energy: {energy:.4e}")
-
-                    if min_energy >= energy:
-                        res['x'] = x.copy()
-                        min_energy = energy
-                        if min_energy < energy_threshold:
-                            self.logger.info(f"Energy below threshold of {energy_threshold}. "
-                                             "Stopping ...")
-                            reason_registration_ended = 'reached energy threshold'
-                            break
-                    else:
-                        energy_did_not_decrease += 1
-
-                    norm_gradient = np.linalg.norm(grad.flatten())
-                    if norm_gradient < gradient_norm_threshold:
-                        self.logger.warning(f"Gradient norm is {norm_gradient} "
-                                            "and therefore below threshold. Stopping ...")
-                        reason_registration_ended = 'reached gradient norm threshold'
-                        break
-                    if early_stopping is not None and energy_did_not_decrease >= early_stopping:
-                        reason_registration_ended = 'early stopping due to non-decreasing energy'
-                        break
-                    k += 1
-            except KeyboardInterrupt:
-                self.logger.warning("Aborting registration ...")
-                reason_registration_ended = 'manual abort'
-
-        additional_infos, energies = energy_func(res['x'], return_additional_infos=True, return_all_energies=True)
-        registered_landmarks = additional_infos['positions_time_dependent'][-1]
-        set_opt(opt, energies['energy'], energies['energy_regularizer'], energies['energy_l2'],
-                energies['energy_l2_unscaled'], res['x'], registered_landmarks,
-                additional_infos['momenta_time_dependent'], additional_infos['positions_time_dependent'])
+        opt['initial_momenta'] = res['x'].reshape(input_landmarks.shape)
+        momenta_time_dependent, positions_time_dependent = self.integrate_forward_Hamiltonian(res['x'],
+                                                                                              initial_positions)
+        opt['registered_landmarks'] = positions_time_dependent[-1].reshape(input_landmarks.shape)
+        opt['time_evolution_momenta'] = momenta_time_dependent
+        opt['time_evolution_positions'] = positions_time_dependent
 
         elapsed_time = int(time.perf_counter() - start_time)
 
-        self.logger.info(f"Finished registration ({reason_registration_ended}) ...")
-
-        if opt['energy'] is not None:
-            self.logger.info(f"Optimal energy: {opt['energy']:4.4f}")
-            self.logger.info(f"Optimal l2-error (with scale): {opt['energy_l2']:4.4f}")
-            self.logger.info(f"Optimal l2-error (without scale): {opt['energy_l2_unscaled']:4.4f}")
-            self.logger.info(f"Optimal regularization: {opt['energy_regularizer']:4.4f}")
-
-        opt['iterations'] = k
+        opt['iterations'] = res['nit']
         opt['time'] = elapsed_time
-        opt['reason_registration_ended'] = reason_registration_ended
+        opt['reason_registration_ended'] = res['message']
 
         if return_all:
             return opt
