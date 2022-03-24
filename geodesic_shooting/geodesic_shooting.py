@@ -260,6 +260,10 @@ class GeodesicShooting:
         -------
         Sequence of vector fields obtained via forward integration of the initial vector field.
         """
+        if hasattr(self, 'shape'):
+            assert self.shape == initial_vector_field.spatial_shape
+        else:
+            self.shape = initial_vector_field.spatial_shape
         # set up time-dependent vector field and set initial value
         vector_fields = TimeDependentVectorField(self.shape, self.time_steps)
         vector_fields[0] = initial_vector_field
