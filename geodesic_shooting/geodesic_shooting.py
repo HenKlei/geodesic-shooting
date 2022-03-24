@@ -262,8 +262,10 @@ class GeodesicShooting:
         """
         if hasattr(self, 'shape'):
             assert self.shape == initial_vector_field.spatial_shape
+            assert self.dim == initial_vector_field.dim
         else:
             self.shape = initial_vector_field.spatial_shape
+            self.dim = initial_vector_field.dim
         # set up time-dependent vector field and set initial value
         vector_fields = TimeDependentVectorField(self.shape, self.time_steps)
         vector_fields[0] = initial_vector_field
@@ -310,6 +312,10 @@ class GeodesicShooting:
         -------
         Gradient of the energy with respect to the initial vector field.
         """
+        if hasattr(self, 'dim'):
+            assert self.dim == vector_fields[0].dim
+        else:
+            self.dim = vector_fields[0].dim
         # introduce adjoint variables
         v_old = gradient_l2_energy
         delta_v_old = VectorField(v_old.spatial_shape)
