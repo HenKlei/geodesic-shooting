@@ -91,7 +91,7 @@ class GeodesicShooting:
         # function to compute the gradient of the overall energy function
         # with respect to the final vector field
         def compute_grad_energy(image):
-            return self.regularizer.cauchy_navier_squared_inverse(image.grad * (image - target)[..., np.newaxis])
+            return self.regularizer.cauchy_navier_inverse(image.grad * (image - target)[..., np.newaxis])
 
         # set up variables
         self.shape = input_.spatial_shape
@@ -290,7 +290,7 @@ class GeodesicShooting:
                    + momentum_t.to_numpy() * div_vt[..., np.newaxis])
             rhs = VectorField(data=rhs)
             # perform the explicit Euler integration step
-            vector_fields[t+1] = vector_fields[t] - self.regularizer.cauchy_navier_squared_inverse(rhs)/self.time_steps
+            vector_fields[t+1] = vector_fields[t] - self.regularizer.cauchy_navier_inverse(rhs)/self.time_steps
 
         return vector_fields
 
@@ -338,7 +338,7 @@ class GeodesicShooting:
             grad_regularized_v = regularized_v.grad
 
             # update adjoint variable `v_old`
-            rhs_v = - self.regularizer.cauchy_navier_squared_inverse(
+            rhs_v = - self.regularizer.cauchy_navier_inverse(
                 VectorField(data=np.einsum(einsum_string_transpose, grad_vector_fields, regularized_v.to_numpy()))
                 + VectorField(data=np.einsum(einsum_string, grad_regularized_v, vector_fields[t].to_numpy()))
                 + regularized_v * div_vector_fields[..., np.newaxis])
@@ -357,7 +357,7 @@ class GeodesicShooting:
             rhs_delta_v = (- v_old
                            - (np.einsum(einsum_string, grad_vector_fields, delta_v.to_numpy())
                               - np.einsum(einsum_string, grad_delta_v, vector_fields[t].to_numpy()))
-                           + self.regularizer.cauchy_navier_squared_inverse(
+                           + self.regularizer.cauchy_navier_inverse(
                                VectorField(data=np.einsum(einsum_string_transpose,
                                                           grad_delta_v,
                                                           regularized_vector_fields.to_numpy()))
