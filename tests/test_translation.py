@@ -15,7 +15,7 @@ def test_translation():
     gs = geodesic_shooting.GeodesicShooting(alpha=100., exponent=2.)
     result = gs.register(input_, target, sigma=0.1, return_all=True)
 
-    assert (target - result['transformed_input']).norm / target.norm < 2e-1
+    assert (target - result['transformed_input']).norm / target.norm < 3e-1
 
     # create images
     input_ = make_square((64, 64), np.array([24, 24]), 40)
@@ -25,4 +25,4 @@ def test_translation():
     gs = geodesic_shooting.GeodesicShooting(alpha=100., exponent=2.)
     result = gs.register(input_, target, sigma=0.1, return_all=True)
 
-    assert (target - result['transformed_input']).norm / target.norm < 2e-1
+    assert (target - result['transformed_input']).norm / target.norm < 3e-1
