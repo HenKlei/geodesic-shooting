@@ -20,7 +20,7 @@ class BiharmonicRegularizer:
         exponent
             Penalty weight that ensures that the operator is non-singular.
         """
-        assert alpha > 0
+        assert alpha >= 0
         assert exponent > 0
 
         self.alpha = alpha
