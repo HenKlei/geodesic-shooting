@@ -5,10 +5,11 @@ from copy import deepcopy
 
 import scipy.optimize as optimize
 
+from geodesic_shooting.core import ScalarFunction, VectorField, TimeDependentVectorField
 from geodesic_shooting.utils import sampler, grid
 from geodesic_shooting.utils.logger import getLogger
 from geodesic_shooting.utils.regularizer import BiharmonicRegularizer
-from geodesic_shooting.core import ScalarFunction, VectorField, TimeDependentVectorField
+from geodesic_shooting.utils.time_integration import RK4
 
 
 class GeodesicShooting:
@@ -18,7 +19,7 @@ class GeodesicShooting:
     Geodesic Shooting for Computational Anatomy.
     Miller, Trouvé, Younes, 2006
     """
-    def __init__(self, alpha=6., exponent=2., time_steps=30, log_level='INFO'):
+    def __init__(self, alpha=6., exponent=2., time_integrator=RK4, time_steps=30, log_level='INFO'):
         """Constructor.
 
         Parameters
@@ -34,7 +35,10 @@ class GeodesicShooting:
         """
         self.regularizer = BiharmonicRegularizer(alpha, exponent)
 
+        self.time_integrator = time_integrator
+
         self.time_steps = time_steps
+        self.dt = 1. / self.time_steps
 
         self.logger = getLogger('geodesic_shooting', level=log_level)
 
@@ -274,23 +278,29 @@ class GeodesicShooting:
         einsum_string = '...lk,...k->...l'
         einsum_string_transpose = '...kl,...k->...l'
 
-        # perform forward in time integration of initial vector field
-        for t in range(0, self.time_steps-1):
+        def rhs_function(x):
             # compute the current momentum
-            momentum_t = self.regularizer.cauchy_navier(vector_fields[t])
+            momentum_t = self.regularizer.cauchy_navier(x)
             # compute the gradient (Jacobian) of the current momentum
             grad_mt = momentum_t.grad
             # compute the gradient (Jacobian) of the current vector field
-            grad_vt = vector_fields[t].grad
+            grad_vt = x.grad
             # compute the divergence of the current vector field
             div_vt = np.sum(np.array([grad_vt[..., d, d] for d in range(self.dim)]), axis=0)
             # compute the right hand side, i.e. Dv^T m + Dm v + m div v
             rhs = (np.einsum(einsum_string_transpose, grad_vt, momentum_t.to_numpy())
-                   + np.einsum(einsum_string, grad_mt, vector_fields[t].to_numpy())
+                   + np.einsum(einsum_string, grad_mt, x.to_numpy())
                    + momentum_t.to_numpy() * div_vt[..., np.newaxis])
             rhs = VectorField(data=rhs)
+            rhs = -self.regularizer.cauchy_navier_inverse(rhs)
+            return rhs
+
+        ti = self.time_integrator(rhs_function, self.dt)
+
+        # perform forward in time integration of initial vector field
+        for t in range(0, self.time_steps-1):
             # perform the explicit Euler integration step
-            vector_fields[t+1] = vector_fields[t] - self.regularizer.cauchy_navier_inverse(rhs)/self.time_steps
+            vector_fields[t+1] = ti.step(vector_fields[t])
 
         return vector_fields
 
@@ -318,17 +328,15 @@ class GeodesicShooting:
             self.dim = vector_fields[0].dim
         # introduce adjoint variables
         v_old = gradient_l2_energy
-        delta_v_old = VectorField(v_old.spatial_shape)
-        delta_v = delta_v_old.copy()
+        delta_v = VectorField(v_old.spatial_shape)
 
         # einsum strings used for multiplication of (transposed) Jacobian matrix of vector fields
         einsum_string = '...lk,...l->...k'
         einsum_string_transpose = '...kl,...l->...k'
 
-        # perform backward in time integration of the gradient of the energy function
-        for t in range(self.time_steps-2, -1, -1):
+        def rhs_function(x, v, v_old):
             # get gradient of the current vector field
-            grad_vector_fields = vector_fields[t].grad
+            grad_vector_fields = v.grad
             # get divergence of the current vector field
             div_vector_fields = np.sum(np.array([grad_vector_fields[..., d, d]
                                                  for d in range(self.dim)]), axis=0)
@@ -340,7 +348,7 @@ class GeodesicShooting:
             # update adjoint variable `v_old`
             rhs_v = - self.regularizer.cauchy_navier_inverse(
                 VectorField(data=np.einsum(einsum_string_transpose, grad_vector_fields, regularized_v.to_numpy()))
-                + VectorField(data=np.einsum(einsum_string, grad_regularized_v, vector_fields[t].to_numpy()))
+                + VectorField(data=np.einsum(einsum_string, grad_regularized_v, v.to_numpy()))
                 + regularized_v * div_vector_fields[..., np.newaxis])
             v_old = v_old - rhs_v / self.time_steps
 
@@ -350,13 +358,13 @@ class GeodesicShooting:
             div_delta_v = np.sum(np.array([grad_delta_v[..., d, d]
                                            for d in range(self.dim)]), axis=0)
             # get momentum corresponding to the current vector field
-            regularized_vector_fields = self.regularizer.cauchy_navier(vector_fields[t])
+            regularized_vector_fields = self.regularizer.cauchy_navier(v)
             # get gradient of the momentum of the current vector field
             grad_regularized_vector_fields = regularized_vector_fields.grad
             # update the adjoint variable `delta_v`
             rhs_delta_v = (- v_old
                            - (np.einsum(einsum_string, grad_vector_fields, delta_v.to_numpy())
-                              - np.einsum(einsum_string, grad_delta_v, vector_fields[t].to_numpy()))
+                              - np.einsum(einsum_string, grad_delta_v, v.to_numpy()))
                            + self.regularizer.cauchy_navier_inverse(
                                VectorField(data=np.einsum(einsum_string_transpose,
                                                           grad_delta_v,
@@ -365,8 +373,13 @@ class GeodesicShooting:
                                                             grad_regularized_vector_fields,
                                                             delta_v.to_numpy()))
                                + regularized_vector_fields * div_delta_v[..., np.newaxis]))
-            delta_v = delta_v_old - rhs_delta_v / self.time_steps
-            delta_v_old = delta_v
+            return rhs_delta_v
+
+        ti = self.time_integrator(rhs_function, self.dt)
+
+        # perform backward in time integration of the gradient of the energy function
+        for t in range(self.time_steps-2, -1, -1):
+            delta_v = ti.step_backwards(delta_v, {'v': vector_fields[t], 'v_old': v_old})
 
         # return adjoint variable `delta_v` that corresponds to the gradient
         # of the objective function at the initial time instance
