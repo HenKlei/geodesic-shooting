@@ -42,6 +42,10 @@ class GeodesicShooting:
 
         self.logger = getLogger('geodesic_shooting', level=log_level)
 
+    def __str__(self):
+        return (f"Alpha: {self.regularizer.alpha}\nExponent: {self.regularizer.exponent}\n"
+                f"Time integrator: {self.time_integrator.__name__}\nTime steps: {self.time_steps}")
+
     def register(self, input_, target, sigma=1.,
                  optimization_method='L-BFGS-B',
                  optimizer_options={'disp': True},
