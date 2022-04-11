@@ -14,5 +14,9 @@ if __name__ == "__main__":
     gs = geodesic_shooting.GeodesicShooting(alpha=10., exponent=4.)
     result = gs.register(input_, target, sigma=0.01, return_all=True)
 
+    result['initial_vector_field'].save_tikz('initial_vector_field_square_to_circle.tex',
+                                             title="Initial vector field square to circle",
+                                             interval=5, scale=10)
+
     plot_registration_results(result)
     save_plots_registration_results(result, filepath='results_square_to_circle/')
