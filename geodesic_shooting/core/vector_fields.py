@@ -136,6 +136,31 @@ class VectorField:
         fig.savefig(filepath)
         plt.close(fig)
 
+    def save_tikz(self, filepath, title="", interval=1):
+        """Saves the plot of the `VectorField` as a tikz file.
+
+        Parameters
+        ----------
+        filepath
+            Path to save the plot to.
+        title
+            Title of the plot.
+        interval
+            Interval in which to sample.
+        """
+        with open(filepath, "w") as tikz_file:
+            tikz_file.write("\\begin{tikzpicture}\n\\begin{axis}[tick align=outside, tick pos=left, "
+                            f"title={title}, xmin=0, xmax=1, "
+                            "xtick style={color=black}, ymin=0, ymax=1, ytick style={color=black}]\n")
+            x = grid.coordinate_grid(self.spatial_shape).to_numpy()
+            for pos_x, disp_x in zip(x[::interval], self[::interval]):
+                for pos, disp in zip(pos_x[::interval], disp_x[::interval]):
+                    tikz_file.write(f"\\draw (axis cs:{pos[0]/self.spatial_shape[0]}, {pos[1]/self.spatial_shape[1]}) "
+                                    f"-- (axis cs:{(pos[0]+disp[0])/self.spatial_shape[0]}, "
+                                    f"{(pos[1]+disp[1])/self.spatial_shape[1]});\n")
+            tikz_file.write("\\end{axis}\n\\end{tikzpicture}\n")
+
+
     def plot_as_warpgrid(self, title="", interval=1, show_axis=False, invert_yaxis=True, axis=None):
         """Plots the `VectorField` as a warpgrid using `matplotlib`.
 
