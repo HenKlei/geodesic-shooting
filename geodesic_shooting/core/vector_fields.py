@@ -160,7 +160,9 @@ class VectorField:
                             "\\begin{document}\n\n")
             tikz_file.write("\t\\begin{tikzpicture}\n"
                             "\t\t\\begin{axis}[tick align=outside, tick pos=left, "
-                            f"title={title}, xmin=0, xmax=1, "
+                            "title={"
+                            f"{title}"
+                            "}, xmin=0, xmax=1, "
                             "xtick style={color=black}, ymin=0, ymax=1, ytick style={color=black}, -latex]\n")
             x = grid.coordinate_grid(self.spatial_shape).to_numpy()
             for pos_x, disp_x in zip(x[::interval], self[::interval]):
