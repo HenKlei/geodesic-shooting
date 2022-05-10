@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import time
 import numpy as np
 
@@ -10,6 +11,7 @@ from geodesic_shooting.utils import sampler, grid
 from geodesic_shooting.utils.logger import getLogger
 from geodesic_shooting.utils.regularizer import BiharmonicRegularizer
 from geodesic_shooting.utils.time_integration import RK4
+from geodesic_shooting.utils.transformations import push_forward
 
 
 class GeodesicShooting:
@@ -130,7 +132,7 @@ class GeodesicShooting:
             flow = self.integrate_forward_flow(vector_fields)
 
             # push-forward input_ image
-            forward_pushed_input = self.push_forward(input_, flow)
+            forward_pushed_input = push_forward(input_, flow)
 
             # compute the current energy consisting of intensity difference
             # and regularization
@@ -163,7 +165,7 @@ class GeodesicShooting:
         flow = self.integrate_forward_flow(vector_fields)
 
         # push-forward input-image
-        transformed_input = self.push_forward(input_, flow)
+        transformed_input = push_forward(input_, flow)
 
         opt['initial_vector_field'] = VectorField(data=res['x'].reshape((*self.shape, self.dim)))
         opt['transformed_input'] = transformed_input
@@ -233,22 +235,6 @@ class GeodesicShooting:
             flow = sampler.sample(flow, identity_grid - vector_fields[t])
 
         return flow
-
-    def push_forward(self, image, flow):
-        """Pushes forward an image along a flow.
-
-        Parameters
-        ----------
-        image
-            `ScalarFunction` to push forward.
-        flow
-            `VectorField` containing the flow according to which to push the input forward.
-
-        Returns
-        -------
-        Array with the forward-pushed image.
-        """
-        return sampler.sample(image, flow)
 
     def integrate_forward_vector_field(self, initial_vector_field):
         """Performs forward integration of the initial vector field.
