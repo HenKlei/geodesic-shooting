@@ -3,32 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
 from geodesic_shooting.utils.kernels import GaussianKernel
-
-
-def construct_vector_field(momenta, positions, kernel=GaussianKernel()):
-    """Computes the vector field corresponding to the given positions and momenta.
-
-    Parameters
-    ----------
-    momenta
-        Array containing the momenta of the landmarks.
-    positions
-        Array containing the positions of the landmarks.
-
-    Returns
-    -------
-    Function that can be evaluated at any point of the space.
-    """
-    assert positions.ndim == 2
-    assert positions.shape == momenta.shape
-
-    def vector_field(x):
-        result = np.zeros(positions.shape[1])
-        for q, p in zip(positions, momenta):
-            result += kernel(x, q) @ p
-        return result
-
-    return vector_field
+from geodesic_shooting.landmark_shooting import construct_vector_field
 
 
 def plot_initial_momenta_and_landmarks(momenta, positions, kernel=GaussianKernel(),
