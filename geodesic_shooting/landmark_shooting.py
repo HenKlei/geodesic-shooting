@@ -365,7 +365,8 @@ class LandmarkShooting:
         Parameters
         ----------
         vector_fields
-            `TimeDependentVectorField` containing the sequence of vector fields to integrate in time.
+            `TimeDependentVectorField` containing the sequence of vector fields to integrate
+            in time.
 
         Returns
         -------
