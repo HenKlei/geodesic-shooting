@@ -11,7 +11,6 @@ from geodesic_shooting.utils import sampler, grid
 from geodesic_shooting.utils.logger import getLogger
 from geodesic_shooting.utils.regularizer import BiharmonicRegularizer
 from geodesic_shooting.utils.time_integration import RK4
-from geodesic_shooting.utils.transformations import push_forward
 
 
 class GeodesicShooting:
@@ -132,7 +131,7 @@ class GeodesicShooting:
             flow = self.integrate_forward_flow(vector_fields)
 
             # push-forward input_ image
-            forward_pushed_input = push_forward(input_, flow)
+            forward_pushed_input = input_.push_forward(flow)
 
             # compute the current energy consisting of intensity difference
             # and regularization
@@ -165,7 +164,7 @@ class GeodesicShooting:
         flow = self.integrate_forward_flow(vector_fields)
 
         # push-forward input-image
-        transformed_input = push_forward(input_, flow)
+        transformed_input = input_.push_forward(flow)
 
         opt['initial_vector_field'] = VectorField(data=res['x'].reshape((*self.shape, self.dim)))
         opt['transformed_input'] = transformed_input

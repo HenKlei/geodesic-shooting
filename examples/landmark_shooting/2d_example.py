@@ -8,7 +8,6 @@ from geodesic_shooting.utils.visualization import (animate_landmark_trajectories
                                                    plot_landmark_matchings,
                                                    plot_landmark_trajectories, animate_warpgrids)
 from geodesic_shooting.core import ScalarFunction
-from geodesic_shooting.utils.transformations import push_forward
 
 
 if __name__ == "__main__":
@@ -59,7 +58,7 @@ if __name__ == "__main__":
 
     image.plot("Original image")
     target_image.plot("Target image")
-    resulting_image = push_forward(image, flow)
+    resulting_image = image.push_forward(flow)
     resulting_image.plot("Transformed image")
     plt.show()
 
