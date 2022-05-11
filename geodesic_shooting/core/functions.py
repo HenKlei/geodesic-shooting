@@ -4,6 +4,7 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 
 from geodesic_shooting.utils.grad import finite_difference
+from geodesic_shooting.utils import sampler
 
 
 class ScalarFunction:
@@ -49,6 +50,20 @@ class ScalarFunction:
         `VectorField` representing a finite difference approximation of the gradient.
         """
         return finite_difference(self)
+
+    def push_forward(self, flow):
+        """Pushes forward the `ScalarFunction` along a flow.
+
+        Parameters
+        ----------
+        flow
+            `VectorField` containing the flow according to which to push the input forward.
+
+        Returns
+        -------
+        `ScalarFunction` of the forward-pushed function.
+        """
+        return sampler.sample(self, flow)
 
     def to_numpy(self, shape=None):
         """Returns the `ScalarFunction` represented as a numpy-array.
