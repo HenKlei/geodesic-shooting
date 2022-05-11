@@ -8,7 +8,7 @@ from geodesic_shooting.landmark_shooting import construct_vector_field
 
 def plot_initial_momenta_and_landmarks(momenta, positions, kernel=GaussianKernel(),
                                        min_x=-1., max_x=1., min_y=-1., max_y=1., N=30,
-                                       title='', landmark_size=50, arrow_scale=2.):
+                                       title='', axis=None, landmark_size=50, arrow_scale=2.):
     """Plot the given initial momenta and landmarks.
 
     Parameters
@@ -31,6 +31,8 @@ def plot_initial_momenta_and_landmarks(momenta, positions, kernel=GaussianKernel
         Size of the vector field grid.
     title
         Title of the plot.
+    axis
+        If not `None`, the function is plotted on the provided axis.
     landmark_size
         Size of the landmarks.
     arrow_scale
@@ -48,8 +50,11 @@ def plot_initial_momenta_and_landmarks(momenta, positions, kernel=GaussianKernel
     positions = positions.reshape((-1, dim))
     momenta = momenta.reshape((-1, dim))
 
-    fig = plt.figure()
-    axis = fig.add_subplot(1, 1, 1)
+    created_figure = False
+    if not axis:
+        created_figure = True
+        fig = plt.figure()
+        axis = fig.add_subplot(1, 1, 1)
 
     axis.set_aspect('equal')
     axis.set_title(title)
@@ -73,12 +78,14 @@ def plot_initial_momenta_and_landmarks(momenta, positions, kernel=GaussianKernel
     axis.quiver(positions[:, 0], positions[:, 1], momenta[:, 0], momenta[:, 1],
                 color=colors, scale=arrow_scale, angles='xy', scale_units='xy')
 
-    return fig
+    if created_figure:
+        return fig, axis
+    return axis
 
 
 def plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions, kernel=GaussianKernel(),
                                min_x=-1., max_x=1., min_y=-1., max_y=1., N=30,
-                               title='', landmark_size=10, arrow_scale=2.):
+                               title='', axis=None, landmark_size=10, arrow_scale=2.):
     """Plot the trajectories of the landmarks.
 
     Parameters
@@ -101,6 +108,8 @@ def plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
         Size of the vector field grid.
     title
         Title of the plot.
+    axis
+        If not `None`, the function is plotted on the provided axis.
     landmark_size
         Size of the landmarks.
     arrow_scale
@@ -115,8 +124,11 @@ def plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
 
     dim = 2
 
-    fig = plt.figure()
-    axis = fig.add_subplot(1, 1, 1)
+    created_figure = False
+    if not axis:
+        created_figure = True
+        fig = plt.figure()
+        axis = fig.add_subplot(1, 1, 1)
 
     axis.set_aspect('equal')
     axis.set_title(title)
@@ -139,7 +151,9 @@ def plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
     axis.scatter(time_evolution_positions.reshape((-1, dim))[:, 0], time_evolution_positions.reshape((-1, dim))[:, 1],
                  s=landmark_size, color=colors)
 
-    return fig
+    if created_figure:
+        return fig, axis
+    return axis
 
 
 def animate_landmark_trajectories(time_evolution_momenta, time_evolution_positions, kernel=GaussianKernel(),
@@ -221,7 +235,8 @@ def animate_landmark_trajectories(time_evolution_momenta, time_evolution_positio
     return ani
 
 
-def plot_landmark_matchings(input_landmarks, target_landmarks, registered_landmarks, title='', landmark_size=50):
+def plot_landmark_matchings(input_landmarks, target_landmarks, registered_landmarks,
+                            title='', axis=None, landmark_size=50):
     """Plot the results of the matching of landmarks.
 
     Parameters
@@ -234,6 +249,8 @@ def plot_landmark_matchings(input_landmarks, target_landmarks, registered_landma
         Positions of the registered landmarks.
     title
         Title of the plot.
+    axis
+        If not `None`, the function is plotted on the provided axis.
     landmark_size
         Size of the landmarks.
 
@@ -244,8 +261,11 @@ def plot_landmark_matchings(input_landmarks, target_landmarks, registered_landma
     assert input_landmarks.ndim == 2
     assert input_landmarks.shape == target_landmarks.shape == registered_landmarks.shape
 
-    fig = plt.figure()
-    axis = fig.add_subplot(1, 1, 1)
+    created_figure = False
+    if not axis:
+        created_figure = True
+        fig = plt.figure()
+        axis = fig.add_subplot(1, 1, 1)
 
     axis.set_aspect('equal')
     axis.set_title(title)
@@ -261,7 +281,9 @@ def plot_landmark_matchings(input_landmarks, target_landmarks, registered_landma
 
     plt.legend()
 
-    return fig
+    if created_figure:
+        return fig, axis
+    return axis
 
 
 def animate_warpgrids(time_evolution_warp, min_x=-1., max_x=1., min_y=-1., max_y=1.,
