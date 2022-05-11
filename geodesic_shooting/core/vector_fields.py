@@ -119,7 +119,7 @@ class VectorField:
                     units='xy', scale=scale)
 
         if created_figure:
-            return fig
+            return fig, axis
         return axis
 
     def save(self, filepath, title=""):
@@ -132,7 +132,7 @@ class VectorField:
         title
             Title of the plot.
         """
-        fig = self.plot(title=title, axis=None)
+        fig, _ = self.plot(title=title, axis=None)
         fig.savefig(filepath)
         plt.close(fig)
 
@@ -199,7 +199,9 @@ class VectorField:
         """
         assert self.dim == 2
 
+        created_figure = False
         if not axis:
+            created_figure = True
             fig = plt.figure()
             axis = fig.add_subplot(1, 1, 1)
 
@@ -216,8 +218,8 @@ class VectorField:
         for col in range(0, self.spatial_shape[1], interval):
             axis.plot(self[:, col, 0], self[:, col, 1], 'k')
 
-        if not axis:
-            return fig
+        if created_figure:
+            return fig, axis
         return axis
 
     def get_norm(self, order=None):

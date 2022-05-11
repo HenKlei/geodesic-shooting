@@ -105,7 +105,7 @@ class ScalarFunction:
         if created_figure:
             if colorbar:
                 fig.colorbar(vals, ax=axis)
-            return fig
+            return fig, axis, vals
         return axis, vals
 
     def save(self, filepath, title=""):
@@ -118,7 +118,7 @@ class ScalarFunction:
         title
             Title of the plot.
         """
-        fig = self.plot(title=title, axis=None)
+        fig, _, _ = self.plot(title=title, axis=None)
         fig.savefig(filepath)
         plt.close(fig)
 
