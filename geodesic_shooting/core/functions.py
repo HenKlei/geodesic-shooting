@@ -66,7 +66,7 @@ class ScalarFunction:
             return self._data.reshape(shape)
         return self._data
 
-    def plot(self, title="", colorbar=True, axis=None):
+    def plot(self, title="", colorbar=True, axis=None, extent=(0., 1., 0., 1.)):
         """Plots the `ScalarFunction` using `matplotlib`.
 
         Parameters
@@ -77,6 +77,9 @@ class ScalarFunction:
             Determines whether or not to show a colorbar (only used if `axis=None`).
         axis
             If not `None`, the function is plotted on the provided axis.
+        extent
+            Determines the left, right, bottom, and top coordinates of the plot.
+            Only used in the 2-dimensional case.
 
         Returns
         -------
@@ -94,8 +97,8 @@ class ScalarFunction:
 
         if self.dim == 1:
             vals = axis.plot(self.to_numpy())
-        else:
-            vals = axis.imshow(self.to_numpy().transpose(), origin='lower')
+        else:  # self.dim == 2
+            vals = axis.imshow(self.to_numpy().transpose(), origin='lower', extent=extent)
 
         axis.set_title(title)
 
