@@ -236,7 +236,7 @@ def animate_landmark_trajectories(time_evolution_momenta, time_evolution_positio
 
 
 def plot_landmark_matchings(input_landmarks, target_landmarks, registered_landmarks,
-                            title='', axis=None, landmark_size=50):
+                            title='', axis=None, position_legend='upper left', landmark_size=50):
     """Plot the results of the matching of landmarks.
 
     Parameters
@@ -251,6 +251,8 @@ def plot_landmark_matchings(input_landmarks, target_landmarks, registered_landma
         Title of the plot.
     axis
         If not `None`, the function is plotted on the provided axis.
+    position_legend
+        Position of the legend, see https://matplotlib.org/stable/api/legend_api.html.
     landmark_size
         Size of the landmarks.
 
@@ -279,7 +281,7 @@ def plot_landmark_matchings(input_landmarks, target_landmarks, registered_landma
     axis.scatter(registered_landmarks[:, 0], registered_landmarks[:, 1],
                  s=landmark_size, color=colors, marker='s', label="Registered landmark")
 
-    plt.legend()
+    axis.legend(loc=position_legend)
 
     if created_figure:
         return fig, axis
