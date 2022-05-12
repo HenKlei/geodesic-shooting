@@ -4,7 +4,7 @@ import skimage.transform
 import geodesic_shooting.core as core
 
 
-def sample(f, coordinates, boundary_mode='edge'):
+def sample(f, coordinates, order=1, boundary_mode='edge'):
     """Function to sample a given `ScalarFunction` or `VectorField` at given coordinates.
 
     Remark: The coordinates at which to sample have to be givenas a `VectorField`.
@@ -15,6 +15,12 @@ def sample(f, coordinates, boundary_mode='edge'):
         `ScalarFunction` or `VectorField` to transform.
     coordinates
         `VectorField` containing the coordinates to sample at.
+    order
+        Order of the interpolation,
+        see https://scikit-image.org/docs/stable/api/skimage.transform.html#skimage.transform.warp.
+    boundary_mode
+        Way of treating the boundary,
+        see https://scikit-image.org/docs/stable/api/skimage.transform.html#skimage.transform.warp.
 
     Returns
     -------
@@ -28,8 +34,8 @@ def sample(f, coordinates, boundary_mode='edge'):
     if isinstance(f, core.VectorField):
         samples_channels = []
         for i in range(f.dim):
-            samples_channels.append(skimage.transform.warp(f[..., i], coordinates, mode=boundary_mode))
+            samples_channels.append(skimage.transform.warp(f[..., i], coordinates, order=order, mode=boundary_mode))
         return core.VectorField(spatial_shape=f.spatial_shape, data=np.stack(samples_channels, axis=-1))
 
-    transformed_function = skimage.transform.warp(f.to_numpy(), coordinates, mode=boundary_mode)
+    transformed_function = skimage.transform.warp(f.to_numpy(), coordinates, order=order, mode=boundary_mode)
     return core.ScalarFunction(spatial_shape=f.full_shape, data=transformed_function)

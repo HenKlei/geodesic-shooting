@@ -20,7 +20,8 @@ class GeodesicShooting:
     Geodesic Shooting for Computational Anatomy.
     Miller, Trouvé, Younes, 2006
     """
-    def __init__(self, alpha=6., exponent=2., time_integrator=RK4, time_steps=30, log_level='INFO'):
+    def __init__(self, alpha=6., exponent=2., time_integrator=RK4, time_steps=30,
+                 sampler_options={}, log_level='INFO'):
         """Constructor.
 
         Parameters
@@ -29,17 +30,22 @@ class GeodesicShooting:
             Parameter for biharmonic regularizer.
         exponent
             Parameter for biharmonic regularizer.
+        time_integrator
+            Method to use for time integration.
         time_steps
             Number of time steps performed during forward and backward integration.
+        sampler_options
+            Additional options to pass to the sampler.
         log_level
             Verbosity of the logger.
         """
         self.regularizer = BiharmonicRegularizer(alpha, exponent)
 
         self.time_integrator = time_integrator
-
         self.time_steps = time_steps
         self.dt = 1. / self.time_steps
+
+        self.sampler_options = sampler_options
 
         self.logger = getLogger('geodesic_shooting', level=log_level)
 
@@ -231,7 +237,7 @@ class GeodesicShooting:
 
         # perform forward integration
         for t in range(0, self.time_steps-1):
-            flow = sampler.sample(flow, identity_grid - vector_fields[t])
+            flow = sampler.sample(flow, identity_grid - vector_fields[t], **self.sampler_options)
 
         return flow
 
