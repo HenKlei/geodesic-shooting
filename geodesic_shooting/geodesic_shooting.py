@@ -21,7 +21,7 @@ class GeodesicShooting:
     Miller, Trouvé, Younes, 2006
     """
     def __init__(self, alpha=6., exponent=2., time_integrator=RK4, time_steps=30,
-                 sampler_options={}, log_level='INFO'):
+                 sampler_options={'order': 1, 'mode': 'edge'}, log_level='INFO'):
         """Constructor.
 
         Parameters
