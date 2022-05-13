@@ -3,6 +3,7 @@ import time
 import numpy as np
 
 import scipy.optimize as optimize
+import matplotlib.pyplot as plt
 
 from geodesic_shooting.utils.kernels import GaussianKernel
 from geodesic_shooting.utils.logger import getLogger
@@ -321,11 +322,10 @@ class LandmarkShooting:
 
         return vector_field
 
-    def compute_time_evolution_of_diffeomorphisms(self, initial_momenta, initial_positions,
-                                                  mins=np.array([0., 0.]), maxs=np.array([1., 1.]),
-                                                  spatial_shape=(100, 100)):
-        """Performs forward integration of diffeomorphism on given grid using the given
-           initial momenta and positions.
+    def compute_time_evolution_of_vector_fields(self, initial_momenta, initial_positions,
+                                                mins=np.array([0., 0.]), maxs=np.array([1., 1.]),
+                                                spatial_shape=(100, 100)):
+        """Evaluates the time-dependent vector field for the given initial momenta and positions.
 
         Parameters
         ----------
@@ -355,8 +355,40 @@ class LandmarkShooting:
         for t, (m, p) in enumerate(zip(momenta, positions)):
             vector_fields[t] = self.get_vector_field(m, p, mins, maxs, spatial_shape)
 
-        flow = self.integrate_forward_flow(vector_fields)
+        return vector_fields
 
+
+    def compute_time_evolution_of_diffeomorphisms(self, initial_momenta, initial_positions,
+                                                  mins=np.array([0., 0.]), maxs=np.array([1., 1.]),
+                                                  spatial_shape=(100, 100)):
+        """Computes diffeomorphism obtained by forward integration of the vector fields
+           induced by given initial momenta and positions.
+
+        Parameters
+        ----------
+        initial_momenta
+            Array containing the initial momenta of the landmarks.
+        initial_positions
+            Array containing the initial positions of the landmarks.
+        mins
+            Array containing the lower bounds of the coordinates.
+        maxs
+            Array containing the upper bounds of the coordinates.
+        spatial_shape
+            Tuple containing the spatial shape of the grid the diffeomorphism is defined on.
+
+        Returns
+        -------
+        `VectorField` containing the diffeomorphism at the final time instance.
+        """
+        assert mins.ndim == 1 and mins.shape[0] == len(spatial_shape)
+        assert maxs.ndim == 1 and maxs.shape[0] == len(spatial_shape)
+        assert np.all(mins < maxs)
+        assert initial_momenta.shape == initial_positions.shape
+
+        vector_fields = self.compute_time_evolution_of_vector_fields(initial_momenta, initial_positions,
+                                                                     mins, maxs, spatial_shape)
+        flow = self.integrate_forward_flow(vector_fields)
         return flow
 
     def integrate_forward_flow(self, vector_fields):
@@ -386,6 +418,72 @@ class LandmarkShooting:
             flow -= self.dt * sampler.sample(v, flow)
 
         return flow
+
+    def plot_landmark_trajectories(self, initial_momenta, initial_positions,
+                                   min_x=-1., max_x=1., min_y=-1., max_y=1., N=30,
+                                   title='', axis=None, landmark_size=10, arrow_scale=2.):
+        """Plot the trajectories of the landmarks.
+
+        Parameters
+        ----------
+        initial_momenta
+            Array containing the initial landmark momenta.
+        initial_positions
+            Array containing the initial landmark positions.
+        min_x
+            Minimum x-value.
+        max_x
+            Maximum x-value.
+        min_y
+            Minimum y-value.
+        max_y
+            Maximum y-value.
+        N
+            Size of the vector field grid.
+        title
+            Title of the plot.
+        axis
+            If not `None`, the function is plotted on the provided axis.
+        landmark_size
+            Size of the landmarks.
+        arrow_scale
+            Scaling factor for the arrows.
+
+        Returns
+        -------
+        The created plot.
+        """
+        assert initial_momenta.ndim == 2
+        assert initial_momenta.shape == initial_positions.shape
+
+        created_figure = False
+        if not axis:
+            created_figure = True
+            fig = plt.figure()
+            axis = fig.add_subplot(1, 1, 1)
+
+        axis.set_aspect('equal')
+        axis.set_title(title)
+
+        vector_field = self.get_vector_field(initial_momenta, initial_positions)
+        momenta, positions = self.integrate_forward_Hamiltonian(initial_momenta.flatten(), initial_positions.flatten())
+
+        vector_field.plot(axis=axis, interval=5, scale=1.)
+
+        colors = ([f'C{i}' for i in range(len(positions[0].reshape((-1, self.dim))))] * len(positions))
+
+        axis.scatter(positions.reshape((-1, self.dim))[:, 0] * vector_field.spatial_shape[0],
+                     positions.reshape((-1, self.dim))[:, 1] * vector_field.spatial_shape[1],
+                     s=landmark_size, color=colors)
+
+        axis.quiver(positions.reshape((-1, self.dim))[:, 0] * vector_field.spatial_shape[0],
+                    positions.reshape((-1, self.dim))[:, 1] * vector_field.spatial_shape[1],
+                    momenta.reshape((-1, self.dim))[:, 0] * vector_field.spatial_shape[0],
+                    momenta.reshape((-1, self.dim))[:, 1] * vector_field.spatial_shape[1])
+
+        if created_figure:
+            return fig, axis
+        return axis
 
 
 def construct_vector_field(momenta, positions, kernel=GaussianKernel()):
