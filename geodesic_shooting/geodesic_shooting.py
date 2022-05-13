@@ -237,7 +237,7 @@ class GeodesicShooting:
 
         # perform forward integration
         for t in range(0, self.time_steps-1):
-            flow = sampler.sample(flow, identity_grid - vector_fields[t], **self.sampler_options)
+            flow = sampler.sample(flow, identity_grid - vector_fields[t], sampler_options=self.sampler_options)
 
         return flow
 
