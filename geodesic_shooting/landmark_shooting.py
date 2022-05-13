@@ -387,7 +387,7 @@ class LandmarkShooting:
 
         # perform forward integration
         for v in vector_fields:
-            flow -= self.dt * sampler.sample(v, flow, **self.sampler_options)
+            flow -= self.dt * sampler.sample(v, flow, sampler_options=self.sampler_options)
 
         return flow
 
