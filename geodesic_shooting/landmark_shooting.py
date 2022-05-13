@@ -19,7 +19,7 @@ class LandmarkShooting:
     Allassonnière, Trouvé, Younes, 2005
     """
     def __init__(self, kernel=GaussianKernel, kwargs_kernel={}, dim=2, num_landmarks=1,
-                 time_steps=30, log_level='INFO'):
+                 time_steps=30, sampler_options={}, log_level='INFO'):
         """Constructor.
 
         Parameters
@@ -34,6 +34,8 @@ class LandmarkShooting:
             Number of landmarks to register (set automatically when calling `register`).
         time_steps
             Number of time steps performed during forward and backward integration.
+        sampler_options
+            Additional options to pass to the sampler.
         log_level
             Verbosity of the logger.
         """
@@ -44,6 +46,8 @@ class LandmarkShooting:
         self.size = dim * num_landmarks
 
         self.kernel = kernel(**kwargs_kernel)
+
+        self.sampler_options = sampler_options
 
         self.logger = getLogger('landmark_shooting', level=log_level)
 
@@ -383,7 +387,7 @@ class LandmarkShooting:
 
         # perform forward integration
         for v in vector_fields:
-            flow -= self.dt * sampler.sample(v, flow)
+            flow -= self.dt * sampler.sample(v, flow, **self.sampler_options)
 
         return flow
 
