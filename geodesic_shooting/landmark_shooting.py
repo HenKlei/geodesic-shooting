@@ -19,7 +19,7 @@ class LandmarkShooting:
     Allassonnière, Trouvé, Younes, 2005
     """
     def __init__(self, kernel=GaussianKernel, kwargs_kernel={}, dim=2, num_landmarks=1,
-                 time_steps=30, sampler_options={}, log_level='INFO'):
+                 time_steps=30, sampler_options={'order': 1, 'mode': 'edge'}, log_level='INFO'):
         """Constructor.
 
         Parameters
