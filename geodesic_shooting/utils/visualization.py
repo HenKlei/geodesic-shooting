@@ -286,6 +286,58 @@ def plot_landmark_matchings(input_landmarks, target_landmarks, registered_landma
     return axis
 
 
+def plot_landmarks(input_landmarks, target_landmarks, registered_landmarks,
+                   title='', axis=None, landmark_size=50):
+    """Plot the results of the matching of landmarks.
+
+    Parameters
+    ----------
+    input_landmarks
+        Positions of the input landmarks.
+    target_landmarks
+        Positions of the target landmarks.
+    registered_landmarks
+        Positions of the registered landmarks.
+    title
+        Title of the plot.
+    axis
+        If not `None`, the function is plotted on the provided axis.
+    landmark_size
+        Size of the landmarks.
+
+    Returns
+    -------
+    The created plot.
+    """
+    assert input_landmarks.ndim == 2
+    assert input_landmarks.shape == registered_landmarks.shape
+    assert target_landmarks.ndim == 2
+
+    created_figure = False
+    if not axis:
+        created_figure = True
+        fig = plt.figure()
+        axis = fig.add_subplot(1, 1, 1)
+
+    axis.set_aspect('equal')
+    axis.set_title(title)
+
+    colors = [f'C{i}' for i in range(len(input_landmarks))]
+
+    axis.scatter(input_landmarks[:, 0], input_landmarks[:, 1],
+                 s=landmark_size, color=colors, marker='o', label="Input landmark")
+    axis.scatter(target_landmarks[:, 0], target_landmarks[:, 1],
+                 s=landmark_size, marker='*', label="Target landmark")
+    axis.scatter(registered_landmarks[:, 0], registered_landmarks[:, 1],
+                 s=landmark_size, color=colors, marker='s', label="Registered landmark")
+
+    plt.legend()
+
+    if created_figure:
+        return fig, axis
+    return axis
+
+
 def animate_warpgrids(time_evolution_warp, min_x=-1., max_x=1., min_y=-1., max_y=1.,
                       title='', interval=1, show_axis=True):
     """Animate the trajectories of the landmarks.
