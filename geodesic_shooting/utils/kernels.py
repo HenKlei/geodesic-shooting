@@ -38,4 +38,43 @@ class GaussianKernel(Kernel):
         assert x.ndim == 1
         assert x.shape == y.shape
         assert 0 <= i < x.shape[0]
-        return 2. * (x[i] - y[i]) / (self.sigma**4) * self(x, y)[0][0]
+        return -self.derivative_1(x, y, i)
+
+
+class RationalQuadraticKernel(Kernel):
+    """Class that implements a rational quadratic (matrix-valued, diagonal) kernel."""
+    def __init__(self, sigma=1./np.sqrt(2.), alpha=1):
+        """Constructor.
+
+        Parameters
+        ----------
+        sigma
+            Scaling parameter for the squared norm.
+        alpha
+            Exponent of the denominator.
+        """
+        super().__init__()
+        assert sigma > 0
+        assert alpha > 0
+        self.sigma = sigma
+        self.alpha = alpha
+
+    def __call__(self, x, y):
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        return np.eye(x.shape[0]) / ((1. + np.linalg.norm(x-y)**2 / (self.sigma**2))**self.alpha)
+
+    def derivative_1(self, x, y, i):
+        """Derivative of kernel with respect to i-th component of x."""
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        assert 0 <= i < x.shape[0]
+        return 2. * self.alpha * (y[i] - x[i]) / (self.sigma**2
+                                                  * ((1. + np.linalg.norm(x-y)**2 / (self.sigma**2))**(self.alpha + 1)))
+
+    def derivative_2(self, x, y, i):
+        """Derivative of kernel with respect to i-th component of y."""
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        assert 0 <= i < x.shape[0]
+        return -self.derivative_1(x, y, i)
