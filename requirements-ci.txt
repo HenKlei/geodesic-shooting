@@ -1,8 +1,7 @@
 # include other requirements
 -r requirements.txt
 -r requirements-optional.txt
-pytest
-pytest-memprof
-pytest-pycharm
-pytest-cov
-codecov
+pytest==7.1.2
+pytest-memprof==0.2.0
+pytest-cov==3.0.0
+codecov==2.1.12
