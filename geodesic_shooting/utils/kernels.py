@@ -55,11 +55,14 @@ class GaussianKernel(Kernel):
 
 class RationalQuadraticKernel(Kernel):
     """Class that implements a rational quadratic (matrix-valued, diagonal) kernel."""
-    def __init__(self, sigma=1./np.sqrt(2.), alpha=1):
+    def __init__(self, scalar=False, sigma=1./np.sqrt(2.), alpha=1):
         """Constructor.
 
         Parameters
         ----------
+        scalar
+            If `True`, a scalar-valued kernel is returned, otherwise a matrix-valued,
+            diagonal kernel.
         sigma
             Scaling parameter for the squared norm.
         alpha
@@ -68,13 +71,18 @@ class RationalQuadraticKernel(Kernel):
         super().__init__()
         assert sigma > 0
         assert alpha > 0
+        self.scalar = scalar
         self.sigma = sigma
         self.alpha = alpha
 
     def __call__(self, x, y):
         assert x.ndim == 1
         assert x.shape == y.shape
-        return np.eye(x.shape[0]) / ((1. + np.linalg.norm(x-y)**2 / (self.sigma**2))**self.alpha)
+        res = 1. / ((1. + np.linalg.norm(x-y)**2 / (self.sigma**2))**self.alpha)
+        if self.scalar:
+            return res
+        else:
+            return res * np.eye(x.shape[0])
 
     def derivative_1(self, x, y, i):
         """Derivative of kernel with respect to i-th component of x."""
