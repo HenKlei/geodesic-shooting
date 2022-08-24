@@ -31,11 +31,11 @@ class GaussianKernel(Kernel):
         assert x.ndim == 1
         assert x.shape == y.shape
         assert 0 <= i < x.shape[0]
-        return (y[i] - x[i]) / (self.sigma**4) * self(x, y)[0][0]
+        return 2. * (y[i] - x[i]) / (self.sigma**4) * self(x, y)[0][0]
 
     def derivative_2(self, x, y, i):
         """Derivative of kernel with respect to i-th component of y."""
         assert x.ndim == 1
         assert x.shape == y.shape
         assert 0 <= i < x.shape[0]
-        return (x[i] - y[i]) / (self.sigma**4) * self(x, y)[0][0]
+        return 2. * (x[i] - y[i]) / (self.sigma**4) * self(x, y)[0][0]
