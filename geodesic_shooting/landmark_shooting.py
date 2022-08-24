@@ -51,9 +51,9 @@ class LandmarkShooting:
 
         self.logger = getLogger('landmark_shooting', level=log_level)
 
-    def register(self, input_landmarks, target_landmarks, sigma=1.,
-                 optimization_method='L-BFGS-B',
-                 optimizer_options={'disp': True},
+    def register(self, input_landmarks, target_landmarks, landmarks_labeled=True,
+                 kernel_dist=GaussianKernel, kwargs_kernel_dist={},
+                 sigma=1., optimization_method='L-BFGS-B', optimizer_options={'disp': True},
                  initial_momenta=None, return_all=False):
         """Performs actual registration according to geodesic shooting algorithm for landmarks using
            a Hamiltonian setting.
@@ -64,6 +64,17 @@ class LandmarkShooting:
             Initial positions of the landmarks.
         target_landmarks
             Target positions of the landmarks.
+        landmarks_labeled
+            If `True`, the input and target landmarks are assumed to correspond to each other.
+            In that case, the l2-mismatch is used as matching function.
+            If `False`, all landmarks are treated as dirac measures with weight 1.
+            In that case, `kernel_dist` is used as kernel to compute the matching function.
+        kernel_dist
+            Kernel to use for the matching function.
+            Only required if `landmarks_labeled` is `False`.
+        kwargs_kernel_dist
+            Additional arguments passed to the constructor of the kernel.
+            Only required if `landmarks_labeled` is `False`.
         sigma
             Weight for the similarity measurement (L2 difference of the target and the registered
             landmarks); the smaller sigma, the larger the influence of the L2 loss.
@@ -87,13 +98,17 @@ class LandmarkShooting:
         of momenta and positions (if return_all is True).
         """
         assert input_landmarks.ndim == 2
-        assert input_landmarks.shape == target_landmarks.shape
+        if landmarks_labeled:
+            assert input_landmarks.shape == target_landmarks.shape
         self.dim = input_landmarks.shape[1]
         self.size = input_landmarks.shape[0] * input_landmarks.shape[1]
 
         # define initial momenta
         if initial_momenta is None:
-            initial_momenta = (target_landmarks - input_landmarks)
+            if landmarks_labeled:
+                initial_momenta = (target_landmarks - input_landmarks)
+            else:
+                initial_momenta = np.zeros(input_landmarks.shape)
         else:
             initial_momenta = np.reshape(initial_momenta, input_landmarks.shape)
         assert initial_momenta.shape == input_landmarks.shape
@@ -101,11 +116,40 @@ class LandmarkShooting:
         initial_momenta = initial_momenta.flatten()
         initial_positions = input_landmarks.flatten()
 
-        def compute_matching_function(positions):
-            return np.linalg.norm(positions - target_landmarks.flatten())**2
+        if landmarks_labeled:
+            def compute_matching_function(positions):
+                return np.linalg.norm(positions - target_landmarks.flatten())**2
 
-        def compute_gradient_matching_function(positions):
-            return 2. * (positions - target_landmarks.flatten()) / sigma**2
+            def compute_gradient_matching_function(positions):
+                return 2. * (positions - target_landmarks.flatten()) / sigma**2
+        else:
+            kernel_dist = kernel_dist(**kwargs_kernel_dist, scalar=True)
+
+            def compute_matching_function(positions):
+                reshaped_positions = positions.reshape(input_landmarks.shape)
+                dist = 0.
+                for p in reshaped_positions:
+                    for q in reshaped_positions:
+                        dist += kernel_dist(p, q)
+                    for t in target_landmarks:
+                        dist -= 2. * kernel_dist(p, t)
+                for t in target_landmarks:
+                    for s in target_landmarks:
+                        dist += kernel_dist(t, s)
+                return dist
+
+            def compute_gradient_matching_function(positions):
+                grad = np.zeros(positions.shape)
+                reshaped_positions = positions.reshape(input_landmarks.shape)
+                for i, p in enumerate(reshaped_positions):
+                    for q in reshaped_positions:
+                        for j in range(self.dim):
+                            grad[i*self.dim+j] += kernel_dist.derivative_1(p, q, j)
+                            grad[i*self.dim+j] += kernel_dist.derivative_2(q, p, j)
+                    for t in target_landmarks:
+                        for j in range(self.dim):
+                            grad[i*self.dim+j] -= 2. * kernel_dist.derivative_1(p, t, j)
+                return grad
 
         opt = {'input_landmarks': input_landmarks, 'target_landmarks': target_landmarks}
 
