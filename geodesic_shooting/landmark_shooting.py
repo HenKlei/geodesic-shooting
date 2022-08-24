@@ -128,7 +128,7 @@ class LandmarkShooting:
                                                                          positions_time_dependent)
             positions = positions_time_dependent[-1]
             grad_g = compute_gradient_matching_function(positions)
-            grad = self.K(initial_positions) @ initial_momenta + d_momenta_1.T @ grad_g
+            grad = self.K(initial_positions) @ initial_momenta + d_momenta_1.T @ grad_g / sigma**2
 
             return energy, grad.flatten()
 
