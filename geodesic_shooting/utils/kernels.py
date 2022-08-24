@@ -24,28 +24,57 @@ class GaussianKernel(Kernel):
     def __call__(self, x, y):
         assert x.ndim == 1
         assert x.shape == y.shape
-        return np.exp(-np.linalg.norm(x-y)**2 / (2*self.sigma**2)) * np.eye(x.shape[0])
+        return np.exp(-np.linalg.norm(x-y)**2 / (self.sigma**2)) * np.eye(x.shape[0]) / (self.sigma**2)
 
     def derivative_1(self, x, y, i):
         """Derivative of kernel with respect to i-th component of x."""
         assert x.ndim == 1
         assert x.shape == y.shape
         assert 0 <= i < x.shape[0]
-        return (y[i] - x[i]) / self.sigma**2 * self(x, y)[0][0]
+        return 2. * (y[i] - x[i]) / (self.sigma**4) * self(x, y)[0][0]
 
     def derivative_2(self, x, y, i):
         """Derivative of kernel with respect to i-th component of y."""
         assert x.ndim == 1
         assert x.shape == y.shape
         assert 0 <= i < x.shape[0]
-        return (x[i] - y[i]) / self.sigma**2 * self(x, y)[0][0]
+        return -self.derivative_1(x, y, i)
 
 
-k = GaussianKernel(sigma=1.)
-assert np.isclose(np.linalg.norm(k(np.array([5., 3.]), np.array([4., 2.]))
-                                 - np.exp(-1.) * np.eye(2)), 0.0)
-assert np.isclose(k.derivative_1(np.array([5., 3.]), np.array([4., 2.]), 0) + np.exp(-1.), 0.0)
-h = 1e-16
-assert np.isclose((k(np.array([5.+h, 3.]), np.array([4., 2.]))[0][0]
-                   - k(np.array([5., 3.]), np.array([4., 2.]))[0][0]) / h,
-                  k.derivative_1(np.array([5., 3.]), np.array([4., 2.]), 0) + np.exp(-1.))
+class RationalQuadraticKernel(Kernel):
+    """Class that implements a rational quadratic (matrix-valued, diagonal) kernel."""
+    def __init__(self, sigma=1./np.sqrt(2.), alpha=1):
+        """Constructor.
+
+        Parameters
+        ----------
+        sigma
+            Scaling parameter for the squared norm.
+        alpha
+            Exponent of the denominator.
+        """
+        super().__init__()
+        assert sigma > 0
+        assert alpha > 0
+        self.sigma = sigma
+        self.alpha = alpha
+
+    def __call__(self, x, y):
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        return np.eye(x.shape[0]) / ((1. + np.linalg.norm(x-y)**2 / (self.sigma**2))**self.alpha)
+
+    def derivative_1(self, x, y, i):
+        """Derivative of kernel with respect to i-th component of x."""
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        assert 0 <= i < x.shape[0]
+        return 2. * self.alpha * (y[i] - x[i]) / (self.sigma**2
+                                                  * ((1. + np.linalg.norm(x-y)**2 / (self.sigma**2))**(self.alpha + 1)))
+
+    def derivative_2(self, x, y, i):
+        """Derivative of kernel with respect to i-th component of y."""
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        assert 0 <= i < x.shape[0]
+        return -self.derivative_1(x, y, i)
