@@ -65,6 +65,5 @@ if __name__ == "__main__":
     print(f"Input: {input_landmarks}")
     print(f"Target: {target_landmarks}")
     print(f"Result: {registered_landmarks}")
-    rel_error = (np.linalg.norm(target_landmarks - registered_landmarks)
-                 / np.linalg.norm(target_landmarks))
-    print(f"Relative norm of difference: {rel_error}")
+    error = np.linalg.norm(target_landmarks - registered_landmarks)
+    print(f"Norm of difference: {error}")
