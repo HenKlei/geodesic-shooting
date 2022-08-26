@@ -33,7 +33,7 @@ if __name__ == "__main__":
     print(f"Matching function value for target landmarks: {compute_matching_function(target_landmarks)}")
 
     # perform the registration using landmark shooting algorithm
-    gs = geodesic_shooting.LandmarkShooting(kwargs_kernel={'sigma': .1})
+    gs = geodesic_shooting.LandmarkShooting(kwargs_kernel={'sigma': 1.})
     result = gs.register(input_landmarks, target_landmarks, sigma=0.1, return_all=True,
                          landmarks_labeled=False, kwargs_kernel_dist={'sigma': 1.})
     final_momenta = result['initial_momenta']

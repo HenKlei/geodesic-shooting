@@ -36,7 +36,7 @@ def test_landmark_matching():
 
     gs = geodesic_shooting.LandmarkShooting()
     result = gs.register(input_landmarks, target_landmarks, sigma=0.05, return_all=True,
-                         landmarks_labeled=False,)
+                         landmarks_labeled=False)
     registered_landmarks = result['registered_landmarks']
     dist = compute_average_distance(target_landmarks, registered_landmarks)
     assert dist < 1e-3
@@ -50,4 +50,4 @@ def test_landmark_matching():
                          landmarks_labeled=True)
     registered_landmarks = result['registered_landmarks']
     dist = compute_average_distance(target_landmarks, registered_landmarks)
-    assert dist < 5e-2
+    assert dist < 1e-3
