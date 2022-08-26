@@ -5,24 +5,42 @@ import geodesic_shooting
 
 from geodesic_shooting.utils.visualization import (animate_landmark_trajectories,
                                                    plot_initial_momenta_and_landmarks,
-                                                   plot_landmark_matchings,
-                                                   plot_landmark_trajectories, animate_warpgrids)
+                                                   plot_landmarks, plot_landmark_trajectories)
 from geodesic_shooting.core import ScalarFunction
 
 
 if __name__ == "__main__":
     # define landmark positions
-    input_landmarks = np.array([[5., 3.], [4., 2.], [1., 0.], [2., 3.]])
-    target_landmarks = np.array([[6., 2.], [5., 1.], [1., -1.], [2.5, 2.]])
+    input_landmarks = np.array([[4., -.25], [3., 5./3.], [4., 7./3.], [5., 3.]])
+    target_landmarks = np.array([[3.4, -.25], [4., .5], [5., 1.25], [6., 2.]])
+
+    from geodesic_shooting.utils.kernels import GaussianKernel
+    kernel_dist = GaussianKernel(sigma=1., scalar=True)
+
+    def compute_matching_function(positions):
+        reshaped_positions = positions.reshape(input_landmarks.shape)
+        dist = 0.
+        for p in reshaped_positions:
+            for q in reshaped_positions:
+                dist += kernel_dist(p, q)
+            for t in target_landmarks:
+                dist -= 2. * kernel_dist(p, t)
+        for t in target_landmarks:
+            for s in target_landmarks:
+                dist += kernel_dist(t, s)
+        return dist
+
+    print(f"Matching function value for target landmarks: {compute_matching_function(target_landmarks)}")
 
     # perform the registration using landmark shooting algorithm
-    gs = geodesic_shooting.LandmarkShooting(kwargs_kernel={'sigma': 2.})
-    result = gs.register(input_landmarks, target_landmarks, sigma=0.1, return_all=True, landmarks_labeled=True)
+    gs = geodesic_shooting.LandmarkShooting(kwargs_kernel={'sigma': 1.})
+    result = gs.register(input_landmarks, target_landmarks, sigma=0.1, return_all=True,
+                         landmarks_labeled=False, kwargs_kernel_dist={'sigma': 1.})
     final_momenta = result['initial_momenta']
     registered_landmarks = result['registered_landmarks']
 
     # plot results
-    plot_landmark_matchings(input_landmarks, target_landmarks, registered_landmarks)
+    plot_landmarks(input_landmarks, target_landmarks, registered_landmarks)
 
     plot_initial_momenta_and_landmarks(final_momenta.flatten(), registered_landmarks.flatten(),
                                        min_x=0., max_x=7., min_y=-2., max_y=4.)
@@ -65,5 +83,4 @@ if __name__ == "__main__":
     print(f"Input: {input_landmarks}")
     print(f"Target: {target_landmarks}")
     print(f"Result: {registered_landmarks}")
-    error = np.linalg.norm(target_landmarks - registered_landmarks)
-    print(f"Norm of difference: {error}")
+    print(f"Matching function value for registered landmarks: {compute_matching_function(registered_landmarks)}")
