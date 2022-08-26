@@ -168,11 +168,11 @@ class LandmarkShooting:
             energy_l2 = 1. / sigma**2 * energy_l2_unscaled
             energy = energy_regularizer + energy_l2
 
-            d_momenta_1 = self.integrate_forward_variational_Hamiltonian(momenta_time_dependent,
-                                                                         positions_time_dependent)
+            d_positions_1, _ = self.integrate_forward_variational_Hamiltonian(momenta_time_dependent,
+                                                                              positions_time_dependent)
             positions = positions_time_dependent[-1]
             grad_g = compute_gradient_matching_function(positions)
-            grad = self.K(initial_positions) @ initial_momenta + d_momenta_1.T @ grad_g / sigma**2
+            grad = self.K(initial_positions) @ initial_momenta + d_positions_1.T @ grad_g / sigma**2
 
             return energy, grad.flatten()
 
@@ -332,7 +332,7 @@ class LandmarkShooting:
             d_momenta[t+1] = d_momenta[t] - self.dt * (d_momenta[t] @ self.DK(positions[t]) @ positions[t]
                                                        + positions[t] @ self.DK(positions[t]) @ d_momenta[t])
 
-        return d_momenta[-1]
+        return d_positions[-1], d_momenta[-1]
 
     def get_vector_field(self, momenta, positions,
                          mins=np.array([0., 0.]), maxs=np.array([1., 1.]),
