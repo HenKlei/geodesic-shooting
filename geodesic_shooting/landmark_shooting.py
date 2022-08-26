@@ -119,7 +119,7 @@ class LandmarkShooting:
                 initial_momenta, initial_positions)
             positions = positions_time_dependent[-1]
 
-            energy_regularizer = self.compute_Hamiltonian(initial_momenta, positions)
+            energy_regularizer = self.compute_Hamiltonian(initial_momenta, initial_positions)
             energy_l2_unscaled = compute_matching_function(positions)
             energy_l2 = 1. / sigma**2 * energy_l2_unscaled
             energy = energy_regularizer + energy_l2
