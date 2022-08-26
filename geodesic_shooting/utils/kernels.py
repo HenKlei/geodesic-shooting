@@ -28,7 +28,7 @@ class GaussianKernel(Kernel):
     def __call__(self, x, y):
         assert x.ndim == 1
         assert x.shape == y.shape
-        res = np.exp(-np.linalg.norm(x-y)**2 / (self.sigma**2)) / (self.sigma**2)
+        res = np.exp(-np.linalg.norm(x-y)**2 / (2. * self.sigma**2))
         if self.scalar:
             return res
         else:
@@ -39,7 +39,7 @@ class GaussianKernel(Kernel):
         assert x.ndim == 1
         assert x.shape == y.shape
         assert 0 <= i < x.shape[0]
-        res = 2. * (y[i] - x[i]) / self.sigma**4
+        res = (y[i] - x[i]) / self.sigma**2
         if self.scalar:
             return res * self(x, y)
         else:
