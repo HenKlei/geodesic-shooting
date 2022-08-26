@@ -1,2 +1,3 @@
 from .geodesic_shooting import GeodesicShooting
 from .landmark_shooting import LandmarkShooting
+from .landmark_shooting_Newton import LandmarkShootingNewton
