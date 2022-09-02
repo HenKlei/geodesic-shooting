@@ -2,6 +2,7 @@ import numpy as np
 from scipy.ndimage import correlate
 
 import geodesic_shooting.core as core
+from geodesic_shooting.utils.helper_functions import tuple_product
 
 
 def finite_difference(f):
@@ -50,3 +51,82 @@ def finite_difference(f):
         return core.VectorField(spatial_shape=f.spatial_shape, data=np.stack(derivatives, axis=-1))
 
     raise NotImplementedError
+
+
+def finite_difference_matrix(shape):
+    dim = len(shape)
+    assert dim in [1, 2, ]
+    size = tuple_product(shape)
+
+    if dim == 1:
+        main_diagonal = np.zeros(size)
+        main_diagonal[0] = -0.5
+        main_diagonal[-1] = 0.5
+        first_diagonal = np.ones(size-1) * 0.5
+        mat = np.diag(main_diagonal, 0) + np.diag(first_diagonal, 1) + np.diag(-first_diagonal, -1)
+
+    if dim == 2:
+        main_diagonal = np.zeros(size)
+        main_diagonal[0:shape[1]] = -0.5
+        main_diagonal[-shape[1]:] = 0.5
+        first_diagonal = np.ones(size-shape[1]) * 0.5
+        mat1 = (np.diag(main_diagonal, 0) + np.diag(first_diagonal, shape[1])
+                + np.diag(-first_diagonal, -shape[1]))
+
+        main_diagonal = np.zeros(size)
+        main_diagonal[::shape[1]] = -0.5
+        main_diagonal[shape[1]-1::shape[1]] = 0.5
+        first_diagonal = np.ones(size-1) * 0.5
+        first_diagonal[shape[1]-1::shape[1]] = 0
+        mat2 = (np.diag(main_diagonal, 0) + np.diag(first_diagonal, 1)
+                + np.diag(-first_diagonal, -1))
+
+        mat = np.vstack([np.hstack([mat1, mat2]), np.hstack([mat1, mat2])])
+
+    assert mat.shape == (dim * size, dim * size)
+    return mat
+
+
+def gradient_matrix(shape):
+    dim = len(shape)
+    assert dim in [1, 2, ]
+    size = tuple_product(shape)
+
+    if dim == 1:
+        main_diagonal = np.zeros(size)
+        main_diagonal[0] = -0.5
+        main_diagonal[-1] = 0.5
+        first_diagonal = np.ones(size-1) * 0.5
+        mat = np.diag(main_diagonal, 0) + np.diag(first_diagonal, 1) + np.diag(-first_diagonal, -1)
+
+    if dim == 2:
+        main_diagonal = np.zeros(size)
+        main_diagonal[0:shape[1]] = -0.5
+        main_diagonal[-shape[1]:] = 0.5
+        first_diagonal = np.ones(size-shape[1]) * 0.5
+        mat1 = (np.diag(main_diagonal, 0) + np.diag(first_diagonal, shape[1])
+                + np.diag(-first_diagonal, -shape[1]))
+
+        main_diagonal = np.zeros(size)
+        main_diagonal[::shape[1]] = -0.5
+        main_diagonal[shape[1]-1::shape[1]] = 0.5
+        first_diagonal = np.ones(size-1) * 0.5
+        first_diagonal[shape[1]-1::shape[1]] = 0
+        mat2 = (np.diag(main_diagonal, 0) + np.diag(first_diagonal, 1)
+                + np.diag(-first_diagonal, -1))
+
+        mat = np.vstack([mat1, mat2])
+
+    assert mat.shape == (dim * size, size)
+    return mat
+
+
+def divergence_matrix(shape):
+    dim = len(shape)
+    size = tuple_product(shape)
+
+    div_tilde = np.zeros((size, dim * size))
+    assert div_tilde.shape == (size, dim * size)
+    div = np.vstack([div_tilde, ] * dim)
+    assert div.shape == (dim * size, dim * size)
+    return div
