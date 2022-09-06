@@ -223,10 +223,7 @@ class ReducedGeodesicShooting:
 
             # compute the current energy consisting of intensity difference
             # and regularization
-            vf = VectorField(self.shape)
-            for v, r in zip(self.rb_vector_fields, v0):
-                vf += r * v
-            energy_regularizer = self.regularizer.cauchy_navier(vf).norm
+            energy_regularizer = np.linalg.norm(v0)
             energy_intensity_unscaled = compute_energy(forward_pushed_input)
             energy_intensity = 1 / sigma**2 * energy_intensity_unscaled
             energy = energy_regularizer + energy_intensity
