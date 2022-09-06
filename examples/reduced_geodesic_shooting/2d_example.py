@@ -19,3 +19,11 @@ if __name__ == "__main__":
     result = gs.register(input_, target, sigma=0.01, return_all=True)
 
     plot_registration_results(result)
+
+    v0 = result['initial_vector_field']
+    rb = [v0 / v0.norm, ]
+    reduced_gs = geodesic_shooting.ReducedGeodesicShooting(rb, alpha=6., exponent=3)
+
+    result_reduced = reduced_gs.register(input_, target, sigma=0.1, return_all=True)
+
+    plot_registration_results(result_reduced)

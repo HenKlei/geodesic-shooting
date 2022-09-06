@@ -15,7 +15,7 @@ if __name__ == "__main__":
     target[2*N//5:3*N//5] = 1
 
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=10., exponent=3.)
+    gs = geodesic_shooting.GeodesicShooting(alpha=10., exponent=3)
     start = time.time()
     result = gs.register(input_, target, sigma=0.005, return_all=True)
     end = time.time()
@@ -29,13 +29,12 @@ if __name__ == "__main__":
     print(f'Registration result: {image}')
     print(f'Relative norm of difference: {(target - image).norm / target.norm}')
 
-    rb = [v0 / v0.norm, result['vector_fields'][15] / result['vector_fields'][15].norm, ]
-    reduced_gs = geodesic_shooting.ReducedGeodesicShooting(rb, alpha=6., exponent=2)
+    with open('reduced_quantities_1d_example', 'rb') as file_obj:
+        reduced_quantities = pickle.load(file_obj)
 
-    reduced_quantities = reduced_gs.get_reduced_quantities()
-
-    with open('reduced_quantities_1d_example', 'wb') as file_obj:
-        pickle.dump(reduced_quantities, file_obj)
+    rb = None
+    reduced_gs = geodesic_shooting.ReducedGeodesicShooting(rb, alpha=6., exponent=2,
+                                                           precomputed_quantities=reduced_quantities)
 
     start = time.time()
     result_reduced = reduced_gs.register(input_, target, sigma=0.01, return_all=True)

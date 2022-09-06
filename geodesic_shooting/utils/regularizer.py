@@ -24,6 +24,7 @@ class BiharmonicRegularizer:
         """
         assert alpha >= 0
         assert exponent > 0
+        assert isinstance(exponent, int)
 
         self.alpha = alpha
         self.exponent = exponent

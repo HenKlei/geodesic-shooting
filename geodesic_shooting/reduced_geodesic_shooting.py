@@ -60,7 +60,7 @@ class ReducedGeodesicShooting:
         self.time_steps = time_steps
         self.dt = 1. / self.time_steps
 
-        self.size = tuple_product(self.rb_vector_fields[0].full_shape)
+        self.size = tuple_product(self.rb_vector_fields[0].spatial_shape)
         self.shape = self.rb_vector_fields[0].spatial_shape
         self.dim = self.rb_vector_fields[0].dim
 
@@ -89,7 +89,8 @@ class ReducedGeodesicShooting:
             self.matrices_backward_2 = []
             self.matrices_backward_3 = []
 
-            U = np.array([v.to_numpy().squeeze() for v in self.rb_vector_fields]).T
+            U = np.array([v.to_numpy().flatten() for v in self.rb_vector_fields]).T
+            assert U.shape == (self.dim * self.size, self.rb_size)
 
             UTK = U.T.dot(K)
             DL = D.dot(L)
@@ -191,9 +192,7 @@ class ReducedGeodesicShooting:
 
         def compute_grad_energy(image):
             """ Not 100% sure whether this is correct... """
-            return self.regularizer.cauchy_navier_inverse_matrix.dot(
-                (image.grad.to_numpy().reshape((self.dim, self.size))
-                 * (image - target)[np.newaxis, ...]).reshape(self.dim * self.size))
+            return self.regularizer.cauchy_navier_inverse_matrix.dot((image.grad * (image - target)[..., np.newaxis]).to_numpy().flatten())
 
         # set up variables
         assert self.shape == input_.spatial_shape
@@ -203,8 +202,7 @@ class ReducedGeodesicShooting:
         if initial_vector_field is None:
             initial_vector_field = np.zeros(self.rb_size)
         else:
-            if not isinstance(initial_vector_field, VectorField):
-                initial_vector_field = VectorField(data=initial_vector_field)
+            assert initial_vector_field.shape == (self.rb_size, )
 
         opt = {'input': input_, 'target': target}
 
@@ -252,6 +250,11 @@ class ReducedGeodesicShooting:
 
         # compute time-dependent vector field from optimal initial vector field
         vector_fields = self.integrate_forward_vector_field(res['x'])
+        full_vector_fields = TimeDependentVectorField(self.shape, self.time_steps)
+        for i, v in enumerate(vector_fields):
+            full_vector_fields[i] = VectorField(self.shape)
+            for r, vec in zip(v, self.rb_vector_fields):
+                full_vector_fields[i] += r * vec
 
         # compute forward flows according to the vector fields
         flow = self.integrate_forward_flow(vector_fields)
@@ -263,9 +266,11 @@ class ReducedGeodesicShooting:
         for v, r in zip(self.rb_vector_fields, res['x']):
             full_initial_vector_field += r * v
         opt['initial_vector_field'] = full_initial_vector_field
+        opt['coefficients_initial_vector_field'] = res['x']
         opt['transformed_input'] = transformed_input
         opt['flow'] = flow
-        opt['vector_fields'] = vector_fields
+        opt['coefficients_vector_fields'] = vector_fields
+        opt['vector_fields'] = full_vector_fields
 
         elapsed_time = int(time.perf_counter() - start_time)
 
