@@ -222,7 +222,7 @@ class VectorField:
             return fig, axis
         return axis
 
-    def get_norm(self, order=None):
+    def get_norm(self, order=None, restriction=np.s_[...]):
         """Computes the norm of the `VectorField`.
 
         Remark: If `order=None` and `self.dim >= 2`, the 2-norm of `self.to_numpy().ravel()`
@@ -238,7 +238,7 @@ class VectorField:
         -------
         The norm of the `VectorField`.
         """
-        return np.linalg.norm(self.to_numpy(), ord=order)
+        return np.linalg.norm(self.to_numpy()[restriction].flatten(), ord=order)
 
     norm = property(get_norm)
 

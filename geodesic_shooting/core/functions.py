@@ -137,7 +137,7 @@ class ScalarFunction:
         fig.savefig(filepath)
         plt.close(fig)
 
-    def get_norm(self, order=None):
+    def get_norm(self, order=None, restriction=np.s_[...]):
         """Computes the norm of the `ScalarFunction`.
 
         Remark: If `order=None` and `self.dim >= 2`, the 2-norm of `self.to_numpy().ravel()`
@@ -153,7 +153,7 @@ class ScalarFunction:
         -------
         The norm of the `ScalarFunction`.
         """
-        return np.linalg.norm(self.to_numpy(), ord=order)
+        return np.linalg.norm(self.to_numpy()[restriction].flatten(), ord=order)
 
     norm = property(get_norm)
 
