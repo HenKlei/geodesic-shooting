@@ -13,7 +13,7 @@ if __name__ == "__main__":
               + make_circle((64, 64), np.array([40, 25]), 15) * 0.8)
 
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=100., exponent=2.)
+    gs = geodesic_shooting.GeodesicShooting(alpha=100., exponent=2)
     result = gs.register(input_, target, sigma=0.1, return_all=True)
 
     plot_registration_results(result)
