@@ -2,8 +2,6 @@
 import time
 import numpy as np
 
-from copy import deepcopy
-
 import scipy.optimize as optimize
 
 from geodesic_shooting.core import ScalarFunction, VectorField, TimeDependentVectorField
@@ -192,7 +190,8 @@ class ReducedGeodesicShooting:
 
         def compute_grad_energy(image):
             """ Not 100% sure whether this is correct... """
-            return self.regularizer.cauchy_navier_inverse_matrix.dot((image.grad * (image - target)[..., np.newaxis]).to_numpy().flatten())
+            return self.regularizer.cauchy_navier_inverse_matrix.dot(
+                    (image.grad * (image - target)[..., np.newaxis]).to_numpy().flatten())
 
         # set up variables
         assert self.shape == input_.spatial_shape

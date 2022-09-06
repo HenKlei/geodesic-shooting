@@ -1,6 +1,5 @@
 import time
 import pickle
-import numpy as np
 
 import geodesic_shooting
 from geodesic_shooting.core import ScalarFunction
