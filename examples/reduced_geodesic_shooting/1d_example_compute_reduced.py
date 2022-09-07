@@ -2,9 +2,8 @@ import time
 import pickle
 
 import geodesic_shooting
-from geodesic_shooting.core import ScalarFunction, VectorField
+from geodesic_shooting.core import ScalarFunction
 from geodesic_shooting.utils.reduced import pod
-from geodesic_shooting.utils.helper_functions import lincomb
 
 
 if __name__ == "__main__":
