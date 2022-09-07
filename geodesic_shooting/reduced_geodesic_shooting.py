@@ -9,6 +9,7 @@ from geodesic_shooting.utils import sampler, grid
 from geodesic_shooting.utils.grad import finite_difference_matrix, gradient_matrix, divergence_matrix
 from geodesic_shooting.utils.helper_functions import tuple_product
 from geodesic_shooting.utils.logger import getLogger
+from geodesic_shooting.utils.reduced import lincomb
 from geodesic_shooting.utils.regularizer import BiharmonicRegularizer
 from geodesic_shooting.utils.time_integration import RK4
 
@@ -248,9 +249,7 @@ class ReducedGeodesicShooting:
         vector_fields = self.integrate_forward_vector_field(res['x'])
         full_vector_fields = TimeDependentVectorField(self.shape, self.time_steps)
         for i, v in enumerate(vector_fields):
-            full_vector_fields[i] = VectorField(self.shape)
-            for r, vec in zip(v, self.rb_vector_fields):
-                full_vector_fields[i] += r * vec
+            full_vector_fields[i] = lincomb(self.rb_vector_fields, v)
 
         # compute forward flows according to the vector fields
         flow = self.integrate_forward_flow(vector_fields)
@@ -258,9 +257,7 @@ class ReducedGeodesicShooting:
         # push-forward input-image
         transformed_input = input_.push_forward(flow)
 
-        full_initial_vector_field = VectorField(self.shape)
-        for v, r in zip(self.rb_vector_fields, res['x']):
-            full_initial_vector_field += r * v
+        full_initial_vector_field = lincomb(self.rb_vector_fields, res['x'])
         opt['initial_vector_field'] = full_initial_vector_field
         opt['coefficients_initial_vector_field'] = res['x']
         opt['transformed_input'] = transformed_input
@@ -328,9 +325,7 @@ class ReducedGeodesicShooting:
 
         # perform forward integration
         for t in range(0, self.time_steps-1):
-            vf = VectorField(self.shape)
-            for v, r in zip(self.rb_vector_fields, vector_fields[t]):
-                vf += r * v
+            vf = lincomb(self.rb_vector_fields, vector_fields[t])
             flow = sampler.sample(flow, identity_grid - vf, sampler_options=self.sampler_options)
 
         return flow
