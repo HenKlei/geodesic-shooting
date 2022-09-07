@@ -2,7 +2,9 @@ import time
 import pickle
 
 import geodesic_shooting
-from geodesic_shooting.core import ScalarFunction
+from geodesic_shooting.core import ScalarFunction, VectorField
+from geodesic_shooting.utils.reduced import pod
+from geodesic_shooting.utils.helper_functions import lincomb
 
 
 if __name__ == "__main__":
@@ -21,14 +23,21 @@ if __name__ == "__main__":
     full_registration_time = end - start
 
     image = result['transformed_input']
-    v0 = result['initial_vector_field']
 
     print(f'Input: {input_}')
     print(f'Target: {target}')
     print(f'Registration result: {image}')
     print(f'Relative norm of difference: {(target - image).norm / target.norm}')
 
-    rb = [v0 / v0.norm, result['vector_fields'][15] / result['vector_fields'][15].norm, ]
+    print()
+    print("========== Reduced Geodesic Shooting ==========")
+    avg = result['vector_fields'].average
+    rb = [r - avg for r in result['vector_fields']]
+    product_operator = gs.regularizer.cauchy_navier
+    rb_size = 2
+    rb, singular_values = pod(rb, num_modes=rb_size, product_operator=product_operator,
+                              return_singular_values=True, shift=avg)
+    print(f'Singular values: {singular_values}')
     reduced_gs = geodesic_shooting.ReducedGeodesicShooting(rb, alpha=6., exponent=2)
 
     reduced_quantities = reduced_gs.get_reduced_quantities()

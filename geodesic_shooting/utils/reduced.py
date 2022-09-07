@@ -1,14 +1,36 @@
 import numpy as np
 
-from geodesic_shooting.core import VectorField
 
+def pod(modes, num_modes=10, product_operator=None, return_singular_values=False, shift=None):
+    assert isinstance(num_modes, int) and num_modes > 0
+    type_input = type(modes[0])
 
-def lincomb(rb_vector_fields, coefficients):
-    assert coefficients.ndim == 1
-    assert len(rb_vector_fields) == len(coefficients)
-    assert len(rb_vector_fields) > 0
+    if shift is None:
+        shift = type_input(spatial_shape=modes[0].spatial_shape)
 
-    res = VectorField(rb_vector_fields[0].spatial_shape)
-    for v, c in zip(rb_vector_fields, coefficients):
-        res += c * v
-    return res
+    if product_operator:
+        B = np.stack([a.flatten() for a in modes])
+        B_tilde = np.stack([product_operator(a).flatten() for a in modes])
+        C = B.dot(B_tilde.T)
+        S, V = np.linalg.eig(C)
+        selected_modes = min(num_modes, V.shape[0])
+        all_singular_values = np.real(S)
+        S = np.sqrt(S[:selected_modes])
+        V = V.T
+        V = B.T.dot((V[:selected_modes] / S[:, np.newaxis]).T)
+        singular_vectors = np.real(V).T
+        singular_vectors = [type_input(data=u.reshape(modes[0].full_shape)) + shift for u in singular_vectors]
+        if return_singular_values:
+            return singular_vectors, all_singular_values
+        else:
+            return singular_vectors
+    else:  # assuming L2-scalar product as default if no `product_operator` is provided
+        B = np.stack([a.flatten() for a in modes]).T
+        assert B.ndim == 2
+        U, all_singular_values, _ = np.linalg.svd(B, full_matrices=False)
+        singular_vectors = U[:, :min(num_modes, U.shape[1])].T
+        singular_vectors = [type_input(data=u.reshape(modes[0].full_shape)) + shift for u in singular_vectors]
+        if return_singular_values:
+            return singular_vectors, all_singular_values
+        else:
+            return singular_vectors

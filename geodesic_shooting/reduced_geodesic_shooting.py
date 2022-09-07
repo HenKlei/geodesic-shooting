@@ -9,7 +9,7 @@ from geodesic_shooting.utils import sampler, grid
 from geodesic_shooting.utils.grad import finite_difference_matrix, gradient_matrix, divergence_matrix
 from geodesic_shooting.utils.helper_functions import tuple_product
 from geodesic_shooting.utils.logger import getLogger
-from geodesic_shooting.utils.reduced import lincomb
+from geodesic_shooting.utils.helper_functions import lincomb
 from geodesic_shooting.utils.regularizer import BiharmonicRegularizer
 from geodesic_shooting.utils.time_integration import RK4
 
@@ -88,7 +88,7 @@ class ReducedGeodesicShooting:
             self.matrices_backward_2 = []
             self.matrices_backward_3 = []
 
-            U = np.array([v.to_numpy().flatten() for v in self.rb_vector_fields]).T
+            U = np.array([v.flatten() for v in self.rb_vector_fields]).T
             assert U.shape == (self.dim * self.size, self.rb_size)
 
             UTK = U.T.dot(K)
@@ -192,7 +192,7 @@ class ReducedGeodesicShooting:
         def compute_grad_energy(image):
             """ Not 100% sure whether this is correct... """
             return self.regularizer.cauchy_navier_inverse_matrix.dot(
-                    (image.grad * (image - target)[..., np.newaxis]).to_numpy().flatten())
+                    (image.grad * (image - target)[..., np.newaxis]).flatten())
 
         # set up variables
         assert self.shape == input_.spatial_shape
@@ -384,7 +384,7 @@ class ReducedGeodesicShooting:
         -------
         Gradient of the energy with respect to the initial vector field.
         """
-        v_adjoint = np.array([v.to_numpy().flatten().dot(gradient_l2_energy) for v in self.rb_vector_fields])
+        v_adjoint = np.array([v.flatten().dot(gradient_l2_energy) for v in self.rb_vector_fields])
         assert v_adjoint.shape == (self.rb_size, )
         delta_v = np.zeros(v_adjoint.shape, dtype=np.double)
         assert delta_v.shape == (self.rb_size, )
