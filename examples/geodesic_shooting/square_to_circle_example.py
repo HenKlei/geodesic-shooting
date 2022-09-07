@@ -11,7 +11,7 @@ if __name__ == "__main__":
     input_ = make_square((64, 64), np.array([32, 32]), 40)
 
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=10., exponent=4.)
+    gs = geodesic_shooting.GeodesicShooting(alpha=10., exponent=4)
     result = gs.register(input_, target, sigma=0.01, return_all=True)
 
     result['initial_vector_field'].save_tikz('initial_vector_field_square_to_circle.tex',

@@ -7,6 +7,7 @@ import matplotlib.animation as animation
 from geodesic_shooting.core import ScalarFunction
 from geodesic_shooting.utils import grid
 import geodesic_shooting.utils.grad as grad
+from geodesic_shooting.utils.helper_functions import lincomb
 
 
 class VectorField:
@@ -71,6 +72,15 @@ class VectorField:
         if shape:
             return self._data.reshape(shape)
         return self._data
+
+    def flatten(self):
+        """Returns the `VectorField` represented as a flattened numpy-array.
+
+        Returns
+        -------
+        Flattened numpy-array containing the entries of the `VectorField`.
+        """
+        return self.to_numpy().flatten()
 
     def plot(self, title="", interval=1, show_axis=False, scale=None, axis=None):
         """Plots the `VectorField` using `matplotlib`'s `quiver` function.
@@ -375,6 +385,16 @@ class TimeDependentVectorField:
                 else:
                     self._data.append(VectorField(self.spatial_shape, data=elem))
 
+    @property
+    def average(self):
+        """Computes the average `VectorField` over time.
+
+        Returns
+        -------
+        Average of the `VectorField`s.
+        """
+        return lincomb(self, np.ones(len(self)) / len(self))
+
     def to_numpy(self, shape=None):
         """Returns the `TimeDependentVectorField` represented as a numpy-array.
 
@@ -467,3 +487,6 @@ class TimeDependentVectorField:
 
     def __str__(self):
         return str(self.to_numpy())
+
+    def __len__(self):
+        return self.time_steps
