@@ -15,11 +15,11 @@ from geodesic_shooting.utils.time_integration import RK4
 
 
 class ReducedGeodesicShooting:
-    """Class that implements large deformation metric mappings via geodesic shooting.
+    """Class that implements geodesic shooting in a reduced version.
 
     Based on:
-    Geodesic Shooting for Computational Anatomy.
-    Miller, Trouvé, Younes, 2006
+    Data-driven Model Order Reduction For Diffeomorphic Image Registration.
+    Wang, Xing, Kirby, Zhang, 2019
     """
     def __init__(self, rb_vector_fields=None, alpha=6., exponent=2., time_integrator=RK4, time_steps=30,
                  sampler_options={'order': 1, 'mode': 'edge'}, precomputed_quantities={}, log_level='INFO'):
@@ -332,10 +332,12 @@ class ReducedGeodesicShooting:
 
     def image_grad(self, image):
         """Computes the gradients of the given image.
+
         Parameters
         ----------
         image
             Array containing the (forward) pushed image.
+
         Returns
         -------
         Array with the gradients of the input image.
@@ -360,26 +362,32 @@ class ReducedGeodesicShooting:
         vector_fields = np.zeros((self.time_steps, self.rb_size), dtype=np.double)
         vector_fields[0] = initial_vector_field
 
-        for t in range(0, self.time_steps-2):
-            v = vector_fields[t]
+        def rhs_function(v):
             assert v.shape == (self.rb_size, )
             rhs = np.sum(np.array([mat.dot(v) * v_i
                                    for mat, v_i in zip(self.matrices_forward, v)]),
                          axis=0)
             assert rhs.shape == (self.rb_size, )
-            vector_fields[t+1] = vector_fields[t] + rhs / self.time_steps
+            return rhs
+
+        ti = self.time_integrator(rhs_function, self.dt)
+
+        for t in range(0, self.time_steps-2):
+            vector_fields[t+1] = ti.step(vector_fields[t])
             assert vector_fields[t+1].shape == (self.rb_size, )
 
         return vector_fields
 
     def integrate_backward_adjoint(self, gradient_l2_energy, vector_fields):
         """Performs backward integration of the adjoint Jacobi field equations.
+
         Parameters
         ----------
         gradient_l2_energy
             Array containing the gradient of the L2 energy functional.
         vector_fields
             Sequence of vector fields (i.e. time-dependent vector field) to integrate backwards.
+
         Returns
         -------
         Gradient of the energy with respect to the initial vector field.
@@ -389,8 +397,7 @@ class ReducedGeodesicShooting:
         delta_v = np.zeros(v_adjoint.shape, dtype=np.double)
         assert delta_v.shape == (self.rb_size, )
 
-        for t in range(self.time_steps-2, -1, -1):
-            v = vector_fields[t]
+        def rhs_v_function(_, v, delta_v):
             assert v.shape == (self.rb_size, )
             rhs_v = - (np.sum(np.array([mat.dot(v) * delta_v_i for mat, delta_v_i in
                                         zip(self.matrices_backward_1, delta_v)]),
@@ -399,9 +406,11 @@ class ReducedGeodesicShooting:
                                         zip(self.matrices_backward_2, v)]),
                               axis=0))
             assert rhs_v.shape == (self.rb_size, )
-            v_adjoint = v_adjoint - rhs_v / self.time_steps
-            assert v_adjoint.shape == (self.rb_size, )
+            return rhs_v
 
+        ti_v = self.time_integrator(rhs_v_function, self.dt)
+
+        def rhs_delta_v_function(delta_v, v, v_adjoint):
             rhs_delta_v = (- v_adjoint
                            - (np.sum(np.array([mat.dot(v) * delta_v_i for mat, delta_v_i in
                                                zip(self.matrices_backward_3, delta_v)]),
@@ -416,7 +425,16 @@ class ReducedGeodesicShooting:
                                                zip(self.matrices_backward_2, delta_v)]),
                                      axis=0)))
             assert rhs_delta_v.shape == (self.rb_size, )
-            delta_v = delta_v - rhs_delta_v / self.time_steps
+            return rhs_delta_v
+
+        ti_delta_v = self.time_integrator(rhs_delta_v_function, self.dt)
+
+        for t in range(self.time_steps-2, -1, -1):
+            v_adjoint = ti_v.step_backwards(v_adjoint, additional_args={'v': vector_fields[t], 'delta_v': delta_v})
+            assert v_adjoint.shape == (self.rb_size, )
+
+            delta_v = ti_delta_v.step_backwards(delta_v,
+                                                additional_args={'v': vector_fields[t], 'v_adjoint': v_adjoint})
             assert delta_v.shape == (self.rb_size, )
 
         return delta_v
