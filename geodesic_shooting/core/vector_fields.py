@@ -74,6 +74,12 @@ class VectorField:
         return self._data
 
     def flatten(self):
+        """Returns the `VectorField` represented as a flattened numpy-array.
+
+        Returns
+        -------
+        Flattened numpy-array containing the entries of the `VectorField`.
+        """
         return self.to_numpy().flatten()
 
     def plot(self, title="", interval=1, show_axis=False, scale=None, axis=None):
@@ -381,6 +387,12 @@ class TimeDependentVectorField:
 
     @property
     def average(self):
+        """Computes the average `VectorField` over time.
+
+        Returns
+        -------
+        Average of the `VectorField`s.
+        """
         return lincomb(self, np.ones(len(self)) / len(self))
 
     def to_numpy(self, shape=None):

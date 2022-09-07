@@ -36,7 +36,7 @@ if __name__ == "__main__":
     product_operator = gs.regularizer.cauchy_navier
     rb_size = 2
     rb, singular_values = pod(rb, num_modes=rb_size, product_operator=product_operator,
-                              return_singular_values=True, shift=avg)
+                              return_singular_values='all', shift=avg)
     print(f'Singular values: {singular_values}')
     reduced_gs = geodesic_shooting.ReducedGeodesicShooting(rb, alpha=6., exponent=2)
 
