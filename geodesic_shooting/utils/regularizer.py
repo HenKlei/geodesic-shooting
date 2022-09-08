@@ -36,6 +36,9 @@ class BiharmonicRegularizer:
 
         self.logger = getLogger('reduced_geodesic_shooting', level=log_level)
 
+    def __str__(self):
+        return f"{self.__class__.__name__}: alpha={self.alpha}, exponent={self.exponent}"
+
     def init_matrices(self, shape):
         """Initializes the Cauchy-Navier operator matrix and inverse matrices.
         It is very time-consuming to compute the inverse, but solving many linear

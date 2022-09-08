@@ -3,6 +3,9 @@ import numpy as np
 
 class Kernel:
     """Base class for kernels."""
+    def __str__(self):
+        return f"{self.__class__.__name__}"
+
     def __call__(self, x, y):
         raise NotImplementedError
 
@@ -24,6 +27,9 @@ class GaussianKernel(Kernel):
         assert sigma > 0
         self.scalar = scalar
         self.sigma = sigma
+
+    def __str__(self):
+        return f"{self.__class__.__name__}: sigma={self.sigma}"
 
     def __call__(self, x, y):
         assert x.ndim == 1
@@ -74,6 +80,9 @@ class RationalQuadraticKernel(Kernel):
         self.scalar = scalar
         self.sigma = sigma
         self.alpha = alpha
+
+    def __str__(self):
+        return f"{self.__class__.__name__}: sigma={self.sigma}, alpha={self.alpha}"
 
     def __call__(self, x, y):
         assert x.ndim == 1

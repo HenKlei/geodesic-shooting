@@ -4,11 +4,12 @@ import numpy as np
 
 import scipy.optimize as optimize
 
+from geodesic_shooting.core import VectorField, TimeDependentVectorField
 from geodesic_shooting.utils.kernels import GaussianKernel
 from geodesic_shooting.utils.logger import getLogger
 from geodesic_shooting.utils import sampler
 from geodesic_shooting.utils import grid
-from geodesic_shooting.core import TimeDependentVectorField, VectorField
+from geodesic_shooting.utils.time_integration import RK4
 
 
 class LandmarkShooting:
@@ -19,7 +20,8 @@ class LandmarkShooting:
     Allassonnière, Trouvé, Younes, 2005
     """
     def __init__(self, kernel=GaussianKernel, kwargs_kernel={}, dim=2, num_landmarks=1,
-                 time_steps=30, sampler_options={'order': 1, 'mode': 'edge'}, log_level='INFO'):
+                 time_integrator=RK4, time_steps=30, sampler_options={'order': 1, 'mode': 'edge'},
+                 log_level='INFO'):
         """Constructor.
 
         Parameters
@@ -32,6 +34,8 @@ class LandmarkShooting:
             Dimension of the landmarks (set automatically when calling `register`).
         num_landmarks
             Number of landmarks to register (set automatically when calling `register`).
+        time_integrator
+            Method to use for time integration.
         time_steps
             Number of time steps performed during forward and backward integration.
         sampler_options
@@ -39,6 +43,7 @@ class LandmarkShooting:
         log_level
             Verbosity of the logger.
         """
+        self.time_integrator = time_integrator
         self.time_steps = time_steps
         self.dt = 1. / self.time_steps
 
@@ -50,6 +55,11 @@ class LandmarkShooting:
         self.sampler_options = sampler_options
 
         self.logger = getLogger('landmark_shooting', level=log_level)
+
+    def __str__(self):
+        return (f"Kernel:\n{self.kernel}\n\n"
+                f"Time integrator: {self.time_integrator.__name__}\nTime steps: {self.time_steps}\n"
+                f"Sampler options: {self.sampler_options}")
 
     def register(self, input_landmarks, target_landmarks, landmarks_labeled=True,
                  kernel_dist=GaussianKernel, kwargs_kernel_dist={},
@@ -240,9 +250,19 @@ class LandmarkShooting:
         momenta[0] = initial_momenta
         positions[0] = initial_positions
 
+        def rhs_momenta_function(momentum, position):
+            return - 0.5 * (momentum.T @ self.DK(position) @ momentum)
+
+        ti_momenta = self.time_integrator(rhs_momenta_function, self.dt)
+
+        def rhs_position_function(position, momentum):
+            return self.K(position) @ momentum
+
+        ti_position = self.time_integrator(rhs_position_function, self.dt)
+
         for t in range(self.time_steps-1):
-            momenta[t+1] = momenta[t] - self.dt * 0.5 * (momenta[t].T @ self.DK(positions[t]) @ momenta[t])
-            positions[t+1] = positions[t] + self.dt * self.K(positions[t]) @ momenta[t]
+            momenta[t+1] = ti_momenta.step(momenta[t], additional_args={'position': positions[t]})
+            positions[t+1] = ti_position.step(positions[t], additional_args={'momentum': momenta[t]})
 
         return momenta, positions
 
@@ -326,11 +346,21 @@ class LandmarkShooting:
         d_momenta = np.zeros((self.time_steps, self.size, self.size))
         d_momenta[0] = np.eye(self.size)
 
+        def rhs_d_positions_function(d_position, position, d_momentum, momentum):
+            return self.DK(position) @ d_position @ momentum + self.K(position) @ d_momentum
+
+        ti_d_positions = self.time_integrator(rhs_d_positions_function, self.dt)
+
+        def rhs_d_momenta_function(d_momentum, position):
+            return - (d_momentum @ self.DK(position) @ position + position @ self.DK(position) @ d_momentum)
+
+        ti_d_momenta = self.time_integrator(rhs_d_momenta_function, self.dt)
+
         for t in range(self.time_steps-1):
-            d_positions[t+1] = d_positions[t] + self.dt * (self.DK(positions[t]) @ d_positions[t] @ momenta[t]
-                                                           + self.K(positions[t]) @ d_momenta[t])
-            d_momenta[t+1] = d_momenta[t] - self.dt * (d_momenta[t] @ self.DK(positions[t]) @ positions[t]
-                                                       + positions[t] @ self.DK(positions[t]) @ d_momenta[t])
+            d_positions[t+1] = ti_d_positions.step(d_positions[t], additional_args={'position': positions[t],
+                                                                                    'd_momentum': d_momenta[t],
+                                                                                    'momentum': momenta[t]})
+            d_momenta[t+1] = ti_d_momenta.step(d_momenta[t], additional_args={'position': positions[t]})
 
         return d_positions[-1], d_momenta[-1]
 
@@ -429,9 +459,14 @@ class LandmarkShooting:
         # initial flow is the identity mapping
         flow = identity_grid.copy()
 
+        def rhs_function(x, v):
+            return - sampler.sample(v, x, sampler_options=self.sampler_options)
+
+        ti = self.time_integrator(rhs_function, self.dt)
+
         # perform forward integration
         for v in vector_fields:
-            flow -= self.dt * sampler.sample(v, flow, sampler_options=self.sampler_options)
+            flow = ti.step(flow, additional_args={'v': v})
 
         return flow
 
