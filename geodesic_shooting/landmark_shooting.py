@@ -57,9 +57,11 @@ class LandmarkShooting:
         self.logger = getLogger('landmark_shooting', level=log_level)
 
     def __str__(self):
-        return (f"Kernel:\n{self.kernel}\n\n"
-                f"Time integrator: {self.time_integrator.__name__}\nTime steps: {self.time_steps}\n"
-                f"Sampler options: {self.sampler_options}")
+        return (f"{self.__class__.__name__}:\n"
+                f"\tKernel:\n{self.kernel}\n"
+                f"\tTime integrator: {self.time_integrator.__name__}\n"
+                f"\tTime steps: {self.time_steps}\n"
+                f"\tSampler options: {self.sampler_options}")
 
     def register(self, input_landmarks, target_landmarks, landmarks_labeled=True,
                  kernel_dist=GaussianKernel, kwargs_kernel_dist={},

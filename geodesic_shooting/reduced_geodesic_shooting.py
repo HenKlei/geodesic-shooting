@@ -170,9 +170,11 @@ class ReducedGeodesicShooting:
                 'matrices_backward_3': self.matrices_backward_3}
 
     def __str__(self):
-        return (f"Regularizer:\n{self.regularizer}\n\n"
-                f"Time integrator: {self.time_integrator.__name__}\nTime steps: {self.time_steps}\n"
-                f"Sampler options: {self.sampler_options}")
+        return (f"{self.__class__.__name__}:\n"
+                f"\tRegularizer:\t{self.regularizer}\n"
+                f"\tTime integrator: {self.time_integrator.__name__}\n"
+                f"\tTime steps: {self.time_steps}\n"
+                f"\tSampler options: {self.sampler_options}")
 
     def register(self, input_, target, sigma=1.,
                  optimization_method='L-BFGS-B',
