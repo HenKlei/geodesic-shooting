@@ -163,11 +163,16 @@ class ReducedGeodesicShooting:
             self.matrices_backward_3.append(matrix_backward_3)
 
     def get_reduced_quantities(self):
-        return {'rb_vector_fields': self.rb_vector_fields,
-                'matrices_forward': self.matrices_forward,
-                'matrices_backward_1': self.matrices_backward_1,
-                'matrices_backward_2': self.matrices_backward_2,
-                'matrices_backward_3': self.matrices_backward_3}
+        res = {'rb_vector_fields': self.rb_vector_fields}
+        if hasattr(self, 'matrices_forward'):
+            res['matrices_forward'] = self.matrices_forward
+        if hasattr(self, 'matrices_backward_1'):
+            res['matrices_backward_1'] = self.matrices_backward_1
+        if hasattr(self, 'matrices_backward_2'):
+            res['matrices_backward_2'] = self.matrices_backward_2
+        if hasattr(self, 'matrices_backward_3'):
+            res['matrices_backward_3'] = self.matrices_backward_3
+        return res
 
     def __str__(self):
         return (f"{self.__class__.__name__}:\n"
