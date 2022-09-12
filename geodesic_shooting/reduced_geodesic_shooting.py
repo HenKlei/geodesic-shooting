@@ -349,6 +349,7 @@ class ReducedGeodesicShooting:
         self.logger.info(f"Reason for the registration algorithm to stop: {results['reason_registration_ended']}.")
         self.logger.info("Relative norm of difference: "
                          f"{(results['target'] - results['transformed_input']).norm / results['target'].norm}")
+        self.logger.info("====================")
 
     def integrate_forward_flow(self, vector_fields):
         """Computes forward integration according to given vector fields.

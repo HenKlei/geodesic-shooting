@@ -41,7 +41,7 @@ if __name__ == "__main__":
 
     reduced_quantities = reduced_gs.get_reduced_quantities()
 
-    with open('reduced_quantities_1d_example', 'wb') as file_obj:
+    with open('reduced_quantities_1d_example.pickle', 'wb') as file_obj:
         pickle.dump(reduced_quantities, file_obj)
 
     start = time.time()
