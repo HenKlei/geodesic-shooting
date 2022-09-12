@@ -40,10 +40,13 @@ def pod(modes, num_modes=10, product_operator=None, return_singular_values='all'
         C = B.dot(B_tilde.T)
         S, V = np.linalg.eig(C)
         selected_modes = min(num_modes, V.shape[0])
+        S[(S <= 0.) | np.isclose(S, 0.)] = 0.
         all_singular_values = np.sqrt(S)
         S = all_singular_values[:selected_modes]
         V = V.T
-        V = B.T.dot((V[:selected_modes] / S[:, np.newaxis]).T)
+        S_pos = S.copy()
+        S_pos[np.isclose(S_pos, 0.)] = 1.
+        V = B.T.dot((V[:selected_modes] / S_pos[:, np.newaxis]).T)
         singular_vectors = np.real(V).T
         singular_vectors = [type_input(data=u.reshape(modes[0].full_shape)) + shift for u in singular_vectors]
         if return_singular_values == 'all':
