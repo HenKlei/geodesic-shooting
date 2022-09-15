@@ -133,9 +133,12 @@ class ScalarFunction:
         title
             Title of the plot.
         """
-        fig, _, _ = self.plot(title=title, axis=None)
-        fig.savefig(filepath)
-        plt.close(fig)
+        try:
+            fig, _, _ = self.plot(title=title, axis=None)
+            fig.savefig(filepath)
+            plt.close(fig)
+        except Exception as e:
+            pass
 
     def get_norm(self, order=None, restriction=np.s_[...]):
         """Computes the norm of the `ScalarFunction`.
