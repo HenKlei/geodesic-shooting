@@ -49,10 +49,11 @@ def pod(modes, num_modes=10, product_operator=None, return_singular_values='all'
         V = B.T.dot((V[:selected_modes] / S_pos[:, np.newaxis]).T)
         singular_vectors = np.real(V).T
         singular_vectors = [type_input(data=u.reshape(modes[0].full_shape)) + shift for u in singular_vectors]
+        singular_vectors = [u / u.get_norm(product_operator=product_operator) for u in singular_vectors]
         if return_singular_values == 'all':
-            return singular_vectors, np.real(all_singular_values)
+            return singular_vectors, np.real(all_singular_values)**2
         elif return_singular_values:
-            return singular_vectors, np.real(S)
+            return singular_vectors, np.real(S)**2
         else:
             return singular_vectors
     else:  # assuming L2-scalar product as default if no `product_operator` is provided
