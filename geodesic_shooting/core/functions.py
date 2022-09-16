@@ -81,6 +81,15 @@ class ScalarFunction:
             return self._data.reshape(shape)
         return self._data
 
+    def flatten(self):
+        """Returns the `ScalarFunction` represented as a flattened numpy-array.
+
+        Returns
+        -------
+        Flattened numpy-array containing the entries of the `ScalarFunction`.
+        """
+        return self.to_numpy().flatten()
+
     def plot(self, title="", colorbar=True, axis=None, extent=(0., 1., 0., 1.)):
         """Plots the `ScalarFunction` using `matplotlib`.
 
@@ -140,7 +149,7 @@ class ScalarFunction:
         except Exception as e:
             pass
 
-    def get_norm(self, order=None, restriction=np.s_[...]):
+    def get_norm(self, product_operator=None, order=None, restriction=np.s_[...]):
         """Computes the norm of the `ScalarFunction`.
 
         Remark: If `order=None` and `self.dim >= 2`, the 2-norm of `self.to_numpy().ravel()`
@@ -148,15 +157,23 @@ class ScalarFunction:
 
         Parameters
         ----------
+        product_operator
+            Operator with respect to which to compute the norm. If `None`, the standard l2-inner
+            product is used.
         order
             Order of the norm,
             see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
+        restriction
+            Slice that can be used to restrict the domain on which to compute the norm.
 
         Returns
         -------
         The norm of the `ScalarFunction`.
         """
-        return np.linalg.norm(self.to_numpy()[restriction].flatten(), ord=order)
+        if product_operator:
+            return np.sqrt(product_operator(self).to_numpy()[restriction].flatten().dot(self.to_numpy()[restriction].flatten()))
+        else:
+            return np.linalg.norm(self.to_numpy()[restriction].flatten(), ord=order)
 
     norm = property(get_norm)
 
