@@ -42,6 +42,9 @@ def pod(modes, num_modes=10, product_operator=None, return_singular_values='all'
         selected_modes = min(num_modes, V.shape[0])
         S[(S <= 0.) | np.isclose(S, 0.)] = 0.
         all_singular_values = np.sqrt(S)
+        idx = all_singular_values.argsort()[::-1]
+        all_singular_values = all_singular_values[idx]
+        V = V[idx]
         S = all_singular_values[:selected_modes]
         V = V.T
         S_pos = S.copy()
@@ -51,9 +54,9 @@ def pod(modes, num_modes=10, product_operator=None, return_singular_values='all'
         singular_vectors = [type_input(data=u.reshape(modes[0].full_shape)) + shift for u in singular_vectors]
         singular_vectors = [u / u.get_norm(product_operator=product_operator) for u in singular_vectors]
         if return_singular_values == 'all':
-            return singular_vectors, np.real(all_singular_values)**2
+            return singular_vectors, np.real(all_singular_values)
         elif return_singular_values:
-            return singular_vectors, np.real(S)**2
+            return singular_vectors, np.real(S)
         else:
             return singular_vectors
     else:  # assuming L2-scalar product as default if no `product_operator` is provided
