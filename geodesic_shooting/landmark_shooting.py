@@ -209,7 +209,7 @@ class LandmarkShooting:
 
         if return_all:
             return opt
-        return res['x'].reshape((-1, self.dim))
+        return opt['initial_momenta']
 
     def compute_Hamiltonian(self, momenta, positions):
         """Computes the value of the Hamiltonian given positions and momenta.

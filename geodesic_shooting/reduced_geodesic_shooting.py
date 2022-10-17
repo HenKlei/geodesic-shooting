@@ -331,7 +331,7 @@ class ReducedGeodesicShooting:
 
         if return_all:
             return opt
-        return initial_vector_field
+        return opt['initial_vector_field']
 
     def summarize_results(self, results):
         """Log a summary of the results to the console.
