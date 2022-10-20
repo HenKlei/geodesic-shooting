@@ -52,7 +52,8 @@ def pod(modes, num_modes=10, product_operator=None, return_singular_values='all'
         V = B.T.dot((V[:selected_modes] / S_pos[:, np.newaxis]).T)
         singular_vectors = np.real(V).T
         singular_vectors = [type_input(data=u.reshape(modes[0].full_shape)) + shift for u in singular_vectors]
-        singular_vectors = [u / u.get_norm(product_operator=product_operator) for u in singular_vectors]
+        u_norms = [u.get_norm(product_operator=product_operator) for u in singular_vectors]
+        singular_vectors = [u / norm if not np.isclose(norm, 0.) else u for u, norm in zip(singular_vectors, u_norms)]
         if return_singular_values == 'all':
             return singular_vectors, np.real(all_singular_values)
         elif return_singular_values:
