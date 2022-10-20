@@ -41,3 +41,33 @@ def lincomb(modes, coefficients):
     for v, c in zip(modes, coefficients):
         res += c * v
     return res
+
+
+def project(modes, vector, product_operator=None):
+    """Compute projection (i.e. coefficients) of a vector onto certain modes.
+
+    Parameters
+    ----------
+    modes
+        The vectors to project on.
+    vector
+        The vector to project.
+    product_operator
+        Inner product to use for the projection.
+
+    Returns
+    -------
+    The coefficients of the projection of the vector onto the given modes.
+    """
+    assert len(modes) > 0
+    assert type(modes[0]) == type(vector)
+
+    if product_operator:
+        prod_vector = product_operator(vector).flatten()
+    else:
+        prod_vector = vector.flatten()
+
+    coefficients = []
+    for m in modes:
+        coefficients.append(m.flatten().dot(prod_vector))
+    return coefficients
