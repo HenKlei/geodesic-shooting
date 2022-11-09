@@ -12,7 +12,7 @@ dependencies = [
 
 setup(
     name='geodesic-shooting',
-    version=__version__,
+    version=__version__,  # noqa: F821
     description='Python implementation of the geodesic shooting algorithm',
     author='Hendrik Kleikamp',
     maintainer='Hendrik Kleikamp',
