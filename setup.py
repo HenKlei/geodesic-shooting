@@ -1,5 +1,7 @@
 from setuptools import setup, find_packages
 
+exec(open('geodesic_shooting/version.py').read())
+
 
 dependencies = [
     'numpy',
@@ -10,7 +12,7 @@ dependencies = [
 
 setup(
     name='geodesic-shooting',
-    version='0.1.0',
+    version=__version__,
     description='Python implementation of the geodesic shooting algorithm',
     author='Hendrik Kleikamp',
     maintainer='Hendrik Kleikamp',
