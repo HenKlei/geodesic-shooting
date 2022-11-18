@@ -98,19 +98,32 @@ class GeodesicShooting:
         assert isinstance(target, ScalarFunction)
         assert input_.full_shape == target.full_shape
 
-        inverse_mask = np.ones(input_.spatial_shape, np.bool)
-        inverse_mask[restriction] = 0
+        eps = 1
+        rho = 0.1
 
         # function to compute the L2-error between a given image and the target
         def compute_energy(image):
-            return np.sum(((image - target)**2).to_numpy()[restriction])
+            dot_prod = np.einsum('...k,...k->...', image.grad.to_numpy(), target.grad.to_numpy())
+            image_grad_pointwise_norm = np.sqrt(eps**2 + np.einsum('...k,...k->...',
+                                                                   image.grad.to_numpy(),
+                                                                   image.grad.to_numpy()))
+            target_grad_pointwise_norm = np.sqrt(eps**2 + np.einsum('...k,...k->...',
+                                                                    target.grad.to_numpy(),
+                                                                    target.grad.to_numpy()))
+            return (rho * np.sum(1 - (dot_prod / (image_grad_pointwise_norm * target_grad_pointwise_norm))**2)
+                    + np.sum(((image - target)**2).to_numpy()))
 
         # function to compute the gradient of the overall energy function
         # with respect to the final vector field
         def compute_grad_energy(image):
-            grad_diff = image.grad * (image - target)[..., np.newaxis]
-            grad_diff[inverse_mask] = 0.
-            return VectorField(data=2. * self.regularizer.cauchy_navier_inverse(grad_diff))
+            dot_prod = np.einsum('...k,...k->...', image.grad.to_numpy(), target.grad.to_numpy())
+            image_grad_pointwise_norm = np.sqrt(eps**2 + np.einsum('...k,...k->...', image.grad.to_numpy(), image.grad.to_numpy()))
+            target_grad_pointwise_norm = np.sqrt(eps**2 + np.einsum('...k,...k->...', target.grad.to_numpy(), target.grad.to_numpy()))
+            temp = target.grad.to_numpy() - (dot_prod[..., np.newaxis]*image.grad.to_numpy() / image_grad_pointwise_norm[..., np.newaxis])
+            temp = temp / (image_grad_pointwise_norm * target_grad_pointwise_norm)[..., np.newaxis]
+            resulting_vector_field = VectorField(data=temp)
+            return (-rho * self.regularizer.cauchy_navier_inverse(resulting_vector_field)
+                    + self.regularizer.cauchy_navier_inverse(image.grad * (image - target)[..., np.newaxis]))
 
         # set up variables
         self.shape = input_.spatial_shape
@@ -156,14 +169,14 @@ class GeodesicShooting:
             # compute gradient of the intensity difference with respect to the initial vector field
             gradient_initial_vector = self.integrate_backward_adjoint_Jacobi_field(gradient_l2_energy, vector_fields)
 
-            return energy, gradient_initial_vector.to_numpy().flatten()
+            return energy, gradient_initial_vector.flatten()
 
         def save_current_state(x):
             opt['x'] = x
 
         # use scipy optimizer for minimizing energy function
         with self.logger.block("Perform image matching via geodesic shooting ..."):
-            res = optimize.minimize(energy_and_gradient, initial_vector_field.to_numpy().flatten(),
+            res = optimize.minimize(energy_and_gradient, initial_vector_field.flatten(),
                                     method=optimization_method, jac=True, options=optimizer_options,
                                     callback=save_current_state)
 
