@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.ndimage import convolve
 
 from geodesic_shooting.core import VectorField
 from geodesic_shooting.utils.helper_functions import tuple_product

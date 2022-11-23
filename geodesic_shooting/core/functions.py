@@ -146,7 +146,7 @@ class ScalarFunction:
             fig, _, _ = self.plot(title=title, axis=None)
             fig.savefig(filepath)
             plt.close(fig)
-        except Exception as e:
+        except Exception:
             pass
 
     def get_norm(self, product_operator=None, order=None, restriction=np.s_[...]):

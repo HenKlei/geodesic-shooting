@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 import time
 import numpy as np
-
-from copy import deepcopy
-
 import scipy.optimize as optimize
 
 from geodesic_shooting.core import ScalarFunction, VectorField, TimeDependentVectorField
@@ -20,7 +17,7 @@ class GeodesicShooting:
     Geodesic Shooting for Computational Anatomy.
     Miller, Trouvé, Younes, 2006
     """
-    def __init__(self, alpha=6., exponent=2., time_integrator=RK4, time_steps=30,
+    def __init__(self, alpha=6., exponent=2, time_integrator=RK4, time_steps=30,
                  sampler_options={'order': 1, 'mode': 'edge'}, log_level='INFO'):
         """Constructor.
 

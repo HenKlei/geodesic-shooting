@@ -188,9 +188,8 @@ class VectorField:
                 tikz_file.write("\t\t\\end{axis}\n"
                                 "\t\\end{tikzpicture}\n"
                                 "\\end{document}\n")
-        except Exception as e:
+        except Exception:
             pass
-
 
     def plot_as_warpgrid(self, title="", interval=1, show_axis=False, invert_yaxis=True, axis=None):
         """Plots the `VectorField` as a warpgrid using `matplotlib`.
