@@ -39,11 +39,11 @@ def sample(f, coordinates, sampler_options={'order': 1, 'mode': 'edge'}):
     return core.ScalarFunction(spatial_shape=f.full_shape, data=transformed_function)
 
 
-def inverse_coordinates(coordinates, sampler_options={'order': 0, 'mode': 'edge'}):
+def inverse_coordinates(coordinates, sampler_options={'order': 1, 'mode': 'edge'}):
     identity_grid = grid.coordinate_grid(coordinates.spatial_shape)
     return identity_grid + sample(identity_grid - coordinates, coordinates, sampler_options=sampler_options)
 
 
-def sample_inverse(f, coordinates, sampler_options={'order': 0, 'mode': 'edge'}):
+def sample_inverse(f, coordinates, sampler_options={'order': 1, 'mode': 'edge'}):
     inv_coordinates = inverse_coordinates(coordinates, sampler_options=sampler_options)
     return sample(f, inv_coordinates, sampler_options=sampler_options)
