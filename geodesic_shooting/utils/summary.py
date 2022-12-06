@@ -31,6 +31,10 @@ def plot_registration_results(results, interval=1, scale=None):
         _ = results['vector_fields'].animate("Time-evolution of the vector field", interval=interval, scale=scale)
         plt.show()
 
+        fig, ax = plt.subplots(1, 1)
+        ax = results['vector_fields'][0].plot("Initial vector field", axis=ax, scale=scale)
+        plt.show()
+
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
         ax1 = results['vector_fields'][0].plot("Initial vector field", axis=ax1, scale=scale)
         ax2 = results['vector_fields'][-1].plot("Final vector field", axis=ax2, scale=scale)
