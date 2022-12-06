@@ -106,7 +106,7 @@ class GeodesicShooting:
         # function to compute the gradient of the overall energy function
         # with respect to the final vector field
         def compute_grad_energy(image):
-            return self.regularizer.cauchy_navier_inverse(image.grad * (image - target)[..., np.newaxis])
+            return 2. * self.regularizer.cauchy_navier_inverse(image.grad * (image - target)[..., np.newaxis])
 
         # set up variables
         self.shape = input_.spatial_shape
