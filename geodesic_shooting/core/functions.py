@@ -65,6 +65,20 @@ class ScalarFunction:
         """
         return sampler.sample(self, flow)
 
+    def push_backward(self, flow):
+        """Pushes backward the `ScalarFunction` along a flow.
+
+        Parameters
+        ----------
+        flow
+            `VectorField` containing the flow according to which to push the input backward.
+
+        Returns
+        -------
+        `ScalarFunction` of the backward-pushed function.
+        """
+        return sampler.sample_inverse(self, flow)
+
     def to_numpy(self, shape=None):
         """Returns the `ScalarFunction` represented as a numpy-array.
 
