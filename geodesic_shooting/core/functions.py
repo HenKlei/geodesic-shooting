@@ -51,33 +51,39 @@ class ScalarFunction:
         """
         return finite_difference(self)
 
-    def push_forward(self, flow):
+    def push_forward(self, flow, sampler_options={'order': 1, 'mode': 'edge'}):
         """Pushes forward the `ScalarFunction` along a flow.
 
         Parameters
         ----------
         flow
             `VectorField` containing the flow according to which to push the input forward.
+        sampler_options
+            Additional options passed to the `warp`-function, see
+            https://scikit-image.org/docs/stable/api/skimage.transform.html#skimage.transform.warp.
 
         Returns
         -------
         `ScalarFunction` of the forward-pushed function.
         """
-        return sampler.sample(self, flow)
+        return sampler.sample(self, flow, sampler_options=sampler_options)
 
-    def push_backward(self, flow):
+    def push_backward(self, flow, sampler_options={'order': 1, 'mode': 'edge'}):
         """Pushes backward the `ScalarFunction` along a flow.
 
         Parameters
         ----------
         flow
             `VectorField` containing the flow according to which to push the input backward.
+        sampler_options
+            Additional options passed to the `warp`-function, see
+            https://scikit-image.org/docs/stable/api/skimage.transform.html#skimage.transform.warp.
 
         Returns
         -------
         `ScalarFunction` of the backward-pushed function.
         """
-        return sampler.sample_inverse(self, flow)
+        return sampler.sample_inverse(self, flow, sampler_options=sampler_options)
 
     def to_numpy(self, shape=None):
         """Returns the `ScalarFunction` represented as a numpy-array.
