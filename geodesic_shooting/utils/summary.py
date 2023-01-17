@@ -35,6 +35,9 @@ def plot_registration_results(results, interval=1, scale=None):
         ax = results['vector_fields'][0].plot("Initial vector field", axis=ax, scale=scale)
         plt.show()
 
+        _ = results['flow'].plot("Flow")
+        plt.show()
+
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
         ax1 = results['vector_fields'][0].plot("Initial vector field", axis=ax1, scale=scale)
         ax2 = results['vector_fields'][-1].plot("Final vector field", axis=ax2, scale=scale)
@@ -59,3 +62,4 @@ def save_plots_registration_results(results, filepath='results/'):
     results['target'].save(filepath + 'target.png', title="Target")
     results['transformed_input'].save(filepath + 'transformed_input.png', title="Result")
     results['initial_vector_field'].save(filepath + 'initial_vector_field.png', title="Initial vector field")
+    results['flow'].save(filepath + 'flow.png', title="Flow")
