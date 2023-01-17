@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
 from geodesic_shooting.core import ScalarFunction
-from geodesic_shooting.utils import grid
+from geodesic_shooting.utils import sampler, grid
 import geodesic_shooting.utils.grad as grad
 from geodesic_shooting.utils.helper_functions import lincomb
 
@@ -82,6 +82,40 @@ class VectorField:
         """
         return self.to_numpy().flatten()
 
+    def push_forward(self, flow, sampler_options={'order': 1, 'mode': 'edge'}):
+        """Pushes forward the `VectorField` along a flow.
+
+        Parameters
+        ----------
+        flow
+            `VectorField` containing the flow according to which to push the input forward.
+        sampler_options
+            Additional options passed to the `warp`-function, see
+            https://scikit-image.org/docs/stable/api/skimage.transform.html#skimage.transform.warp.
+
+        Returns
+        -------
+        `VectorField` of the forward-pushed function.
+        """
+        return sampler.sample(self, flow, sampler_options=sampler_options)
+
+    def push_backward(self, flow, sampler_options={'order': 1, 'mode': 'edge'}):
+        """Pushes backward the `VectorField` along a flow.
+
+        Parameters
+        ----------
+        flow
+            `VectorField` containing the flow according to which to push the input backward.
+        sampler_options
+            Additional options passed to the `warp`-function, see
+            https://scikit-image.org/docs/stable/api/skimage.transform.html#skimage.transform.warp.
+
+        Returns
+        -------
+        `VectorField` of the backward-pushed function.
+        """
+        return sampler.sample_inverse(self, flow, sampler_options=sampler_options)
+
     def plot(self, title="", interval=1, show_axis=False, scale=None, axis=None):
         """Plots the `VectorField` using `matplotlib`'s `quiver` function.
 
@@ -126,13 +160,13 @@ class VectorField:
         x = grid.coordinate_grid(self.spatial_shape).to_numpy()
         axis.quiver(x[::interval, ::interval, 0], x[::interval, ::interval, 1],
                     self[::interval, ::interval, 0], self[::interval, ::interval, 1],
-                    units='xy', scale=scale)
+                    scale_units='xy', units='xy', scale=scale)
 
         if created_figure:
             return fig, axis
         return axis
 
-    def save(self, filepath, title=""):
+    def save(self, filepath, title="", interval=1, show_axis=False, scale=None):
         """Saves the plot of the `VectorField` produced by the `plot`-function.
 
         Parameters
@@ -141,12 +175,21 @@ class VectorField:
             Path to save the plot to.
         title
             Title of the plot.
+        interval
+            Interval in which to sample.
+        show_axis
+            Determines whether or not to show the axes.
+        scale
+            Factor used for scaling the arrows in the `quiver`-plot.
+            If `None`, a default auto-scaling from `matplotlib` is applied.
+            For realistic arrow lengths without scaling, a value of `scale=1.`
+            has to be used.
         """
         try:
-            fig, _ = self.plot(title=title, axis=None)
+            fig, _ = self.plot(title=title, interval=interval, show_axis=show_axis, scale=scale, axis=None)
             fig.savefig(filepath)
             plt.close(fig)
-        except Exception as e:
+        except Exception:
             pass
 
     def save_tikz(self, filepath, title="", interval=1, scale=1.):
@@ -259,7 +302,8 @@ class VectorField:
         The norm of the `VectorField`.
         """
         if product_operator:
-            return np.sqrt(product_operator(self).to_numpy()[restriction].flatten().dot(self.to_numpy()[restriction].flatten()))
+            return np.sqrt(product_operator(self).to_numpy()[restriction]
+                           .flatten().dot(self.to_numpy()[restriction].flatten()))
         else:
             return np.linalg.norm(self.to_numpy()[restriction].flatten(), ord=order)
 
@@ -276,7 +320,8 @@ class VectorField:
 
     def __add__(self, other):
         assert ((isinstance(other, VectorField) and other.full_shape == self.full_shape)
-                or (isinstance(other, np.ndarray) and other.shape == self.full_shape))
+                or (isinstance(other, np.ndarray) and (other.shape == self.full_shape
+                                                       or other.shape == (self.dim, ))))
         result = self.copy()
         if isinstance(other, VectorField):
             result._data += other._data
@@ -288,7 +333,8 @@ class VectorField:
 
     def __iadd__(self, other):
         assert ((isinstance(other, VectorField) and other.full_shape == self.full_shape)
-                or (isinstance(other, np.ndarray) and other.shape == self.full_shape))
+                or (isinstance(other, np.ndarray) and (other.shape == self.full_shape
+                                                       or other.shape == (self.dim, ))))
         if isinstance(other, VectorField):
             self._data = self._data + other._data
         else:
@@ -297,7 +343,8 @@ class VectorField:
 
     def __sub__(self, other):
         assert ((isinstance(other, VectorField) and other.full_shape == self.full_shape)
-                or (isinstance(other, np.ndarray) and other.shape == self.full_shape))
+                or (isinstance(other, np.ndarray) and (other.shape == self.full_shape
+                                                       or other.shape == (self.dim, ))))
         result = self.copy()
         if isinstance(other, VectorField):
             result._data -= other._data
@@ -307,7 +354,8 @@ class VectorField:
 
     def __isub__(self, other):
         assert ((isinstance(other, VectorField) and other.full_shape == self.full_shape)
-                or (isinstance(other, np.ndarray) and other.shape == self.full_shape))
+                or (isinstance(other, np.ndarray) and (other.shape == self.full_shape
+                                                       or other.shape == (self.dim, ))))
         if isinstance(other, VectorField):
             self._data = self._data - other._data
         else:
@@ -372,12 +420,12 @@ class TimeDependentVectorField:
             Number of time steps represented in this vector field.
         data
             numpy-array containing the values of the `TimeDependentVectorFieldVectorField`.
-            If `None`, one has to provide `spatial_shape` and `time_steps` and a
+            If `None`, one has to provide `spatial_shape` and `time_steps`, and a
             list containing for each time step a `VectorField` of zeros with shape
             `(*spatial_shape, dim)` is created as data, where `dim` is the dimension of
             the underlying domain (given as `len(spatial_shape)`).
-            If not `None`, either a numpy-array or a `TimeDependentVectorField`
-            has to be provided.
+            If not `None`, either a numpy-array or a `TimeDependentVectorField` or a list
+            of `VectorField`s has to be provided.
         """
         assert isinstance(time_steps, int) and time_steps > 0
         self.spatial_shape = spatial_shape
@@ -391,7 +439,8 @@ class TimeDependentVectorField:
                 self._data.append(VectorField(self.spatial_shape))
         else:
             assert ((isinstance(data, np.ndarray) and data.shape == self.full_shape)
-                    or (isinstance(data, TimeDependentVectorField) and data.full_shape == self.full_shape))
+                    or (isinstance(data, TimeDependentVectorField) and data.full_shape == self.full_shape)
+                    or (isinstance(data, list) and all(isinstance(d, VectorField) for d in data)))
             for elem in data:
                 if isinstance(elem, VectorField):
                     self._data.append(elem.copy())
@@ -407,6 +456,34 @@ class TimeDependentVectorField:
         Average of the `VectorField`s.
         """
         return lincomb(self, np.ones(len(self)) / len(self))
+
+    def integrate(self, time_steps=30, sampler_options={'order': 1, 'mode': 'edge'}):
+        """Integrate vector field with respect to time.
+
+        Parameters
+        ----------
+        time_steps
+            Number of time steps performed during integration.
+        sampler_options
+            Additional options to pass to the sampler.
+
+        Returns
+        -------
+        Vector field containing the diffeomorphism originating from integrating the
+        time-dependent vector field with respect to time.
+        """
+        # create identity grid
+        identity_grid = grid.coordinate_grid(self.spatial_shape)
+
+        # initial transformation is the identity mapping
+        diffeomorphism = identity_grid.copy()
+
+        # perform integration with respect to time
+        for t in range(0, self.time_steps):
+            diffeomorphism = sampler.sample(diffeomorphism, identity_grid - self[t],
+                                            sampler_options=sampler_options)
+
+        return diffeomorphism
 
     def to_numpy(self, shape=None):
         """Returns the `TimeDependentVectorField` represented as a numpy-array.

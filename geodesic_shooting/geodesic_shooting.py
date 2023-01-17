@@ -134,7 +134,7 @@ class GeodesicShooting:
             vector_fields = self.integrate_forward_vector_field(v0)
 
             # compute forward flows according to the vector fields
-            flow = self.integrate_forward_flow(vector_fields)
+            flow = vector_fields.integrate(time_steps=self.time_steps, sampler_options=self.sampler_options)
 
             # push-forward input_ image
             forward_pushed_input = input_.push_forward(flow)
@@ -167,7 +167,7 @@ class GeodesicShooting:
         vector_fields = self.integrate_forward_vector_field(VectorField(data=res['x'].reshape((*self.shape, self.dim))))
 
         # compute forward flows according to the vector fields
-        flow = self.integrate_forward_flow(vector_fields)
+        flow = vector_fields.integrate(time_steps=self.time_steps, sampler_options=self.sampler_options)
 
         # push-forward input-image
         transformed_input = input_.push_forward(flow)
@@ -217,30 +217,6 @@ class GeodesicShooting:
         self.logger.info("Relative norm of difference: "
                          f"{(results['target'] - results['transformed_input']).norm / results['target'].norm}")
         self.logger.info("====================")
-
-    def integrate_forward_flow(self, vector_fields):
-        """Computes forward integration according to given vector fields.
-
-        Parameters
-        ----------
-        vector_fields
-            Sequence of vector fields (i.e. time-depending vector field).
-
-        Returns
-        -------
-        Array containing the flow at the final time.
-        """
-        # make identity grid
-        identity_grid = grid.coordinate_grid(self.shape)
-
-        # initial flow is the identity mapping
-        flow = identity_grid.copy()
-
-        # perform forward integration
-        for t in range(0, self.time_steps-1):
-            flow = sampler.sample(flow, identity_grid - vector_fields[t], sampler_options=self.sampler_options)
-
-        return flow
 
     def integrate_forward_vector_field(self, initial_vector_field):
         """Performs forward integration of the initial vector field.
