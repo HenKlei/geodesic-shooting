@@ -1,6 +1,7 @@
 import numpy as np
 
-from geodesic_shooting.core import ScalarFunction, VectorField
+from geodesic_shooting.core import ScalarFunction, VectorField, TimeDependentVectorField
+from geodesic_shooting.utils import grid
 from geodesic_shooting.utils.helper_functions import tuple_product
 
 
@@ -46,3 +47,61 @@ def test_vector_fields():
     assert np.isclose((v + w).norm, 20.)
     assert np.isclose((w + v).norm, 20.)
     assert np.isclose((2. * v + w).norm, 30.)
+
+
+def test_time_integration():
+    shape = (10, 20)
+    v = VectorField(shape)
+
+    time_steps = 10
+    vf_list = [v] * time_steps
+    constant_vector_field = TimeDependentVectorField(spatial_shape=shape, time_steps=time_steps, data=vf_list)
+
+    diffeomorphism = constant_vector_field.integrate()
+    identity_grid = grid.coordinate_grid(shape)
+    assert np.isclose((diffeomorphism - identity_grid).norm, 0.)
+
+    translation_vector = np.array([1, 2])
+    v += translation_vector
+    vf_list = [v] * time_steps
+    constant_vector_field = TimeDependentVectorField(spatial_shape=shape, time_steps=time_steps, data=vf_list)
+
+    diffeomorphism = constant_vector_field.integrate()
+
+    assert np.isclose((diffeomorphism.push_forward(identity_grid) - diffeomorphism).norm, 0.)
+    assert np.isclose((diffeomorphism.push_backward(identity_grid) - diffeomorphism).norm, 0.)
+    assert np.isclose((diffeomorphism - (identity_grid + v)).norm, 0.)
+    restriction = np.s_[:-translation_vector[0], :-translation_vector[1]]
+    assert np.isclose((identity_grid.push_forward(diffeomorphism) - diffeomorphism).get_norm(restriction=restriction),
+                      0.)
+    restriction = np.s_[translation_vector[0]:, translation_vector[1]:]
+    assert np.isclose((diffeomorphism.push_backward(diffeomorphism) - identity_grid).get_norm(restriction=restriction),
+                      0.)
+
+    function = ScalarFunction(spatial_shape=shape)
+    function[5, 10] = 1.
+    transformed_function = function.push_forward(diffeomorphism)
+    assert np.isclose(abs(transformed_function[4, 8] - 1.), 0.)
+    assert np.isclose(abs(transformed_function.norm - 1.), 0.)
+    inverse_transformed_function = transformed_function.push_backward(diffeomorphism)
+    assert np.isclose((inverse_transformed_function - function).norm, 0.)
+
+    time_steps = 4
+    v0 = VectorField(shape)
+    t0 = np.array([4, 0])
+    v0 += t0
+    v1 = VectorField(shape)
+    t1 = np.array([4, 8])
+    v1 += t1
+    v2 = VectorField(shape)
+    t2 = np.array([-4, 8])
+    v2 += t2
+    v3 = VectorField(shape)
+    t3 = np.array([4, 0])
+    v3 += t3
+    vf_list = [v0, v1, v2, v3]
+    tdvf = TimeDependentVectorField(spatial_shape=shape, time_steps=time_steps, data=vf_list)
+    diffeomorphism = tdvf.integrate()
+
+    transformed_function = function.push_forward(diffeomorphism)
+    assert np.isclose(abs(transformed_function[3, 6] - 1.), 0.)

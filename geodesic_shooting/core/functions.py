@@ -191,7 +191,8 @@ class ScalarFunction:
         The norm of the `ScalarFunction`.
         """
         if product_operator:
-            return np.sqrt(product_operator(self).to_numpy()[restriction].flatten().dot(self.to_numpy()[restriction].flatten()))
+            apply_product_operator = product_operator(self).to_numpy()[restriction].flatten()
+            return np.sqrt(apply_product_operator.dot(self.to_numpy()[restriction].flatten()))
         else:
             return np.linalg.norm(self.to_numpy()[restriction].flatten(), ord=order)
 

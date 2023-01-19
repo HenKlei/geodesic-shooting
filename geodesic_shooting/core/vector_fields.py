@@ -302,8 +302,8 @@ class VectorField:
         The norm of the `VectorField`.
         """
         if product_operator:
-            return np.sqrt(product_operator(self).to_numpy()[restriction]
-                           .flatten().dot(self.to_numpy()[restriction].flatten()))
+            apply_product_operator = product_operator(self).to_numpy()[restriction]
+            return np.sqrt(apply_product_operator.flatten().dot(self.to_numpy()[restriction].flatten()))
         else:
             return np.linalg.norm(self.to_numpy()[restriction].flatten(), ord=order)
 
@@ -479,9 +479,9 @@ class TimeDependentVectorField:
         diffeomorphism = identity_grid.copy()
 
         # perform integration with respect to time
-        for t in range(0, self.time_steps):
-            diffeomorphism = sampler.sample(diffeomorphism, identity_grid - self[t],
-                                            sampler_options=sampler_options)
+        for t in range(self.time_steps):
+            diffeomorphism += sampler.sample(self[t], diffeomorphism,
+                                             sampler_options=sampler_options) / self.time_steps
 
         return diffeomorphism
 
@@ -540,7 +540,7 @@ class TimeDependentVectorField:
         ani = animation.FuncAnimation(fig, animate, frames=self.time_steps, interval=100)
         return ani
 
-    def get_norm(self, order=None):
+    def get_norm(self, order=None, restriction=np.s_[...]):
         """Computes the norm of the `TimeDependentVectorField`.
 
         Remark: If `order=None` and `self.dim >= 2`, the 2-norm of `self.to_numpy().ravel()`
@@ -551,12 +551,14 @@ class TimeDependentVectorField:
         order
             Order of the norm,
             see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
+        restriction
+            Slice that can be used to restrict the domain on which to compute the norm.
 
         Returns
         -------
         The norm of the `TimeDependentVectorField`.
         """
-        return np.linalg.norm(self.to_numpy(), ord=order)
+        return np.linalg.norm(self.to_numpy()[restriction].flatten(), ord=order)
 
     norm = property(get_norm)
 
