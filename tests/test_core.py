@@ -65,7 +65,6 @@ def test_time_integration():
     v += translation_vector
     vf_list = [v] * time_steps
     constant_vector_field = TimeDependentVectorField(spatial_shape=shape, time_steps=time_steps, data=vf_list)
-
     diffeomorphism = constant_vector_field.integrate()
 
     assert np.isclose((diffeomorphism.push_forward(identity_grid) - diffeomorphism).norm, 0.)
@@ -105,3 +104,13 @@ def test_time_integration():
 
     transformed_function = function.push_forward(diffeomorphism)
     assert np.isclose(abs(transformed_function[3, 6] - 1.), 0.)
+    inverse_transformed_function = transformed_function.push_backward(diffeomorphism)
+    assert np.isclose((inverse_transformed_function - function).norm, 0.)
+
+    data = identity_grid.to_numpy() - np.array([(shape[0]-1)/2, (shape[1]-1)/2])
+    data = np.stack([data[..., 1], -data[..., 0]], axis=-1) / 20
+    v = VectorField(shape, data=data)
+    vf_list = [v] * time_steps
+    constant_vector_field = TimeDependentVectorField(spatial_shape=shape, time_steps=time_steps, data=vf_list)
+    diffeomorphism = constant_vector_field.integrate()
+    assert ((diffeomorphism.push_backward(diffeomorphism) - identity_grid).norm / identity_grid.norm) < 1e-2
