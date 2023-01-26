@@ -264,12 +264,11 @@ class VectorField:
         if show_identity_grid:
             plot_grid(grid_x, grid_y, color="lightgrey")
 
-        distx, disty = self[..., 0], self[..., 1]
+        distx, disty = grid_x + self[..., 0], grid_y + self[..., 1]
         plot_grid(distx, disty, color="C0")
 
         if show_displacement_vectors:
-            displacement_field = self - np.stack([grid_x, grid_y], axis=-1)
-            displacement_field.plot(scale=1., axis=axis, zorder=2)
+            self.plot(scale=1., axis=axis, zorder=2)
 
         if show_axis is False:
             axis.set_axis_off()
