@@ -161,16 +161,15 @@ class VectorField:
         if np.max(np.linalg.norm(self.to_numpy(), axis=-1)) < 1e-10:
             scale = 1
 
-        xs = np.arange(self.spatial_shape[0])
-        ys = np.arange(self.spatial_shape[1])
+        identity_grid = grid.coordinate_grid(self.spatial_shape)
 
         if color_length:
             colors = np.linalg.norm(self.to_numpy(), axis=-1)
-            axis.quiver(xs[::interval], ys[::interval],
+            axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
                         self[::interval, ::interval, 0], self[::interval, ::interval, 1], colors,
                         scale_units='xy', units='xy', scale=scale, zorder=zorder)
         else:
-            axis.quiver(xs[::interval], ys[::interval],
+            axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
                         self[::interval, ::interval, 0], self[::interval, ::interval, 1],
                         scale_units='xy', units='xy', scale=scale, zorder=zorder)
 
@@ -178,7 +177,8 @@ class VectorField:
             return fig, axis
         return axis
 
-    def plot_streamlines(self, title="", density=1, color_length=False, show_axis=False, axis=None, zorder=1):
+    def plot_streamlines(self, title="", density=1, color_length=False, show_axis=False, axis=None,
+                         zorder=1, integration_direction='forward'):
         """Plots the `VectorField` using `matplotlib`'s `quiver` function.
 
         Parameters
@@ -210,16 +210,16 @@ class VectorField:
         axis.set_title(title)
 
         if color_length:
-            colors = np.linalg.norm(self.to_numpy(), axis=-1)
+            colors = np.linalg.norm(self.to_numpy(), axis=-1).T
             xs = np.arange(self.spatial_shape[0])
             ys = np.arange(self.spatial_shape[1])
-            axis.streamplot(xs, ys, self[..., 0], self[..., 1],
-                            density=density, color=colors, zorder=zorder)
+            axis.streamplot(xs, ys, self[..., 0].T, self[..., 1].T,
+                            density=density, color=colors, zorder=zorder, integration_direction=integration_direction)
         else:
             xs = np.arange(self.spatial_shape[0])
             ys = np.arange(self.spatial_shape[1])
-            axis.streamplot(xs, ys, self[..., 0], self[..., 1],
-                            density=density, zorder=zorder)
+            axis.streamplot(xs, ys, self[..., 0].T, self[..., 1].T,
+                            density=density, zorder=zorder, integration_direction=integration_direction)
 
         if created_figure:
             return fig, axis
@@ -260,7 +260,8 @@ class VectorField:
             axis.add_collection(LineCollection(segs2, **kwargs))
             axis.autoscale()
 
-        grid_x, grid_y = np.meshgrid(np.arange(self.spatial_shape[0]), np.arange(self.spatial_shape[1]))
+        identity_grid = grid.coordinate_grid(self.spatial_shape)
+        grid_x, grid_y = identity_grid[..., 0], identity_grid[..., 1]
         if show_identity_grid:
             plot_grid(grid_x, grid_y, color="lightgrey")
 
