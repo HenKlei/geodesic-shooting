@@ -3,6 +3,7 @@ from numbers import Number
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from matplotlib.collections import LineCollection
 
 from geodesic_shooting.core import ScalarFunction
 from geodesic_shooting.utils import sampler, grid
@@ -29,6 +30,9 @@ class VectorField:
             components of the shape of `data` (without the last component)
             fit to the provided `spatial_shape`.
         """
+        if isinstance(data, VectorField):
+            data = data._data
+
         if data is None:
             assert spatial_shape != ()
         else:
@@ -116,7 +120,7 @@ class VectorField:
         """
         return sampler.sample_inverse(self, flow, sampler_options=sampler_options)
 
-    def plot(self, title="", interval=1, show_axis=False, scale=None, axis=None):
+    def plot(self, title="", interval=1, color_length=False, show_axis=False, scale=None, axis=None, zorder=1):
         """Plots the `VectorField` using `matplotlib`'s `quiver` function.
 
         Parameters
@@ -157,10 +161,121 @@ class VectorField:
         if np.max(np.linalg.norm(self.to_numpy(), axis=-1)) < 1e-10:
             scale = 1
 
-        x = grid.coordinate_grid(self.spatial_shape).to_numpy()
-        axis.quiver(x[::interval, ::interval, 0], x[::interval, ::interval, 1],
-                    self[::interval, ::interval, 0], self[::interval, ::interval, 1],
-                    scale_units='xy', units='xy', scale=scale)
+        xs = np.arange(self.spatial_shape[0])
+        ys = np.arange(self.spatial_shape[1])
+
+        if color_length:
+            colors = np.linalg.norm(self.to_numpy(), axis=-1)
+            axis.quiver(xs[::interval], ys[::interval],
+                        self[::interval, ::interval, 0], self[::interval, ::interval, 1], colors,
+                        scale_units='xy', units='xy', scale=scale, zorder=zorder)
+        else:
+            axis.quiver(xs[::interval], ys[::interval],
+                        self[::interval, ::interval, 0], self[::interval, ::interval, 1],
+                        scale_units='xy', units='xy', scale=scale, zorder=zorder)
+
+        if created_figure:
+            return fig, axis
+        return axis
+
+    def plot_streamlines(self, title="", density=1, color_length=False, show_axis=False, axis=None, zorder=1):
+        """Plots the `VectorField` using `matplotlib`'s `quiver` function.
+
+        Parameters
+        ----------
+        title
+            The title of the plot.
+        show_axis
+            Determines whether or not to show the axes.
+        axis
+            If not `None`, the function is plotted on the provided axis.
+
+        Returns
+        -------
+        If `axis` is None, the created figure is returned, otherwise the axis
+        is returned.
+        """
+        assert self.dim == 2
+
+        created_figure = False
+        if not axis:
+            created_figure = True
+            fig = plt.figure()
+            axis = fig.add_subplot(1, 1, 1)
+
+        if show_axis is False:
+            axis.set_axis_off()
+
+        axis.set_aspect('equal')
+        axis.set_title(title)
+
+        if color_length:
+            colors = np.linalg.norm(self.to_numpy(), axis=-1)
+            xs = np.arange(self.spatial_shape[0])
+            ys = np.arange(self.spatial_shape[1])
+            axis.streamplot(xs, ys, self[..., 0], self[..., 1],
+                            density=density, color=colors, zorder=zorder)
+        else:
+            xs = np.arange(self.spatial_shape[0])
+            ys = np.arange(self.spatial_shape[1])
+            axis.streamplot(xs, ys, self[..., 0], self[..., 1],
+                            density=density, zorder=zorder)
+
+        if created_figure:
+            return fig, axis
+        return axis
+
+    def plot_as_warpgrid(self, title="", interval=1, show_axis=False, show_identity_grid=True, axis=None,
+                         show_displacement_vectors=False):
+        """Plots the `VectorField` as a warpgrid using `matplotlib`.
+
+        Parameters
+        ----------
+        title
+            The title of the plot.
+        interval
+            Interval in which to sample.
+        show_axis
+            Determines whether or not to show the axes.
+        axis
+            If not `None`, the function is plotted on the provided axis.
+
+        Returns
+        -------
+        If `axis` is None, the created figure is returned, otherwise the axis
+        is returned.
+        """
+        assert self.dim == 2
+
+        created_figure = False
+        if not axis:
+            created_figure = True
+            fig = plt.figure()
+            axis = fig.add_subplot(1, 1, 1)
+
+        def plot_grid(x, y, **kwargs):
+            segs1 = np.stack([x, y], axis=-1)
+            segs2 = segs1.transpose(1, 0, 2)
+            axis.add_collection(LineCollection(segs1, **kwargs))
+            axis.add_collection(LineCollection(segs2, **kwargs))
+            axis.autoscale()
+
+        grid_x, grid_y = np.meshgrid(np.arange(self.spatial_shape[0]), np.arange(self.spatial_shape[1]))
+        if show_identity_grid:
+            plot_grid(grid_x, grid_y, color="lightgrey")
+
+        distx, disty = self[..., 0], self[..., 1]
+        plot_grid(distx, disty, color="C0")
+
+        if show_displacement_vectors:
+            displacement_field = self - np.stack([grid_x, grid_y], axis=-1)
+            displacement_field.plot(scale=1., axis=axis, zorder=2)
+
+        if show_axis is False:
+            axis.set_axis_off()
+
+        axis.set_aspect('equal')
+        axis.set_title(title)
 
         if created_figure:
             return fig, axis
@@ -233,52 +348,6 @@ class VectorField:
                                 "\\end{document}\n")
         except Exception:
             pass
-
-    def plot_as_warpgrid(self, title="", interval=1, show_axis=False, invert_yaxis=True, axis=None):
-        """Plots the `VectorField` as a warpgrid using `matplotlib`.
-
-        Parameters
-        ----------
-        title
-            The title of the plot.
-        interval
-            Interval in which to sample.
-        show_axis
-            Determines whether or not to show the axes.
-        invert_yaxis
-            Determines whether or not to invert the vertical axis.
-        axis
-            If not `None`, the function is plotted on the provided axis.
-
-        Returns
-        -------
-        If `axis` is None, the created figure is returned, otherwise the axis
-        is returned.
-        """
-        assert self.dim == 2
-
-        created_figure = False
-        if not axis:
-            created_figure = True
-            fig = plt.figure()
-            axis = fig.add_subplot(1, 1, 1)
-
-        if show_axis is False:
-            axis.set_axis_off()
-
-        if invert_yaxis:
-            axis.invert_yaxis()
-        axis.set_aspect('equal')
-        axis.set_title(title)
-
-        for row in range(0, self.spatial_shape[0], interval):
-            axis.plot(self[row, :, 0], self[row, :, 1], 'k')
-        for col in range(0, self.spatial_shape[1], interval):
-            axis.plot(self[:, col, 0], self[:, col, 1], 'k')
-
-        if created_figure:
-            return fig, axis
-        return axis
 
     def get_norm(self, product_operator=None, order=None, restriction=np.s_[...]):
         """Computes the norm of the `VectorField`.
