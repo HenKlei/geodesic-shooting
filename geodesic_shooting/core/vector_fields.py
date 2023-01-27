@@ -129,6 +129,9 @@ class VectorField:
             The title of the plot.
         interval
             Interval in which to sample.
+        color_length
+            Determines whether or not to show the lengths of the vectors using
+            different colors.
         show_axis
             Determines whether or not to show the axes.
         scale
@@ -138,6 +141,8 @@ class VectorField:
             has to be used.
         axis
             If not `None`, the function is plotted on the provided axis.
+        zorder
+            Determines the ordering of the plots on the axis.
 
         Returns
         -------
@@ -167,11 +172,11 @@ class VectorField:
             colors = np.linalg.norm(self.to_numpy(), axis=-1)
             axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
                         self[::interval, ::interval, 0], self[::interval, ::interval, 1], colors,
-                        scale_units='xy', units='xy', scale=scale, zorder=zorder)
+                        scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
         else:
             axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
                         self[::interval, ::interval, 0], self[::interval, ::interval, 1],
-                        scale_units='xy', units='xy', scale=scale, zorder=zorder)
+                        scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
 
         if created_figure:
             return fig, axis
@@ -185,10 +190,19 @@ class VectorField:
         ----------
         title
             The title of the plot.
+        density
+            Determines the density of the streamlines.
+        color_length
+            Determines whether or not to show the lengths of the vectors using
+            different colors.
         show_axis
             Determines whether or not to show the axes.
         axis
             If not `None`, the function is plotted on the provided axis.
+        zorder
+            Determines the ordering of the plots on the axis.
+        integration_direction
+            The direction in which to integrate the streamlines.
 
         Returns
         -------
@@ -237,8 +251,13 @@ class VectorField:
             Interval in which to sample.
         show_axis
             Determines whether or not to show the axes.
+        show_identity_grid
+            Determines whether or not to show the underlying identity grid.
         axis
             If not `None`, the function is plotted on the provided axis.
+        show_displacement_vectors
+            Determines whether or not to show the corresponding displacement
+            vectors.
 
         Returns
         -------
@@ -281,7 +300,7 @@ class VectorField:
             return fig, axis
         return axis
 
-    def save(self, filepath, title="", interval=1, show_axis=False, scale=None):
+    def save(self, filepath, title="", interval=1, color_length=False, show_axis=False, scale=None):
         """Saves the plot of the `VectorField` produced by the `plot`-function.
 
         Parameters
@@ -292,6 +311,9 @@ class VectorField:
             Title of the plot.
         interval
             Interval in which to sample.
+        color_length
+            Determines whether or not to show the lengths of the vectors using
+            different colors.
         show_axis
             Determines whether or not to show the axes.
         scale
@@ -301,7 +323,8 @@ class VectorField:
             has to be used.
         """
         try:
-            fig, _ = self.plot(title=title, interval=interval, show_axis=show_axis, scale=scale, axis=None)
+            fig, _ = self.plot(title=title, interval=interval, color_length=color_length,
+                               show_axis=show_axis, scale=scale, axis=None)
             fig.savefig(filepath)
             plt.close(fig)
         except Exception:
