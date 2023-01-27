@@ -1,17 +1,16 @@
 import numpy as np
 from numbers import Number
-from copy import deepcopy
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.collections import LineCollection
 
-from geodesic_shooting.core import ScalarFunction
+from geodesic_shooting.core.base import BaseFunction, BaseTimeDependentFunction
+from geodesic_shooting.core import Diffeomorphism, TimeDependentDiffeomorphism
 from geodesic_shooting.utils import sampler, grid
-import geodesic_shooting.utils.grad as grad
 from geodesic_shooting.utils.helper_functions import lincomb
 
 
-class VectorField:
+class VectorField(BaseFunction):
     """Class that represents a vector-valued function, i.e. a vector field."""
     def __init__(self, spatial_shape=(), data=None):
         """Constructor.
@@ -30,78 +29,17 @@ class VectorField:
             components of the shape of `data` (without the last component)
             fit to the provided `spatial_shape`.
         """
-        if isinstance(data, VectorField):
-            data = data._data
+        super().__init__(spatial_shape, data)
 
+        assert len(self.spatial_shape) == self._data.shape[-1]
+
+    def _compute_spatial_shape(self, spatial_shape, data):
         if data is None:
-            assert spatial_shape != ()
-        else:
-            if spatial_shape != ():
-                assert spatial_shape == data.shape[0:-1]
-            else:
-                spatial_shape = data.shape[0:-1]
+            return spatial_shape
+        return data.shape[0:-1]
 
-        self.spatial_shape = spatial_shape
-        self.dim = len(self.spatial_shape)
-        self.full_shape = (*self.spatial_shape, self.dim)
-
-        if data is None:
-            data = np.zeros(self.full_shape)
-        assert len(spatial_shape) == data.shape[-1]
-        self._data = data
-        assert self._data.shape == self.full_shape
-
-    @property
-    def grad(self):
-        """Computes the (discrete, approximate) gradient/Jacobian using finite differences.
-
-        Returns
-        -------
-        Finite difference approximation of the gradient/Jacobian.
-        """
-        return grad.finite_difference(self)
-
-    def to_numpy(self, shape=None):
-        """Returns the `VectorField` represented as a numpy-array.
-
-        Parameters
-        ----------
-        shape
-            If not `None`, the numpy-array is reshaped according to `shape`.
-
-        Returns
-        -------
-        Numpy-array containing the entries of the `VectorField`.
-        """
-        if shape:
-            return self._data.reshape(shape)
-        return self._data
-
-    def flatten(self):
-        """Returns the `VectorField` represented as a flattened numpy-array.
-
-        Returns
-        -------
-        Flattened numpy-array containing the entries of the `VectorField`.
-        """
-        return self.to_numpy().flatten()
-
-    def push_forward(self, flow, sampler_options={'order': 1, 'mode': 'edge'}):
-        """Pushes forward the `VectorField` along a flow.
-
-        Parameters
-        ----------
-        flow
-            `VectorField` containing the flow according to which to push the input forward.
-        sampler_options
-            Additional options passed to the `warp`-function, see
-            https://scikit-image.org/docs/stable/api/skimage.transform.html#skimage.transform.warp.
-
-        Returns
-        -------
-        `VectorField` of the forward-pushed function.
-        """
-        return sampler.sample(self, flow, sampler_options=sampler_options)
+    def _compute_full_shape(self):
+        return (*self.spatial_shape, self.dim)
 
     def plot(self, title="", interval=1, color_length=False, show_axis=False, scale=None, axis=None, zorder=1):
         """Plots the `VectorField` using `matplotlib`'s `quiver` function.
@@ -355,50 +293,12 @@ class VectorField:
         except Exception:
             pass
 
-    def get_norm(self, product_operator=None, order=None, restriction=np.s_[...]):
-        """Computes the norm of the `VectorField`.
-
-        Remark: If `order=None` and `self.dim >= 2`, the 2-norm of `self.to_numpy().ravel()`
-        is returned, see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
-
-        Parameters
-        ----------
-        product_operator
-            Operator with respect to which to compute the norm. If `None`, the standard l2-inner
-            product is used.
-        order
-            Order of the norm,
-            see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
-        restriction
-            Slice that can be used to restrict the domain on which to compute the norm.
-
-        Returns
-        -------
-        The norm of the `VectorField`.
-        """
-        if product_operator:
-            apply_product_operator = product_operator(self).to_numpy()[restriction]
-            return np.sqrt(apply_product_operator.flatten().dot(self.to_numpy()[restriction].flatten()))
-        else:
-            return np.linalg.norm(self.to_numpy()[restriction].flatten(), ord=order)
-
-    norm = property(get_norm)
-
-    def copy(self):
-        """Returns a deepcopy of the `VectorField`.
-
-        Returns
-        -------
-        Deepcopy of the whole `VectorField`.
-        """
-        return deepcopy(self)
-
     def __add__(self, other):
-        assert ((isinstance(other, VectorField) and other.full_shape == self.full_shape)
+        assert ((isinstance(other, BaseFunction) and other.full_shape == self.full_shape)
                 or (isinstance(other, np.ndarray) and (other.shape == self.full_shape
                                                        or other.shape == (self.dim, ))))
         result = self.copy()
-        if isinstance(other, VectorField):
+        if isinstance(other, BaseFunction):
             result._data += other._data
         else:
             result._data += other
@@ -462,26 +362,8 @@ class VectorField:
         self._data = self._data / other
         return self
 
-    def __eq__(self, other):
-        if isinstance(other, VectorField) and (other.to_numpy() == self.to_numpy()).all():
-            return True
-        return False
 
-    def __getitem__(self, index):
-        return self._data[index]
-
-    def __setitem__(self, index, val):
-        if isinstance(val, VectorField) or isinstance(val, ScalarFunction):
-            self._data[index] = val._data
-        else:
-            self._data[index] = val
-        assert self._data.shape == self.full_shape
-
-    def __str__(self):
-        return str(self.to_numpy())
-
-
-class TimeDependentVectorField:
+class TimeDependentVectorField(BaseTimeDependentFunction):
     """Class that represents a time-dependent vector field."""
     def __init__(self, spatial_shape=(), time_steps=1, data=None):
         """Constructor.
@@ -502,32 +384,7 @@ class TimeDependentVectorField:
             If not `None`, either a numpy-array or a `TimeDependentVectorField` or a list
             of `VectorField`s has to be provided.
         """
-        assert isinstance(time_steps, int) and time_steps > 0
-
-        if isinstance(data, list) and all(isinstance(d, VectorField) for d in data):
-            assert len(data) > 0
-            spatial_shape = data[0].spatial_shape
-            assert all(d.spatial_shape == spatial_shape for d in data)
-            time_steps = len(data)
-
-        self.spatial_shape = spatial_shape
-        self.dim = len(self.spatial_shape)
-        self.time_steps = time_steps
-        self.full_shape = (self.time_steps, *self.spatial_shape, self.dim)
-
-        self._data = []
-        if data is None:
-            for _ in range(self.time_steps):
-                self._data.append(VectorField(self.spatial_shape))
-        else:
-            assert ((isinstance(data, np.ndarray) and data.shape == self.full_shape)
-                    or (isinstance(data, TimeDependentVectorField) and data.full_shape == self.full_shape)
-                    or (isinstance(data, list) and all(isinstance(d, VectorField) for d in data)))
-            for elem in data:
-                if isinstance(elem, VectorField):
-                    self._data.append(elem.copy())
-                else:
-                    self._data.append(VectorField(self.spatial_shape, data=elem))
+        super().__init__(spatial_shape, time_steps, data, time_independent_type=VectorField)
 
     @property
     def average(self):
@@ -539,7 +396,7 @@ class TimeDependentVectorField:
         """
         return lincomb(self, np.ones(len(self)) / len(self))
 
-    def integrate(self, sampler_options={'order': 1, 'mode': 'edge'}):
+    def integrate(self, sampler_options={'order': 1, 'mode': 'edge'}, get_time_dependent_diffeomorphism=False):
         """Integrate vector field with respect to time.
 
         Parameters
@@ -556,16 +413,19 @@ class TimeDependentVectorField:
         identity_grid = grid.coordinate_grid(self.spatial_shape)
 
         # initial transformation is the identity mapping
-        diffeomorphism = identity_grid.copy()
+        diffeomorphisms = [grid.identity_diffeomorphism(self.spatial_shape)]
 
         # perform integration with respect to time
         for t in range(self.time_steps):
-            diffeomorphism += sampler.sample(self[t], diffeomorphism,
-                                             sampler_options=sampler_options) / self.time_steps
+            diffeomorphisms.append(Diffeomorphism(data=sampler.sample(identity_grid + self[t] / self.time_steps,
+                                                                      diffeomorphisms[-1],
+                                                                      sampler_options=sampler_options)))
 
-        return diffeomorphism
+        if get_time_dependent_diffeomorphism:
+            return TimeDependentDiffeomorphism(data=diffeomorphisms)
+        return diffeomorphisms[-1]
 
-    def integrate_backward(self, sampler_options={'order': 1, 'mode': 'edge'}):
+    def integrate_backward(self, sampler_options={'order': 1, 'mode': 'edge'}, get_time_dependent_diffeomorphism=False):
         """Integrate vector field backward with respect to time.
 
         Parameters
@@ -582,32 +442,17 @@ class TimeDependentVectorField:
         identity_grid = grid.coordinate_grid(self.spatial_shape)
 
         # initial transformation is the identity mapping
-        diffeomorphism = identity_grid.copy()
+        diffeomorphisms = [grid.identity_diffeomorphism(self.spatial_shape)]
 
         # perform integration backwards with respect to time
         for t in range(self.time_steps-1, -1, -1):
-            diffeomorphism -= sampler.sample(self[t], diffeomorphism,
-                                             sampler_options=sampler_options) / self.time_steps
+            diffeomorphisms.append(Diffeomorphism(data=sampler.sample(identity_grid - self[t] / self.time_steps,
+                                                                      diffeomorphisms[-1],
+                                                                      sampler_options=sampler_options)))
 
-        return diffeomorphism
-
-    def to_numpy(self, shape=None):
-        """Returns the `TimeDependentVectorField` represented as a numpy-array.
-
-        Parameters
-        ----------
-        shape
-            If not `None`, the numpy-array is reshaped according to `shape`.
-
-        Returns
-        -------
-        Numpy-array containing the entries of the `TimeDependentVectorField`.
-        """
-        result = np.array([a.to_numpy() for a in self._data])
-        assert result.shape == self.full_shape
-        if shape:
-            return result.reshape(shape)
-        return result
+        if get_time_dependent_diffeomorphism:
+            return TimeDependentDiffeomorphism(data=diffeomorphisms)
+        return diffeomorphisms[-1]
 
     def animate(self, title="", interval=1, scale=None, show_axis=False):
         """Animates the time-dependent vector field.
@@ -645,46 +490,3 @@ class TimeDependentVectorField:
 
         ani = animation.FuncAnimation(fig, animate, frames=self.time_steps, interval=100)
         return ani
-
-    def get_norm(self, order=None, restriction=np.s_[...]):
-        """Computes the norm of the `TimeDependentVectorField`.
-
-        Remark: If `order=None` and `self.dim >= 2`, the 2-norm of `self.to_numpy().ravel()`
-        is returned, see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
-
-        Parameters
-        ----------
-        order
-            Order of the norm,
-            see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
-        restriction
-            Slice that can be used to restrict the domain on which to compute the norm.
-
-        Returns
-        -------
-        The norm of the `TimeDependentVectorField`.
-        """
-        return np.linalg.norm(self.to_numpy()[restriction].flatten(), ord=order)
-
-    norm = property(get_norm)
-
-    def __setitem__(self, index, val):
-        assert isinstance(val, VectorField) and val.full_shape == (*self.spatial_shape, self.dim)
-        assert ((isinstance(index, int) and 0 <= index < self.time_steps)
-                or (isinstance(index, tuple) and len(index) == 1 and 0 <= index[0] < self.time_steps))
-        if isinstance(index, tuple):
-            self._data[index[0]] = val
-        else:
-            self._data[index] = val
-
-    def __getitem__(self, index):
-        assert isinstance(index, int) or isinstance(index, tuple)
-        if isinstance(index, int):
-            return self._data[index]
-        return self._data[index[0]][index[1:]]
-
-    def __str__(self):
-        return str(self.to_numpy())
-
-    def __len__(self):
-        return self.time_steps

@@ -1,13 +1,12 @@
 import numpy as np
 from numbers import Number
-from copy import deepcopy
 import matplotlib.pyplot as plt
 
-from geodesic_shooting.utils.grad import finite_difference
+from geodesic_shooting.core.base import BaseFunction
 from geodesic_shooting.utils import sampler
 
 
-class ScalarFunction:
+class ScalarFunction(BaseFunction):
     """Class that represents a scalar-valued function (i.e. an image)."""
     def __init__(self, spatial_shape=(), data=None):
         """Constructor.
@@ -24,32 +23,15 @@ class ScalarFunction:
             `spatial_shape` is the empty tuple or the shape of `data` fits to
             the provided `spatial_shape`.
         """
+        super().__init__(spatial_shape, data)
+
+    def _compute_spatial_shape(self, spatial_shape, data):
         if data is None:
-            assert spatial_shape != ()
-        else:
-            if spatial_shape != ():
-                assert spatial_shape == data.shape
-            else:
-                spatial_shape = data.shape
+            return spatial_shape
+        return data.shape
 
-        self.spatial_shape = spatial_shape
-        self.dim = len(self.spatial_shape)
-        self.full_shape = self.spatial_shape
-
-        if data is None:
-            data = np.zeros(self.full_shape)
-        self._data = data
-        assert self._data.shape == self.full_shape
-
-    @property
-    def grad(self):
-        """Computes the (discrete, approximate) gradient using finite differences.
-
-        Returns
-        -------
-        `VectorField` representing a finite difference approximation of the gradient.
-        """
-        return finite_difference(self)
+    def _compute_full_shape(self):
+        return self.spatial_shape
 
     def push_forward(self, flow, sampler_options={'order': 1, 'mode': 'edge'}):
         """Pushes forward the `ScalarFunction` along a flow.
@@ -67,31 +49,6 @@ class ScalarFunction:
         `ScalarFunction` of the forward-pushed function.
         """
         return sampler.sample(self, flow, sampler_options=sampler_options)
-
-    def to_numpy(self, shape=None):
-        """Returns the `ScalarFunction` represented as a numpy-array.
-
-        Parameters
-        ----------
-        shape
-            If not `None`, the numpy-array is reshaped according to `shape`.
-
-        Returns
-        -------
-        Numpy-array containing the entries of the `ScalarFunction`.
-        """
-        if shape:
-            return self._data.reshape(shape)
-        return self._data
-
-    def flatten(self):
-        """Returns the `ScalarFunction` represented as a flattened numpy-array.
-
-        Returns
-        -------
-        Flattened numpy-array containing the entries of the `ScalarFunction`.
-        """
-        return self.to_numpy().flatten()
 
     def plot(self, title="", colorbar=True, axis=None, extent=(0., 1., 0., 1.)):
         """Plots the `ScalarFunction` using `matplotlib`.
@@ -152,35 +109,6 @@ class ScalarFunction:
         except Exception:
             pass
 
-    def get_norm(self, product_operator=None, order=None, restriction=np.s_[...]):
-        """Computes the norm of the `ScalarFunction`.
-
-        Remark: If `order=None` and `self.dim >= 2`, the 2-norm of `self.to_numpy().ravel()`
-        is returned, see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
-
-        Parameters
-        ----------
-        product_operator
-            Operator with respect to which to compute the norm. If `None`, the standard l2-inner
-            product is used.
-        order
-            Order of the norm,
-            see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
-        restriction
-            Slice that can be used to restrict the domain on which to compute the norm.
-
-        Returns
-        -------
-        The norm of the `ScalarFunction`.
-        """
-        if product_operator:
-            apply_product_operator = product_operator(self).to_numpy()[restriction].flatten()
-            return np.sqrt(apply_product_operator.dot(self.to_numpy()[restriction].flatten()))
-        else:
-            return np.linalg.norm(self.to_numpy()[restriction].flatten(), ord=order)
-
-    norm = property(get_norm)
-
     def abs(self):
         """Returns new `ScalarFunction` containing absolute values of the elements.
 
@@ -191,25 +119,6 @@ class ScalarFunction:
         c = self.copy()
         c._data = np.abs(c._data)
         return c
-
-    @property
-    def size(self):
-        """Returns the size of the `ScalarFunction`, i.e. the number of entries of the numpy-array.
-
-        Returns
-        -------
-        The size of the corresponding numpy-array.
-        """
-        return self._data.size
-
-    def copy(self):
-        """Returns a deepcopy of the `ScalarFunction`.
-
-        Returns
-        -------
-        Deepcopy of the whole `ScalarFunction`.
-        """
-        return deepcopy(self)
 
     def __add__(self, other):
         assert ((isinstance(other, ScalarFunction) and other.full_shape == self.full_shape)
@@ -282,21 +191,3 @@ class ScalarFunction:
         result = self.copy()
         result._data = result._data**exp
         return result
-
-    def __eq__(self, other):
-        if isinstance(other, ScalarFunction) and (other.to_numpy() == self.to_numpy()).all():
-            return True
-        return False
-
-    def __getitem__(self, index):
-        return self._data[index]
-
-    def __setitem__(self, index, val):
-        if isinstance(val, ScalarFunction):
-            self._data[index] = val.to_numpy()
-        else:
-            self._data[index] = val
-        assert self._data.shape == self.full_shape
-
-    def __str__(self):
-        return str(self.to_numpy())
