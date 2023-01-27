@@ -103,23 +103,6 @@ class VectorField:
         """
         return sampler.sample(self, flow, sampler_options=sampler_options)
 
-    def push_backward(self, flow, sampler_options={'order': 1, 'mode': 'edge'}):
-        """Pushes backward the `VectorField` along a flow.
-
-        Parameters
-        ----------
-        flow
-            `VectorField` containing the flow according to which to push the input backward.
-        sampler_options
-            Additional options passed to the `warp`-function, see
-            https://scikit-image.org/docs/stable/api/skimage.transform.html#skimage.transform.warp.
-
-        Returns
-        -------
-        `VectorField` of the backward-pushed function.
-        """
-        return sampler.sample_inverse(self, flow, sampler_options=sampler_options)
-
     def plot(self, title="", interval=1, color_length=False, show_axis=False, scale=None, axis=None, zorder=1):
         """Plots the `VectorField` using `matplotlib`'s `quiver` function.
 
@@ -520,6 +503,13 @@ class TimeDependentVectorField:
             of `VectorField`s has to be provided.
         """
         assert isinstance(time_steps, int) and time_steps > 0
+
+        if isinstance(data, list) and all(isinstance(d, VectorField) for d in data):
+            assert len(data) > 0
+            spatial_shape = data[0].spatial_shape
+            assert all(d.spatial_shape == spatial_shape for d in data)
+            time_steps = len(data)
+
         self.spatial_shape = spatial_shape
         self.dim = len(self.spatial_shape)
         self.time_steps = time_steps
@@ -549,13 +539,11 @@ class TimeDependentVectorField:
         """
         return lincomb(self, np.ones(len(self)) / len(self))
 
-    def integrate(self, time_steps=30, sampler_options={'order': 1, 'mode': 'edge'}):
+    def integrate(self, sampler_options={'order': 1, 'mode': 'edge'}):
         """Integrate vector field with respect to time.
 
         Parameters
         ----------
-        time_steps
-            Number of time steps performed during integration.
         sampler_options
             Additional options to pass to the sampler.
 
@@ -573,6 +561,32 @@ class TimeDependentVectorField:
         # perform integration with respect to time
         for t in range(self.time_steps):
             diffeomorphism += sampler.sample(self[t], diffeomorphism,
+                                             sampler_options=sampler_options) / self.time_steps
+
+        return diffeomorphism
+
+    def integrate_backward(self, sampler_options={'order': 1, 'mode': 'edge'}):
+        """Integrate vector field backward with respect to time.
+
+        Parameters
+        ----------
+        sampler_options
+            Additional options to pass to the sampler.
+
+        Returns
+        -------
+        Vector field containing the inverse diffeomorphism originating from integrating
+        the time-dependent vector field backward with respect to time.
+        """
+        # create identity grid
+        identity_grid = grid.coordinate_grid(self.spatial_shape)
+
+        # initial transformation is the identity mapping
+        diffeomorphism = identity_grid.copy()
+
+        # perform integration backwards with respect to time
+        for t in range(self.time_steps-1, -1, -1):
+            diffeomorphism -= sampler.sample(self[t], diffeomorphism,
                                              sampler_options=sampler_options) / self.time_steps
 
         return diffeomorphism

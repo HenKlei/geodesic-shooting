@@ -68,23 +68,6 @@ class ScalarFunction:
         """
         return sampler.sample(self, flow, sampler_options=sampler_options)
 
-    def push_backward(self, flow, sampler_options={'order': 1, 'mode': 'edge'}):
-        """Pushes backward the `ScalarFunction` along a flow.
-
-        Parameters
-        ----------
-        flow
-            `VectorField` containing the flow according to which to push the input backward.
-        sampler_options
-            Additional options passed to the `warp`-function, see
-            https://scikit-image.org/docs/stable/api/skimage.transform.html#skimage.transform.warp.
-
-        Returns
-        -------
-        `ScalarFunction` of the backward-pushed function.
-        """
-        return sampler.sample_inverse(self, flow, sampler_options=sampler_options)
-
     def to_numpy(self, shape=None):
         """Returns the `ScalarFunction` represented as a numpy-array.
 
@@ -197,6 +180,17 @@ class ScalarFunction:
             return np.linalg.norm(self.to_numpy()[restriction].flatten(), ord=order)
 
     norm = property(get_norm)
+
+    def abs(self):
+        """Returns new `ScalarFunction` containing absolute values of the elements.
+
+        Returns
+        -------
+        `ScalarFunction` similar to the original one, but with absolute value in each element.
+        """
+        c = self.copy()
+        c._data = np.abs(c._data)
+        return c
 
     @property
     def size(self):
