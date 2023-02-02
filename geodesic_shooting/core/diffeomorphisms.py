@@ -55,7 +55,7 @@ class Diffeomorphism(BaseFunction):
         return sampler.sample(self, flow, sampler_options=sampler_options)
 
     def plot_as_warpgrid(self, title="", interval=1, show_axis=False, show_identity_grid=True, axis=None,
-                         show_displacement_vectors=False):
+                         show_displacement_vectors=False, color_length=False):
         """Plots the `VectorField` as a warpgrid using `matplotlib`.
 
         Parameters
@@ -73,6 +73,10 @@ class Diffeomorphism(BaseFunction):
         show_displacement_vectors
             Determines whether or not to show the corresponding displacement
             vectors.
+        color_length
+            Determines whether or not to show the lengths of the vectors using
+            different colors.
+            Only used if `show_displacement_vectors` is `True`.
 
         Returns
         -------
@@ -95,14 +99,25 @@ class Diffeomorphism(BaseFunction):
             axis.autoscale()
 
         identity_grid = grid.coordinate_grid(self.spatial_shape)
-        grid_x, grid_y = identity_grid[..., 0], identity_grid[..., 1]
+        grid_x, grid_y = identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1]
+        grid_x = np.vstack([grid_x, identity_grid[-1, ::interval, 0][np.newaxis, ...]])
+        grid_x = np.hstack([grid_x, np.hstack([identity_grid[::interval, -1, 0],
+                                               identity_grid[-1, -1, 0]])[..., np.newaxis]])
+        grid_y = np.vstack([grid_y, identity_grid[-1, ::interval, 1][np.newaxis, ...]])
+        grid_y = np.hstack([grid_y, np.hstack([identity_grid[::interval, -1, 1],
+                                               identity_grid[-1, -1, 1]])[..., np.newaxis]])
         if show_identity_grid:
             plot_grid(grid_x, grid_y, color="lightgrey")
 
-        plot_grid(self[..., 0], self[..., 1], color="C0")
+        dist_x, dist_y = self[::interval, ::interval, 0], self[::interval, ::interval, 1]
+        dist_x = np.vstack([dist_x, self[-1, ::interval, 0][np.newaxis, ...]])
+        dist_x = np.hstack([dist_x, np.hstack([self[::interval, -1, 0], self[-1, -1, 0]])[..., np.newaxis]])
+        dist_y = np.vstack([dist_y, self[-1, ::interval, 1][np.newaxis, ...]])
+        dist_y = np.hstack([dist_y, np.hstack([self[::interval, -1, 1], self[-1, -1, 1]])[..., np.newaxis]])
+        plot_grid(dist_x, dist_y, color="C0")
 
         if show_displacement_vectors:
-            self.plot(scale=1., axis=axis, zorder=2)
+            self.plot(scale=1., axis=axis, zorder=2, color_length=color_length)
 
         if show_axis is False:
             axis.set_axis_off()
@@ -113,6 +128,40 @@ class Diffeomorphism(BaseFunction):
         if created_figure:
             return fig, axis
         return axis
+
+    def save(self, filepath, title="", interval=1, show_axis=False, show_identity_grid=True,
+             show_displacement_vectors=False, color_length=False):
+        """Saves the plot of the `VectorField` produced by the `plot`-function.
+
+        Parameters
+        ----------
+        filepath
+            Path to save the plot to.
+        title
+            Title of the plot.
+        interval
+            Interval in which to sample.
+        show_axis
+            Determines whether or not to show the axes.
+        show_identity_grid
+            Determines whether or not to show the underlying identity grid.
+        show_displacement_vectors
+            Determines whether or not to show the corresponding displacement
+            vectors.
+        color_length
+            Determines whether or not to show the lengths of the vectors using
+            different colors.
+            Only used if `show_displacement_vectors` is `True`.
+        """
+        try:
+            fig, _ = self.plot_as_warpgrid(title=title, interval=interval, show_axis=show_axis,
+                                           show_identity_grid=show_identity_grid, axis=None,
+                                           show_displacement_vectors=show_displacement_vectors,
+                                           color_length=color_length)
+            fig.savefig(filepath)
+            plt.close(fig)
+        except Exception:
+            pass
 
 
 class TimeDependentDiffeomorphism(BaseTimeDependentFunction):

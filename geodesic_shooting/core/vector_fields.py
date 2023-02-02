@@ -170,7 +170,7 @@ class VectorField(BaseFunction):
         return axis
 
     def plot_as_warpgrid(self, title="", interval=1, show_axis=False, show_identity_grid=True, axis=None,
-                         show_displacement_vectors=False):
+                         show_displacement_vectors=False, color_length=False):
         """Plots the `VectorField` as a warpgrid using `matplotlib`.
 
         Parameters
@@ -188,6 +188,10 @@ class VectorField(BaseFunction):
         show_displacement_vectors
             Determines whether or not to show the corresponding displacement
             vectors.
+        color_length
+            Determines whether or not to show the lengths of the vectors using
+            different colors.
+            Only used if `show_displacement_vectors` is `True`.
 
         Returns
         -------
@@ -229,7 +233,7 @@ class VectorField(BaseFunction):
         plot_grid(dist_x, dist_y, color="C0")
 
         if show_displacement_vectors:
-            self.plot(scale=1., axis=axis, zorder=2)
+            self.plot(scale=1., axis=axis, zorder=2, color_length=color_length)
 
         if show_axis is False:
             axis.set_axis_off()

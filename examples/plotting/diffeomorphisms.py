@@ -18,7 +18,7 @@ if __name__ == "__main__":
     time_dependent_field = TimeDependentVectorField(data=[displacement_field]*time_steps)
     diffeomorphism = time_dependent_field.integrate()
     inverse_diffeomorphism = time_dependent_field.integrate_backward()
-    diffeomorphism.plot_as_warpgrid(title="Diffeomorphism")
+    diffeomorphism.plot_as_warpgrid(title="Diffeomorphism", interval=2)
     inverse_diffeomorphism.plot_as_warpgrid(title="Inverse diffeomorphism")
 
     approximate_identity = diffeomorphism.push_forward(inverse_diffeomorphism)

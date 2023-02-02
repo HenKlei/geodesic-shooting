@@ -35,7 +35,7 @@ def plot_registration_results(results, interval=1, scale=None):
         ax = results['vector_fields'][0].plot("Initial vector field", axis=ax, scale=scale)
         plt.show()
 
-        _ = results['flow'].plot_as_warpgrid("Flow")
+        _ = results['flow'].plot_as_warpgrid("Diffeomorphism")
         plt.show()
 
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
@@ -62,4 +62,4 @@ def save_plots_registration_results(results, filepath='results/'):
     results['target'].save(filepath + 'target.png', title="Target")
     results['transformed_input'].save(filepath + 'transformed_input.png', title="Result")
     results['initial_vector_field'].save(filepath + 'initial_vector_field.png', title="Initial vector field")
-    results['flow'].save(filepath + 'flow.png', title="Flow")
+    results['flow'].save(filepath + 'diffeomorphism.png', title="Diffeomorphism")
