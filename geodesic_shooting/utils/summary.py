@@ -35,7 +35,7 @@ def plot_registration_results(results, interval=1, scale=None):
         ax = results['vector_fields'][0].plot("Initial vector field", axis=ax, scale=scale)
         plt.show()
 
-        _ = results['flow'].plot("Flow")
+        _ = results['flow'].plot_as_warpgrid("Flow")
         plt.show()
 
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3)

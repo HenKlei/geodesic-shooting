@@ -218,7 +218,7 @@ class GeodesicShooting:
         self.logger.info("====================")
 
     def integrate_forward_vector_field(self, initial_vector_field):
-        """Performs forward integration of the initial vector field.
+        """Performs forward integration of the initial vector field according to EPDiff.
 
         Hint: See "Finite-Dimensional Lie Algebras for Fast Diffeomorphic Image Registration"
         by Miaomiao Zhang and P. Thomas Fletcher, Section 2, Equation (3), or "Data-driven
@@ -233,7 +233,7 @@ class GeodesicShooting:
 
         Returns
         -------
-        Sequence of vector fields obtained via forward integration of the initial vector field.
+        `TimeDependentVectorField` obtained via forward integration of the initial `VectorField`.
         """
         if hasattr(self, 'shape'):
             assert self.shape == initial_vector_field.spatial_shape

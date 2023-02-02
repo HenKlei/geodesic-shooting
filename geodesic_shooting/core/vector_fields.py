@@ -5,7 +5,7 @@ import matplotlib.animation as animation
 from matplotlib.collections import LineCollection
 
 from geodesic_shooting.core.base import BaseFunction, BaseTimeDependentFunction
-from geodesic_shooting.core import Diffeomorphism, TimeDependentDiffeomorphism
+from geodesic_shooting.core import Diffeomorphism, TimeDependentDiffeomorphism, ScalarFunction
 from geodesic_shooting.utils import sampler, grid
 from geodesic_shooting.utils.helper_functions import lincomb
 
@@ -40,6 +40,15 @@ class VectorField(BaseFunction):
 
     def _compute_full_shape(self):
         return (*self.spatial_shape, self.dim)
+
+    def get_divergence(self, return_gradient=False):
+        grad = self.grad
+        div = ScalarFunction(data=np.sum(np.array([grad[..., d, d] for d in range(self.dim)]), axis=0))
+        if return_gradient:
+            return div, grad
+        return div
+
+    div = property(get_divergence)
 
     def plot(self, title="", interval=1, color_length=False, show_axis=False, scale=None, axis=None, zorder=1):
         """Plots the `VectorField` using `matplotlib`'s `quiver` function.
@@ -201,12 +210,23 @@ class VectorField(BaseFunction):
             axis.autoscale()
 
         identity_grid = grid.coordinate_grid(self.spatial_shape)
-        grid_x, grid_y = identity_grid[..., 0], identity_grid[..., 1]
+        grid_x, grid_y = identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1]
+        grid_x = np.vstack([grid_x, identity_grid[-1, ::interval, 0][np.newaxis, ...]])
+        grid_x = np.hstack([grid_x, np.hstack([identity_grid[::interval, -1, 0],
+                                               identity_grid[-1, -1, 0]])[..., np.newaxis]])
+        grid_y = np.vstack([grid_y, identity_grid[-1, ::interval, 1][np.newaxis, ...]])
+        grid_y = np.hstack([grid_y, np.hstack([identity_grid[::interval, -1, 1],
+                                               identity_grid[-1, -1, 1]])[..., np.newaxis]])
         if show_identity_grid:
             plot_grid(grid_x, grid_y, color="lightgrey")
 
-        distx, disty = grid_x + self[..., 0], grid_y + self[..., 1]
-        plot_grid(distx, disty, color="C0")
+        dist_x, dist_y = self[::interval, ::interval, 0], self[::interval, ::interval, 1]
+        dist_x = np.vstack([dist_x, self[-1, ::interval, 0][np.newaxis, ...]])
+        dist_x = np.hstack([dist_x, np.hstack([self[::interval, -1, 0], self[-1, -1, 0]])[..., np.newaxis]])
+        dist_y = np.vstack([dist_y, self[-1, ::interval, 1][np.newaxis, ...]])
+        dist_y = np.hstack([dist_y, np.hstack([self[::interval, -1, 1], self[-1, -1, 1]])[..., np.newaxis]])
+        dist_x, dist_y = grid_x + dist_x, grid_y + dist_y
+        plot_grid(dist_x, dist_y, color="C0")
 
         if show_displacement_vectors:
             self.plot(scale=1., axis=axis, zorder=2)
