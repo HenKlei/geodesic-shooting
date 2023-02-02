@@ -2,6 +2,7 @@ import numpy as np
 from copy import deepcopy
 
 import geodesic_shooting.utils.grad as grad
+from geodesic_shooting.utils import sampler
 
 
 class BaseFunction:
@@ -46,6 +47,23 @@ class BaseFunction:
         Finite difference approximation of the gradient/Jacobian.
         """
         return grad.finite_difference(self)
+
+    def push_forward(self, flow, sampler_options={'order': 1, 'mode': 'edge'}):
+        """Pushes forward the `VectorField` along a flow.
+
+        Parameters
+        ----------
+        flow
+            `VectorField` containing the flow according to which to push the input forward.
+        sampler_options
+            Additional options passed to the `warp`-function, see
+            https://scikit-image.org/docs/stable/api/skimage.transform.html#skimage.transform.warp.
+
+        Returns
+        -------
+        `VectorField` of the forward-pushed function.
+        """
+        return sampler.sample(self, flow, sampler_options=sampler_options)
 
     def to_numpy(self, shape=None):
         """Returns the `BaseFunction` represented as a numpy-array.

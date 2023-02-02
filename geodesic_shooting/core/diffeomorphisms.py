@@ -37,23 +37,6 @@ class Diffeomorphism(BaseFunction):
     def _compute_full_shape(self):
         return (*self.spatial_shape, self.dim)
 
-    def push_forward(self, flow, sampler_options={'order': 1, 'mode': 'edge'}):
-        """Pushes forward the `VectorField` along a flow.
-
-        Parameters
-        ----------
-        flow
-            `VectorField` containing the flow according to which to push the input forward.
-        sampler_options
-            Additional options passed to the `warp`-function, see
-            https://scikit-image.org/docs/stable/api/skimage.transform.html#skimage.transform.warp.
-
-        Returns
-        -------
-        `VectorField` of the forward-pushed function.
-        """
-        return sampler.sample(self, flow, sampler_options=sampler_options)
-
     def plot_as_warpgrid(self, title="", interval=1, show_axis=False, show_identity_grid=True, axis=None,
                          show_displacement_vectors=False, color_length=False):
         """Plots the `VectorField` as a warpgrid using `matplotlib`.

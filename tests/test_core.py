@@ -58,8 +58,10 @@ def test_time_integration():
     constant_vector_field = TimeDependentVectorField(spatial_shape=shape, time_steps=time_steps, data=vf_list)
 
     diffeomorphism = constant_vector_field.integrate()
+    diffeomorphism_as_vector_field = VectorField(data=diffeomorphism)
     identity_grid = grid.coordinate_grid(shape)
-    assert np.isclose((diffeomorphism - identity_grid).norm, 0.)
+    identity_diffeomorphism = grid.identity_diffeomorphism(shape)
+    assert np.isclose((diffeomorphism_as_vector_field - identity_grid).norm, 0.)
 
     translation_vector = np.array([1, 2])
     v += translation_vector
@@ -67,9 +69,9 @@ def test_time_integration():
     constant_vector_field = TimeDependentVectorField(spatial_shape=shape, time_steps=time_steps, data=vf_list)
     diffeomorphism = constant_vector_field.integrate()
 
-    assert np.isclose((diffeomorphism.push_forward(identity_grid) - diffeomorphism).norm, 0.)
-    assert np.isclose((diffeomorphism.push_backward(identity_grid) - diffeomorphism).norm, 0.)
-    assert np.isclose((diffeomorphism - (identity_grid + v)).norm, 0.)
+    assert np.isclose((diffeomorphism_as_vector_field.push_forward(identity_diffeomorphism)
+                       - diffeomorphism_as_vector_field).norm, 0.)
+    assert np.isclose((diffeomorphism_as_vector_field - (identity_grid + v)).norm, 0.)
     restriction = np.s_[:-translation_vector[0], :-translation_vector[1]]
     assert np.isclose((identity_grid.push_forward(diffeomorphism) - diffeomorphism).get_norm(restriction=restriction),
                       0.)

@@ -254,10 +254,8 @@ class GeodesicShooting:
             momentum_t = self.regularizer.cauchy_navier(x)
             # compute the gradient (Jacobian) of the current momentum
             grad_mt = momentum_t.grad
-            # compute the gradient (Jacobian) of the current vector field
-            grad_vt = x.grad
-            # compute the divergence of the current vector field
-            div_vt = np.sum(np.array([grad_vt[..., d, d] for d in range(self.dim)]), axis=0)
+            # compute the divergence and the gradient (Jacobian) of the current vector field
+            div_vt, grad_vt = x.get_divergence(return_gradient=True)
             # compute the right hand side, i.e. Dv^T m + Dm v + m div v
             rhs = (np.einsum(einsum_string_transpose, grad_vt, momentum_t.to_numpy())
                    + np.einsum(einsum_string, grad_mt, x.to_numpy())
@@ -306,11 +304,8 @@ class GeodesicShooting:
         einsum_string_transpose = '...kl,...l->...k'
 
         def rhs_function(x, v, v_old):
-            # get gradient of the current vector field
-            grad_vector_fields = v.grad
-            # get divergence of the current vector field
-            div_vector_fields = np.sum(np.array([grad_vector_fields[..., d, d]
-                                                 for d in range(self.dim)]), axis=0)
+            # get divergence and gradient (Jacobian) of the current vector field
+            div_vector_fields, grad_vector_fields = v.get_divergence(return_gradient=True)
             # get momentum corresponding to the adjoint variable `v_old`
             regularized_v = self.regularizer.cauchy_navier(v_old)
             # get gradient of the momentum of `v_old`
@@ -323,11 +318,8 @@ class GeodesicShooting:
                 + regularized_v * div_vector_fields[..., np.newaxis])
             v_old = v_old - rhs_v / self.time_steps
 
-            # get gradient of the adjoint variable `delta_v`
-            grad_delta_v = delta_v.grad
-            # get divergence of the adjoint variable `delta_v`
-            div_delta_v = np.sum(np.array([grad_delta_v[..., d, d]
-                                           for d in range(self.dim)]), axis=0)
+            # get divergence and gradient of the adjoint variable `delta_v`
+            div_delta_v, grad_delta_v = delta_v.get_divergence(return_gradient=True)
             # get momentum corresponding to the current vector field
             regularized_vector_fields = self.regularizer.cauchy_navier(v)
             # get gradient of the momentum of the current vector field
