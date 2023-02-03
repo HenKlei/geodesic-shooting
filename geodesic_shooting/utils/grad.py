@@ -27,12 +27,13 @@ def finite_difference(f):
     window = np.array([-1., 0., 1.]) * 0.5
     dim = f.dim
     window = window.reshape(list(window.shape) + [1, ]*(dim-1))
+    shape = f.full_shape
 
     def _fd_single_dim(u, d):
         indices = list(range(dim))
         indices[0] = d
         indices[d] = 0
-        window_d = np.transpose(window, axes=indices)
+        window_d = np.transpose(window / shape[d], axes=indices)
         return correlate(u, window_d)
 
     derivatives = []

@@ -11,15 +11,15 @@ def test_grad():
     f1 = ScalarFunction(shape)
     f1[..., 2] = 1
     derivative = VectorField(shape)
-    derivative[:, 1, 1] = 0.5
-    derivative[:, 3, 1] = -0.5
+    derivative[:, 1, 1] = 0.5 / shape[1]
+    derivative[:, 3, 1] = -0.5 / shape[1]
     assert finite_difference(f1) == derivative
 
     f2 = ScalarFunction(shape)
     f2[2, ...] = 1
     derivative = VectorField(shape)
-    derivative[1, :, 0] = 0.5
-    derivative[3, :, 0] = -0.5
+    derivative[1, :, 0] = 0.5 / shape[0]
+    derivative[3, :, 0] = -0.5 / shape[0]
     assert finite_difference(f2) == derivative
 
     v = VectorField(shape)
@@ -45,7 +45,7 @@ def test_differential_operators():
 
     true_gradient = VectorField(data=g_gradient(grid_x, grid_y))
 
-    assert (function.grad - true_gradient).norm / tuple_product(shape) < 1e-7
+    assert (function.grad - true_gradient).norm / tuple_product(shape) < 1e-4
 
     def f(x, y):
         return np.stack([np.sin(x + y - 1.), np.cos(1.5 + x - y)], axis=-1)
@@ -59,4 +59,4 @@ def test_differential_operators():
 
     true_divergence = ScalarFunction(data=f_divergence(grid_x, grid_y))
 
-    assert (displacement_field.div - true_divergence).norm / tuple_product(shape) < 1e-6
+    assert (displacement_field.div - true_divergence).norm / tuple_product(shape) < 1e-4

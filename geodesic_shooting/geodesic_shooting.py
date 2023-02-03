@@ -149,7 +149,7 @@ class GeodesicShooting:
             gradient_l2_energy = compute_grad_energy(forward_pushed_input) / sigma**2
 
             # compute gradient of the intensity difference with respect to the initial vector field
-            gradient_initial_vector = -self.integrate_backward_adjoint_Jacobi_field(gradient_l2_energy, vector_fields)
+            gradient_initial_vector = self.integrate_backward_adjoint_Jacobi_field(gradient_l2_energy, vector_fields)
 
             return energy, gradient_initial_vector.to_numpy().flatten()
 
@@ -303,7 +303,8 @@ class GeodesicShooting:
         einsum_string = '...lk,...l->...k'
         einsum_string_transpose = '...kl,...l->...k'
 
-        def rhs_function(x, v, v_old):
+        def rhs_function(x, v):
+            delta_v, v_old = x[0], x[1]
             # get divergence and gradient (Jacobian) of the current vector field
             div_vector_fields, grad_vector_fields = v.get_divergence(return_gradient=True)
             # get momentum corresponding to the adjoint variable `v_old`
@@ -336,13 +337,13 @@ class GeodesicShooting:
                                                             grad_regularized_vector_fields,
                                                             delta_v.to_numpy()))
                                + regularized_vector_fields * div_delta_v[..., np.newaxis]))
-            return rhs_delta_v
+            return rhs_delta_v, rhs_v
 
         ti = self.time_integrator(rhs_function, self.dt)
 
         # perform backward in time integration of the gradient of the energy function
         for t in range(self.time_steps-2, -1, -1):
-            delta_v = ti.step_backwards(delta_v, {'v': vector_fields[t], 'v_old': v_old})
+            delta_v, v_old = ti.step_backwards([delta_v, v_old], {'v': vector_fields[t]})
 
         # return adjoint variable `delta_v` that corresponds to the gradient
         # of the objective function at the initial time instance
