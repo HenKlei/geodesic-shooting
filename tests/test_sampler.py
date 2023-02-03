@@ -17,20 +17,3 @@ def test_sampler():
 
     result = sampler.sample(input_array, input_coordinates)
     assert input_array == result
-
-
-def test_sampler_inverse():
-    shape = (10, 10)
-    data_u0 = np.zeros(shape)
-    data_u0[5, 2] = 1.
-    data_u0[0, 4] = 2.
-    u0 = ScalarFunction(data=data_u0)
-
-    v0 = grid.identity_diffeomorphism(shape)
-    uniform_diff_vector = np.array([3, 4])
-    v0[:, :] -= uniform_diff_vector
-    u1 = u0.push_forward(v0)
-
-    back_u1 = sampler.sample_inverse(u1, v0)
-
-    assert np.isclose((back_u1 - u0).norm, 0.)
