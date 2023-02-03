@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 
 from geodesic_shooting.core.base import BaseFunction, BaseTimeDependentFunction
-from geodesic_shooting.utils import sampler, grid
+from geodesic_shooting.utils import grid
 
 
 class Diffeomorphism(BaseFunction):
