@@ -37,6 +37,32 @@ class Diffeomorphism(BaseFunction):
     def _compute_full_shape(self):
         return (*self.spatial_shape, self.dim)
 
+    def set_inverse(self, diffeomorphism):
+        """Assigns a variable with the inverse of the diffeomorphism.
+
+        The inverse is usually computed by integrating the corresponding
+        vector field backward in time.
+
+        Parameters
+        ----------
+        diffeomorphism
+            The inverse diffeomorphism.
+        """
+        assert isinstance(diffeomorphism, Diffeomorphism)
+        assert diffeomorphism.spatial_shape == self.spatial_shape
+        self.inverse_diffeomorphism = diffeomorphism
+
+    @property
+    def inverse(self):
+        """Returns the inverse of the diffeomorphism if available.
+
+        Returns
+        -------
+        The inverse diffeomorphism.
+        """
+        assert hasattr(self, 'inverse_diffeomorphism'), "Inverse diffeomorphism not set."
+        return self.inverse_diffeomorphism
+
     def plot_as_warpgrid(self, title="", interval=1, show_axis=False, show_identity_grid=True, axis=None,
                          show_displacement_vectors=False, color_length=False):
         """Plots the `VectorField` as a warpgrid using `matplotlib`.

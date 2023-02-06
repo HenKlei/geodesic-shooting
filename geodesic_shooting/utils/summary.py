@@ -12,6 +12,8 @@ def plot_registration_results(results, interval=1, scale=None):
     interval
         Interval in which to sample.
     """
+    diffeomorphism = results['flow']
+
     fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
     ax1, vals1 = results['input'].plot("Input", axis=ax1)
     if not isinstance(vals1, list):
@@ -35,13 +37,25 @@ def plot_registration_results(results, interval=1, scale=None):
         ax = results['vector_fields'][0].plot("Initial vector field", axis=ax, scale=scale)
         plt.show()
 
-        _ = results['flow'].plot_as_warpgrid("Diffeomorphism")
+        _ = diffeomorphism.plot_as_warpgrid("Diffeomorphism")
         plt.show()
 
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
         ax1 = results['vector_fields'][0].plot("Initial vector field", axis=ax1, scale=scale)
         ax2 = results['vector_fields'][-1].plot("Final vector field", axis=ax2, scale=scale)
         ax3 = (results['vector_fields'][0] - results['vector_fields'][-1]).plot("Difference", axis=ax3, scale=scale)
+        plt.show()
+
+        diffeomorphism.set_inverse(results['vector_fields'].integrate_backward())
+        diffeomorphism.inverse.plot_as_warpgrid("Inverse diffeomorphism")
+        plt.show()
+
+        inverse_transformed_registration_result = results['transformed_input'].push_forward(diffeomorphism.inverse)
+        inverse_transformed_registration_result.plot("Inverse transformed registration result")
+        plt.show()
+
+        inverse_transformed_target = results['target'].push_forward(diffeomorphism.inverse)
+        inverse_transformed_target.plot("Inverse transformed target")
         plt.show()
 
 
