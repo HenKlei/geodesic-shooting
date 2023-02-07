@@ -317,7 +317,6 @@ class GeodesicShooting:
                 VectorField(data=np.einsum(einsum_string_transpose, grad_vector_fields, regularized_v.to_numpy()))
                 + VectorField(data=np.einsum(einsum_string, grad_regularized_v, v.to_numpy()))
                 + regularized_v * div_vector_fields[..., np.newaxis])
-            v_old = v_old - rhs_v / self.time_steps
 
             # get divergence and gradient of the adjoint variable `delta_v`
             div_delta_v, grad_delta_v = delta_v.get_divergence(return_gradient=True)
