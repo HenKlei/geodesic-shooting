@@ -63,23 +63,24 @@ def test_time_integration():
     identity_diffeomorphism = grid.identity_diffeomorphism(shape)
     assert np.isclose((diffeomorphism_as_vector_field - identity_grid).norm, 0.)
 
-    translation_vector = np.array([1, 2])
+    original_translation_vector = np.array([1, 2])
+    translation_vector = original_translation_vector / 10
     v += translation_vector
     vf_list = [v] * time_steps
     constant_vector_field = TimeDependentVectorField(spatial_shape=shape, time_steps=time_steps, data=vf_list)
     diffeomorphism = constant_vector_field.integrate()
-    diffeomorphism_as_vector_field = VectorField(data=diffeomorphism)
+    diffeomorphism_as_vector_field = identity_grid + (VectorField(data=diffeomorphism) - identity_grid) * 10
 
     assert np.isclose((diffeomorphism_as_vector_field.push_forward(identity_diffeomorphism)
                        - diffeomorphism_as_vector_field).norm, 0.)
-    restriction = np.s_[:-translation_vector[0], :-translation_vector[1]]
-    assert np.isclose((diffeomorphism_as_vector_field - (identity_grid + v)).get_norm(restriction=restriction), 0.)
+    restriction = np.s_[:-original_translation_vector[0], :-original_translation_vector[1]]
+    assert np.isclose((diffeomorphism_as_vector_field - (identity_grid + 10 * v)).get_norm(restriction=restriction), 0.)
     assert np.isclose((identity_grid.push_forward(diffeomorphism) - diffeomorphism_as_vector_field)
                       .get_norm(restriction=restriction), 0.)
     inverse_diffeomorphism = constant_vector_field.integrate_backward()
     assert np.isclose((VectorField(data=inverse_diffeomorphism.push_forward(diffeomorphism)) - identity_grid)
                       .get_norm(restriction=restriction), 0.)
-    restriction = np.s_[translation_vector[0]:, translation_vector[1]:]
+    restriction = np.s_[original_translation_vector[0]:, original_translation_vector[1]:]
     assert np.isclose((VectorField(data=diffeomorphism.push_forward(inverse_diffeomorphism)) - identity_grid)
                       .get_norm(restriction=restriction), 0.)
 
