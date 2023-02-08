@@ -2,6 +2,7 @@ import numpy as np
 import skimage.transform
 
 import geodesic_shooting.core as core
+from geodesic_shooting.utils import grid
 
 
 def sample(f, coordinates, sampler_options={'order': 1, 'mode': 'edge'}):
@@ -21,13 +22,15 @@ def sample(f, coordinates, sampler_options={'order': 1, 'mode': 'edge'}):
 
     Returns
     -------
-    The sampled `ScalarFunction` or `VectorField`.
+    The sampled `ScalarFunction`, `VectorField` or `Diffeomorphism`.
     """
     assert (isinstance(f, (core.ScalarFunction, core.VectorField, core.Diffeomorphism))
             and isinstance(coordinates, core.Diffeomorphism))
     assert f.dim == coordinates.dim
 
-    coordinates = np.einsum("...i->i...", coordinates.to_numpy())
+    identity_grid = grid.coordinate_grid(f.spatial_shape).to_numpy()
+    scaled_difference = np.einsum("...i,i->...i", coordinates.to_numpy() - identity_grid, f.spatial_shape)
+    coordinates = np.einsum("...i->i...", identity_grid + scaled_difference)
 
     if isinstance(f, (core.VectorField, core.Diffeomorphism)):
         t = type(f)

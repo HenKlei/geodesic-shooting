@@ -433,17 +433,14 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
         Vector field containing the diffeomorphism originating from integrating the
         time-dependent vector field with respect to time.
         """
-        # create identity grid
-        identity_grid = grid.coordinate_grid(self.spatial_shape)
-
         # initial transformation is the identity mapping
         diffeomorphisms = [grid.identity_diffeomorphism(self.spatial_shape)]
 
         # perform integration with respect to time
         for t in range(self.time_steps):
-            diffeomorphisms.append(Diffeomorphism(data=sampler.sample(identity_grid + self[t] / self.time_steps,
-                                                                      diffeomorphisms[-1],
-                                                                      sampler_options=sampler_options)))
+            d = diffeomorphisms[-1] + sampler.sample(self[t], diffeomorphisms[-1],
+                                                     sampler_options=sampler_options) / self.time_steps
+            diffeomorphisms.append(Diffeomorphism(data=d))
 
         if get_time_dependent_diffeomorphism:
             return TimeDependentDiffeomorphism(data=diffeomorphisms)
@@ -462,17 +459,15 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
         Vector field containing the inverse diffeomorphism originating from integrating
         the time-dependent vector field backward with respect to time.
         """
-        # create identity grid
-        identity_grid = grid.coordinate_grid(self.spatial_shape)
-
         # initial transformation is the identity mapping
         diffeomorphisms = [grid.identity_diffeomorphism(self.spatial_shape)]
 
         # perform integration backwards with respect to time
         for t in range(self.time_steps-1, -1, -1):
-            diffeomorphisms.append(Diffeomorphism(data=sampler.sample(identity_grid - self[t] / self.time_steps,
-                                                                      diffeomorphisms[-1],
-                                                                      sampler_options=sampler_options)))
+            d = VectorField(data=diffeomorphisms[-1]) - (sampler.sample(self[t], diffeomorphisms[-1],
+                                                                        sampler_options=sampler_options)
+                                                         / self.time_steps)
+            diffeomorphisms.append(Diffeomorphism(data=d))
 
         if get_time_dependent_diffeomorphism:
             return TimeDependentDiffeomorphism(data=diffeomorphisms)

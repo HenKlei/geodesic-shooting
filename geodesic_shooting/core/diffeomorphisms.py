@@ -123,6 +123,8 @@ class Diffeomorphism(BaseFunction):
         dist_x = np.hstack([dist_x, np.hstack([self[::interval, -1, 0], self[-1, -1, 0]])[..., np.newaxis]])
         dist_y = np.vstack([dist_y, self[-1, ::interval, 1][np.newaxis, ...]])
         dist_y = np.hstack([dist_y, np.hstack([self[::interval, -1, 1], self[-1, -1, 1]])[..., np.newaxis]])
+        dist_x = grid_x + (dist_x - grid_x) * self.spatial_shape[0]
+        dist_y = grid_y + (dist_y - grid_y) * self.spatial_shape[1]
         plot_grid(dist_x, dist_y, color="C0")
 
         if show_displacement_vectors:
