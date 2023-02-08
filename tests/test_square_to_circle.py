@@ -10,7 +10,7 @@ def test_circle_to_square():
     input_ = make_square((64, 64), np.array([32, 32]), 40)
 
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=10., exponent=4)
+    gs = geodesic_shooting.GeodesicShooting(alpha=10., exponent=2)
     result = gs.register(input_, target, sigma=0.01, return_all=True)
 
-    assert (target - result['transformed_input']).norm / target.norm < 2e-1
+    assert (target - result['transformed_input']).norm / target.norm < 1e-1
