@@ -32,12 +32,18 @@ def sample(f, coordinates, sampler_options={'order': 1, 'mode': 'edge'}):
     scaled_difference = np.einsum("...i,i->...i", coordinates.to_numpy() - identity_grid, f.spatial_shape)
     coordinates = np.einsum("...i->i...", identity_grid + scaled_difference)
 
-    if isinstance(f, (core.VectorField, core.Diffeomorphism)):
-        t = type(f)
+    if isinstance(f, core.VectorField):
         samples_channels = []
         for i in range(f.dim):
             samples_channels.append(skimage.transform.warp(f[..., i], coordinates, **sampler_options))
-        return t(spatial_shape=f.spatial_shape, data=np.stack(samples_channels, axis=-1))
+        return core.VectorField(spatial_shape=f.spatial_shape, data=np.stack(samples_channels, axis=-1))
+    elif isinstance(f, core.Diffeomorphism):
+        samples_channels = []
+        for i in range(f.dim):
+            scaled_displacement_field = (f[..., i] - identity_grid[..., i]) / f.spatial_shape[i]
+            samples_channels.append(skimage.transform.warp(scaled_displacement_field, coordinates, **sampler_options)
+                                    + identity_grid[..., i])
+        return core.Diffeomorphism(spatial_shape=f.spatial_shape, data=np.stack(samples_channels, axis=-1))
 
     transformed_function = skimage.transform.warp(f.to_numpy(), coordinates, **sampler_options)
     return core.ScalarFunction(spatial_shape=f.full_shape, data=transformed_function)

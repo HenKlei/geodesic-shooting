@@ -9,7 +9,7 @@ if __name__ == "__main__":
     shape = (n, 2*n)
 
     def f(x, y):
-        return np.stack([0.8*np.exp(-x**2-y**2) * shape[0] / 6, -0.4*np.exp(-x**2-y**2) * shape[1] / 6], axis=-1)
+        return np.stack([0.8*np.exp(-x**2-y**2) / 6, -0.4*np.exp(-x**2-y**2) / 6], axis=-1)
 
     def g(x, y):
         return np.exp(-x**2-y**2)

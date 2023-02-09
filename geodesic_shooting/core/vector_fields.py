@@ -50,7 +50,8 @@ class VectorField(BaseFunction):
 
     div = property(get_divergence)
 
-    def plot(self, title="", interval=1, color_length=False, show_axis=False, scale=None, axis=None, zorder=1):
+    def plot(self, title="", interval=1, color_length=False, show_axis=False, scale=None, axis=None, figsize=(10, 10),
+             zorder=1):
         """Plots the `VectorField` using `matplotlib`'s `quiver` function.
 
         Parameters
@@ -76,16 +77,15 @@ class VectorField(BaseFunction):
 
         Returns
         -------
-        If `axis` is None, the created figure is returned, otherwise the axis
-        is returned.
+        If `axis` is None, the created figure and the axis are returned,
+        otherwise only the altered axis is returned.
         """
         assert self.dim == 2
 
         created_figure = False
         if not axis:
             created_figure = True
-            fig = plt.figure()
-            axis = fig.add_subplot(1, 1, 1)
+            fig, axis = plt.subplots(1, 1, figsize=figsize)
 
         if show_axis is False:
             axis.set_axis_off()
@@ -112,7 +112,7 @@ class VectorField(BaseFunction):
             return fig, axis
         return axis
 
-    def plot_streamlines(self, title="", density=1, color_length=False, show_axis=False, axis=None,
+    def plot_streamlines(self, title="", density=1, color_length=False, show_axis=False, axis=None, figsize=(10, 10),
                          zorder=1, integration_direction='forward'):
         """Plots the `VectorField` using `matplotlib`'s `quiver` function.
 
@@ -136,16 +136,15 @@ class VectorField(BaseFunction):
 
         Returns
         -------
-        If `axis` is None, the created figure is returned, otherwise the axis
-        is returned.
+        If `axis` is None, the created figure and the axis are returned,
+        otherwise only the altered axis is returned.
         """
         assert self.dim == 2
 
         created_figure = False
         if not axis:
             created_figure = True
-            fig = plt.figure()
-            axis = fig.add_subplot(1, 1, 1)
+            fig, axis = plt.subplots(1, 1, figsize=figsize)
 
         if show_axis is False:
             axis.set_axis_off()
@@ -170,7 +169,7 @@ class VectorField(BaseFunction):
         return axis
 
     def plot_as_warpgrid(self, title="", interval=1, show_axis=False, show_identity_grid=True, axis=None,
-                         show_displacement_vectors=False, color_length=False):
+                         figsize=(10, 10), show_displacement_vectors=False, color_length=False):
         """Plots the `VectorField` as a warpgrid using `matplotlib`.
 
         Parameters
@@ -195,16 +194,15 @@ class VectorField(BaseFunction):
 
         Returns
         -------
-        If `axis` is None, the created figure is returned, otherwise the axis
-        is returned.
+        If `axis` is None, the created figure and the axis are returned,
+        otherwise only the altered axis is returned.
         """
         assert self.dim == 2
 
         created_figure = False
         if not axis:
             created_figure = True
-            fig = plt.figure()
-            axis = fig.add_subplot(1, 1, 1)
+            fig, axis = plt.subplots(1, 1, figsize=figsize)
 
         def plot_grid(x, y, **kwargs):
             segs1 = np.stack([x, y], axis=-1)
@@ -229,11 +227,21 @@ class VectorField(BaseFunction):
         dist_x = np.hstack([dist_x, np.hstack([self[::interval, -1, 0], self[-1, -1, 0]])[..., np.newaxis]])
         dist_y = np.vstack([dist_y, self[-1, ::interval, 1][np.newaxis, ...]])
         dist_y = np.hstack([dist_y, np.hstack([self[::interval, -1, 1], self[-1, -1, 1]])[..., np.newaxis]])
-        dist_x, dist_y = grid_x + dist_x, grid_y + dist_y
+        dist_x, dist_y = grid_x + dist_x * self.spatial_shape[0], grid_y + dist_y * self.spatial_shape[1]
         plot_grid(dist_x, dist_y, color="C0")
 
         if show_displacement_vectors:
-            self.plot(scale=1., axis=axis, zorder=2, color_length=color_length)
+            if color_length:
+                colors = np.linalg.norm(self.to_numpy(), axis=-1)
+                axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
+                            self[::interval, ::interval, 0] * self.spatial_shape[0],
+                            self[::interval, ::interval, 1] * self.spatial_shape[1],
+                            colors, scale_units='xy', units='xy', angles='xy', scale=1, zorder=2)
+            else:
+                axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
+                            self[::interval, ::interval, 0] * self.spatial_shape[0],
+                            self[::interval, ::interval, 1] * self.spatial_shape[1],
+                            scale_units='xy', units='xy', angles='xy', scale=1, zorder=2)
 
         if show_axis is False:
             axis.set_axis_off()
@@ -245,32 +253,38 @@ class VectorField(BaseFunction):
             return fig, axis
         return axis
 
-    def save(self, filepath, title="", interval=1, color_length=False, show_axis=False, scale=None):
+    def save(self, filepath, dpi=100, plot_type='default',
+             plot_args={'title': '', 'interval': 1, 'color_length': False, 'show_axis': False, 'scale': None,
+                        'axis': None, 'figsize': (20, 20)}):
         """Saves the plot of the `VectorField` produced by the `plot`-function.
 
         Parameters
         ----------
         filepath
             Path to save the plot to.
-        title
-            Title of the plot.
-        interval
-            Interval in which to sample.
-        color_length
-            Determines whether or not to show the lengths of the vectors using
-            different colors.
-        show_axis
-            Determines whether or not to show the axes.
-        scale
-            Factor used for scaling the arrows in the `quiver`-plot.
-            If `None`, a default auto-scaling from `matplotlib` is applied.
-            For realistic arrow lengths without scaling, a value of `scale=1.`
-            has to be used.
+        dpi
+            The resolution in dots per inch.
+            See https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.savefig.html
+            for more details.
+        plot_type
+            String determining the type of the plot, possible options are `default`
+            (corresponds to a quiver-plot), `streamlines` and `warpgrid`.
+        plot_args
+            Dictionary of optional arguments that can be passed to the plot function chosen
+            as `plot_type`.
         """
+        assert plot_type in {'default', 'streamlines', 'warpgrid'}
+        if 'axis' in plot_args:
+            assert plot_args['axis'] is None
+
         try:
-            fig, _ = self.plot(title=title, interval=interval, color_length=color_length,
-                               show_axis=show_axis, scale=scale, axis=None)
-            fig.savefig(filepath)
+            if plot_type == 'default':
+                fig, _ = self.plot(**plot_args)
+            elif plot_type == 'streamlines':
+                fig, _ = self.plot_streamlines(**plot_args)
+            elif plot_type == 'warpgrid':
+                fig, _ = self.plot_as_warpgrid(**plot_args)
+            fig.savefig(filepath, dpi=dpi, bbox_inches='tight')
             plt.close(fig)
         except Exception:
             pass
@@ -307,10 +321,10 @@ class VectorField(BaseFunction):
                 x = grid.coordinate_grid(self.spatial_shape).to_numpy()
                 for pos_x, disp_x in zip(x[::interval], self[::interval]):
                     for pos, disp in zip(pos_x[::interval], disp_x[::interval]):
-                        tikz_file.write(f"\t\t\t\\draw (axis cs:{pos[0]/self.spatial_shape[0]}, "
-                                        f"{pos[1]/self.spatial_shape[1]}) "
-                                        f"-- (axis cs:{(pos[0]+disp[0]*scale)/self.spatial_shape[0]}, "
-                                        f"{(pos[1]+disp[1]*scale)/self.spatial_shape[1]});\n")
+                        tikz_file.write(f"\t\t\t\\draw (axis cs:{pos[0] / self.spatial_shape[0]}, "
+                                        f"{pos[1] / self.spatial_shape[1]}) "
+                                        f"-- (axis cs:{(pos[0] + disp[0] * scale) / self.spatial_shape[0]}, "
+                                        f"{(pos[1] + disp[1] * scale) / self.spatial_shape[1]});\n")
                 tikz_file.write("\t\t\\end{axis}\n"
                                 "\t\\end{tikzpicture}\n"
                                 "\\end{document}\n")
@@ -473,7 +487,7 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
             return TimeDependentDiffeomorphism(data=diffeomorphisms)
         return diffeomorphisms[-1]
 
-    def animate(self, title="", interval=1, scale=None, show_axis=False):
+    def animate(self, title="", interval=1, color_length=False, scale=None, show_axis=False, figsize=(10, 10)):
         """Animates the time-dependent vector field.
 
         Parameters
@@ -494,8 +508,7 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
         -------
         The animation object.
         """
-        fig = plt.figure()
-        axis = fig.add_subplot(1, 1, 1)
+        fig, axis = plt.subplots(1, 1, figsize=figsize)
 
         if show_axis is False:
             axis.set_axis_off()
@@ -505,7 +518,7 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
 
         def animate(i):
             axis.clear()
-            self[i].plot(title=title, interval=interval, scale=scale, axis=axis)
+            self[i].plot(title=title, interval=interval, color_length=color_length, scale=scale, axis=axis)
 
         ani = animation.FuncAnimation(fig, animate, frames=self.time_steps, interval=100)
         return ani

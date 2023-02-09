@@ -11,8 +11,8 @@ if __name__ == "__main__":
 
     def f(x, y):
         return np.stack([(0.75*(1 - x) / np.exp(np.sqrt((1 - x)**2 + y**2))
-                          + 100*(10 - x) / np.exp(np.sqrt((10 - x)**2 + y**2))) * shape[0] / 6,
-                         -y / np.exp(np.sqrt((1 - x)**2 + y**2)) * shape[1] / 6],
+                          + 100*(10 - x) / np.exp(np.sqrt((10 - x)**2 + y**2))) / 6,
+                         -y / np.exp(np.sqrt((1 - x)**2 + y**2)) / 6],
                         axis=-1)
 
     displacement_field = VectorField(data=f(grid_x, grid_y))
@@ -24,7 +24,7 @@ if __name__ == "__main__":
     plt.show()
 
     def f(x, y):
-        return np.stack([0.8*np.exp(-x**2-y**2) * shape[0] / 6, -0.4*np.exp(-x**2-y**2) * shape[1] / 6], axis=-1)
+        return np.stack([0.8*np.exp(-x**2-y**2) / 6, -0.4*np.exp(-x**2-y**2) / 6], axis=-1)
 
     displacement_field = VectorField(data=f(grid_x, grid_y))
     displacement_field.plot_as_warpgrid(title="Gaussian deformation")

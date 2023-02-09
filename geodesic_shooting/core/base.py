@@ -49,19 +49,19 @@ class BaseFunction:
         return grad.finite_difference(self)
 
     def push_forward(self, flow, sampler_options={'order': 1, 'mode': 'edge'}):
-        """Pushes forward the `VectorField` along a flow.
+        """Pushes forward the `BaseFunction` along a flow, i.e. compose with the `Diffeomorphism`.
 
         Parameters
         ----------
         flow
-            `VectorField` containing the flow according to which to push the input forward.
+            `Diffeomorphism` containing the flow according to which to push the input forward.
         sampler_options
             Additional options passed to the `warp`-function, see
             https://scikit-image.org/docs/stable/api/skimage.transform.html#skimage.transform.warp.
 
         Returns
         -------
-        `VectorField` of the forward-pushed function.
+        The forward-pushed `BaseFunction`.
         """
         return sampler.sample(self, flow, sampler_options=sampler_options)
 

@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 from matplotlib.collections import LineCollection
 
 from geodesic_shooting.core.base import BaseFunction, BaseTimeDependentFunction
@@ -63,8 +64,8 @@ class Diffeomorphism(BaseFunction):
         assert hasattr(self, 'inverse_diffeomorphism'), "Inverse diffeomorphism not set."
         return self.inverse_diffeomorphism
 
-    def plot_as_warpgrid(self, title="", interval=1, show_axis=False, show_identity_grid=True, axis=None,
-                         show_displacement_vectors=False, color_length=False):
+    def plot(self, title="", interval=1, show_axis=False, show_identity_grid=True, axis=None,
+             figsize=(10, 10), show_displacement_vectors=False, color_length=False):
         """Plots the `VectorField` as a warpgrid using `matplotlib`.
 
         Parameters
@@ -97,8 +98,7 @@ class Diffeomorphism(BaseFunction):
         created_figure = False
         if not axis:
             created_figure = True
-            fig = plt.figure()
-            axis = fig.add_subplot(1, 1, 1)
+            fig, axis = plt.subplots(1, 1, figsize=figsize)
 
         def plot_grid(x, y, **kwargs):
             segs1 = np.stack([x, y], axis=-1)
@@ -128,7 +128,17 @@ class Diffeomorphism(BaseFunction):
         plot_grid(dist_x, dist_y, color="C0")
 
         if show_displacement_vectors:
-            self.plot(scale=1., axis=axis, zorder=2, color_length=color_length)
+            if color_length:
+                colors = np.linalg.norm(self.to_numpy(), axis=-1)
+                axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
+                            self[::interval, ::interval, 0] * self.spatial_shape[0],
+                            self[::interval, ::interval, 1] * self.spatial_shape[1],
+                            colors, scale_units='xy', units='xy', angles='xy', scale=1, zorder=2)
+            else:
+                axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
+                            self[::interval, ::interval, 0] * self.spatial_shape[0],
+                            self[::interval, ::interval, 1] * self.spatial_shape[1],
+                            scale_units='xy', units='xy', angles='xy', scale=1, zorder=2)
 
         if show_axis is False:
             axis.set_axis_off()
@@ -141,7 +151,7 @@ class Diffeomorphism(BaseFunction):
         return axis
 
     def save(self, filepath, title="", interval=1, show_axis=False, show_identity_grid=True,
-             show_displacement_vectors=False, color_length=False):
+             show_displacement_vectors=False, color_length=False, dpi=100):
         """Saves the plot of the `VectorField` produced by the `plot`-function.
 
         Parameters
@@ -163,13 +173,17 @@ class Diffeomorphism(BaseFunction):
             Determines whether or not to show the lengths of the vectors using
             different colors.
             Only used if `show_displacement_vectors` is `True`.
+        dpi
+            The resolution in dots per inch.
+            See https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.savefig.html
+            for more details.
         """
         try:
-            fig, _ = self.plot_as_warpgrid(title=title, interval=interval, show_axis=show_axis,
-                                           show_identity_grid=show_identity_grid, axis=None,
-                                           show_displacement_vectors=show_displacement_vectors,
-                                           color_length=color_length)
-            fig.savefig(filepath)
+            fig, _ = self.plot(title=title, interval=interval, show_axis=show_axis,
+                               show_identity_grid=show_identity_grid, axis=None,
+                               show_displacement_vectors=show_displacement_vectors,
+                               color_length=color_length)
+            fig.savefig(filepath, dpi=dpi, bbox_inches='tight')
             plt.close(fig)
         except Exception:
             pass
@@ -198,14 +212,14 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
         """
         super().__init__(spatial_shape, time_steps, data)
 
-    def plot(self, title="", interval=1, frequency=1, show_axis=False, show_identity_grid=True, axis=None):
+    def plot(self, title="", interval=1, frequency=1, show_axis=False, show_identity_grid=True, axis=None,
+             figsize=(10, 10)):
         assert self.dim == 2
 
         created_figure = False
         if not axis:
             created_figure = True
-            fig = plt.figure()
-            axis = fig.add_subplot(1, 1, 1)
+            fig, axis = plt.subplots(1, 1, figsize=figsize)
 
         def plot_grid(x, y, **kwargs):
             segs1 = np.stack([x, y], axis=-1)
@@ -216,13 +230,31 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
 
         identity_grid = grid.coordinate_grid(self.spatial_shape)
         grid_x, grid_y = identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1]
+        grid_x = np.vstack([grid_x, identity_grid[-1, ::interval, 0][np.newaxis, ...]])
+        grid_x = np.hstack([grid_x, np.hstack([identity_grid[::interval, -1, 0],
+                                               identity_grid[-1, -1, 0]])[..., np.newaxis]])
+        grid_y = np.vstack([grid_y, identity_grid[-1, ::interval, 1][np.newaxis, ...]])
+        grid_y = np.hstack([grid_y, np.hstack([identity_grid[::interval, -1, 1],
+                                               identity_grid[-1, -1, 1]])[..., np.newaxis]])
         if show_identity_grid:
             plot_grid(grid_x, grid_y, color="lightgrey", zorder=1)
 
-        plot_grid(self[-1, ::interval, ::interval, 0], self[-1, ::interval, ::interval, 1], color="C0", zorder=3)
+        def get_scaled_and_extended_grid_points(t):
+            dist_x, dist_y = self[t, ::interval, ::interval, 0], self[t, ::interval, ::interval, 1]
+            dist_x = np.vstack([dist_x, self[t, -1, ::interval, 0][np.newaxis, ...]])
+            dist_x = np.hstack([dist_x, np.hstack([self[t, ::interval, -1, 0], self[t, -1, -1, 0]])[..., np.newaxis]])
+            dist_y = np.vstack([dist_y, self[t, -1, ::interval, 1][np.newaxis, ...]])
+            dist_y = np.hstack([dist_y, np.hstack([self[t, ::interval, -1, 1], self[t, -1, -1, 1]])[..., np.newaxis]])
+            dist_x = grid_x + (dist_x - grid_x) * self.spatial_shape[0]
+            dist_y = grid_y + (dist_y - grid_y) * self.spatial_shape[1]
+            return dist_x, dist_y
+
+        dist_x, dist_y = get_scaled_and_extended_grid_points(-1)
+        plot_grid(dist_x, dist_y, color="C0", zorder=3)
 
         for t in range(0, self.time_steps, frequency):
-            axis.scatter(self[t, ::interval, ::interval, 0], self[t, ::interval, ::interval, 1], c="C1", zorder=2)
+            dist_x, dist_y = get_scaled_and_extended_grid_points(t)
+            axis.scatter(dist_x, dist_y, c="C1", zorder=2)
 
         if show_axis is False:
             axis.set_axis_off()
@@ -233,3 +265,19 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
         if created_figure:
             return fig, axis
         return axis
+
+    def animate(self, title="", interval=1, show_axis=False, figsize=(10, 10)):
+        fig, axis = plt.subplots(1, 1, figsize=figsize)
+
+        if show_axis is False:
+            axis.set_axis_off()
+
+        axis.set_aspect('equal')
+        axis.set_title(title)
+
+        def animate(i):
+            axis.clear()
+            self[i].plot(title=title, interval=interval, axis=axis, show_displacement_vectors=False)
+
+        ani = animation.FuncAnimation(fig, animate, frames=self.time_steps, interval=100)
+        return ani

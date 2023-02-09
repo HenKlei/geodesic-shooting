@@ -18,5 +18,5 @@ if __name__ == "__main__":
                                              title="Initial vector field square to circle",
                                              interval=5, scale=10)
 
-    plot_registration_results(result)
+    plot_registration_results(result, frequency=5)
     save_plots_registration_results(result, filepath='results_square_to_circle/')

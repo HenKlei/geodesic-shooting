@@ -3,7 +3,6 @@ from numbers import Number
 import matplotlib.pyplot as plt
 
 from geodesic_shooting.core.base import BaseFunction
-from geodesic_shooting.utils import sampler
 
 
 class ScalarFunction(BaseFunction):
@@ -33,24 +32,7 @@ class ScalarFunction(BaseFunction):
     def _compute_full_shape(self):
         return self.spatial_shape
 
-    def push_forward(self, flow, sampler_options={'order': 1, 'mode': 'edge'}):
-        """Pushes forward the `ScalarFunction` along a flow.
-
-        Parameters
-        ----------
-        flow
-            `VectorField` containing the flow according to which to push the input forward.
-        sampler_options
-            Additional options passed to the `warp`-function, see
-            https://scikit-image.org/docs/stable/api/skimage.transform.html#skimage.transform.warp.
-
-        Returns
-        -------
-        `ScalarFunction` of the forward-pushed function.
-        """
-        return sampler.sample(self, flow, sampler_options=sampler_options)
-
-    def plot(self, title="", colorbar=True, axis=None, extent=(0., 1., 0., 1.)):
+    def plot(self, title="", colorbar=True, axis=None, figsize=(10, 10), extent=(0., 1., 0., 1.)):
         """Plots the `ScalarFunction` using `matplotlib`.
 
         Parameters
@@ -76,8 +58,7 @@ class ScalarFunction(BaseFunction):
         created_figure = False
         if not axis:
             created_figure = True
-            fig = plt.figure()
-            axis = fig.add_subplot(1, 1, 1)
+            fig, axis = plt.subplots(1, 1, figsize=figsize)
 
         if self.dim == 1:
             vals = axis.plot(self.to_numpy())
@@ -92,7 +73,7 @@ class ScalarFunction(BaseFunction):
             return fig, axis, vals
         return axis, vals
 
-    def save(self, filepath, title=""):
+    def save(self, filepath, title="", colorbar=True, extent=(0., 1., 0., 1.), dpi=100):
         """Saves the plot of the `ScalarFunction` produced by the `plot`-function.
 
         Parameters
@@ -101,10 +82,19 @@ class ScalarFunction(BaseFunction):
             Path to save the plot to.
         title
             Title of the plot.
+        colorbar
+            Determines whether or not to show a colorbar.
+        extent
+            Determines the left, right, bottom, and top coordinates of the plot.
+            Only used in the 2-dimensional case.
+        dpi
+            The resolution in dots per inch.
+            See https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.savefig.html
+            for more details.
         """
         try:
-            fig, _, _ = self.plot(title=title, axis=None)
-            fig.savefig(filepath)
+            fig, _, _ = self.plot(title=title, colorbar=colorbar, axis=None, extent=extent)
+            fig.savefig(filepath, dpi=dpi, bbox_inches='tight')
             plt.close(fig)
         except Exception:
             pass

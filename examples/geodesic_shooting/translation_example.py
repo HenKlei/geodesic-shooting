@@ -16,5 +16,9 @@ if __name__ == "__main__":
     gs = geodesic_shooting.GeodesicShooting(alpha=1000., exponent=2)
     result = gs.register(input_, target, sigma=0.1, return_all=True)
 
+    result['initial_vector_field'].save_tikz('initial_vector_field_translation.tex',
+                                             title="Initial vector field translation",
+                                             interval=5, scale=10)
+
     plot_registration_results(result)
     save_plots_registration_results(result, filepath='results_translation/')

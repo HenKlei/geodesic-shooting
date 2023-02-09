@@ -11,7 +11,7 @@ if __name__ == "__main__":
     zero_vector_field.plot_as_warpgrid(title="Identity grid")
 
     def f(x, y):
-        return np.stack([0.8*np.exp(-x**2-y**2) * shape[0] / 6, -0.4*np.exp(-x**2-y**2) * shape[1] / 6], axis=-1)
+        return np.stack([0.8*np.exp(-x**2-y**2) / 6, -0.4*np.exp(-x**2-y**2) / 6], axis=-1)
 
     grid_x, grid_y = np.meshgrid(np.linspace(-3, 3, shape[0]), np.linspace(-3, 3, shape[1]), indexing='ij')
     displacement_field = VectorField(data=f(grid_x, grid_y))
