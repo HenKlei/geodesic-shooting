@@ -276,11 +276,27 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
         axis.set_aspect('equal')
         axis.set_title(title)
 
-        def animate(i):
+        def update(i):
             axis.clear()
             self[i].plot(title=title, interval=interval, axis=axis, show_displacement_vectors=False)
 
-        ani = animation.FuncAnimation(fig, animate, frames=self.time_steps, interval=100)
+        time_steps = self.time_steps
+
+        class PauseAnimation:
+            def __init__(self):
+                self.ani = animation.FuncAnimation(fig, update, frames=time_steps, interval=100)
+                self.paused = False
+
+                fig.canvas.mpl_connect('button_press_event', self.toggle_pause)
+
+            def toggle_pause(self, *args, **kwargs):
+                if self.paused:
+                    self.ani.resume()
+                else:
+                    self.ani.pause()
+                self.paused = not self.paused
+
+        ani = PauseAnimation()
         return ani
 
     def animate_transformation(self, function, title="", interval=1, show_axis=False, figsize=(10, 10)):
@@ -294,11 +310,27 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
         axis.set_aspect('equal')
         axis.set_title(title)
 
-        def animate(i):
+        def update(i):
             axis.clear()
             function.push_forward(self[i]).plot(axis=axis,
                                                 extent=(0, self.spatial_shape[0]-1, 0, self.spatial_shape[1]-1))
             self[i].plot(title=title, interval=interval, axis=axis, show_displacement_vectors=False)
 
-        ani = animation.FuncAnimation(fig, animate, frames=self.time_steps, interval=100)
+        time_steps = self.time_steps
+
+        class PauseAnimation:
+            def __init__(self):
+                self.ani = animation.FuncAnimation(fig, update, frames=time_steps, interval=100)
+                self.paused = False
+
+                fig.canvas.mpl_connect('button_press_event', self.toggle_pause)
+
+            def toggle_pause(self, *args, **kwargs):
+                if self.paused:
+                    self.ani.resume()
+                else:
+                    self.ani.pause()
+                self.paused = not self.paused
+
+        ani = PauseAnimation()
         return ani
