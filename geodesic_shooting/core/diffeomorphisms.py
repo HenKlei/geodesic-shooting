@@ -67,7 +67,7 @@ class Diffeomorphism(BaseFunction):
 
     def plot(self, title="", interval=1, show_axis=False, show_identity_grid=True, axis=None,
              figsize=(10, 10), show_displacement_vectors=False, color_length=False):
-        """Plots the `VectorField` as a warpgrid using `matplotlib`.
+        """Plots the `Diffeomorphism` as a warpgrid using `matplotlib`.
 
         Parameters
         ----------
@@ -81,6 +81,9 @@ class Diffeomorphism(BaseFunction):
             Determines whether or not to show the underlying identity grid.
         axis
             If not `None`, the function is plotted on the provided axis.
+        figsize
+            Width and height of the figure in inches.
+            Only used if `axis` is `None` and a new figure is created.
         show_displacement_vectors
             Determines whether or not to show the corresponding displacement
             vectors.
@@ -91,8 +94,8 @@ class Diffeomorphism(BaseFunction):
 
         Returns
         -------
-        If `axis` is None, the created figure is returned, otherwise the axis
-        is returned.
+        If `axis` is None, the created figure and the axis are returned,
+        otherwise only the altered axis is returned.
         """
         assert self.dim == 2
 
@@ -215,6 +218,31 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
 
     def plot(self, title="", interval=1, frequency=1, show_axis=False, show_identity_grid=True, axis=None,
              figsize=(10, 10)):
+        """Plots the `TimeDependentDiffeomorphism` as trajectories of points using `matplotlib`.
+
+        Parameters
+        ----------
+        title
+            The title of the plot.
+        interval
+            Interval in which to sample.
+        frequency
+            Frequency in which to sample the points in the trajectories.
+        show_axis
+            Determines whether or not to show the axes.
+        show_identity_grid
+            Determines whether or not to show the underlying identity grid.
+        axis
+            If not `None`, the function is plotted on the provided axis.
+        figsize
+            Width and height of the figure in inches.
+            Only used if `axis` is `None` and a new figure is created.
+
+        Returns
+        -------
+        If `axis` is None, the created figure and the axis are returned,
+        otherwise only the altered axis is returned.
+        """
         assert self.dim == 2
 
         created_figure = False
@@ -268,6 +296,24 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
         return axis
 
     def animate(self, title="", interval=1, show_axis=False, figsize=(10, 10)):
+        """Animates the `TimeDependentDiffeomorphism`.
+
+        Parameters
+        ----------
+        title
+            The title of the plot.
+        interval
+            Interval in which to sample.
+        show_axis
+            Determines whether or not to show the axes.
+        figsize
+            Width and height of the figure in inches.
+            Only used if `axis` is `None` and a new figure is created.
+
+        Returns
+        -------
+        The animation object.
+        """
         fig, axis = plt.subplots(1, 1, figsize=figsize)
 
         if show_axis is False:
@@ -300,6 +346,26 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
         return ani
 
     def animate_transformation(self, function, title="", interval=1, show_axis=False, figsize=(10, 10)):
+        """Animates the `TimeDependentDiffeomorphism` together with a transformed `ScalarFunction`.
+
+        Parameters
+        ----------
+        function
+            `ScalarFunction` to transform and plot during the animation.
+        title
+            The title of the plot.
+        interval
+            Interval in which to sample.
+        show_axis
+            Determines whether or not to show the axes.
+        figsize
+            Width and height of the figure in inches.
+            Only used if `axis` is `None` and a new figure is created.
+
+        Returns
+        -------
+        The animation object.
+        """
         assert isinstance(function, ScalarFunction)
 
         fig, axis = plt.subplots(1, 1, figsize=figsize)

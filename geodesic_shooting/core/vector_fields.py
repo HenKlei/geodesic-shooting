@@ -42,6 +42,18 @@ class VectorField(BaseFunction):
         return (*self.spatial_shape, self.dim)
 
     def get_divergence(self, return_gradient=False):
+        """Computes the divergence of the `VectorField`.
+
+        Parameters
+        ----------
+        return_gradient
+            Determines whether or not to also return the gradient (Jacobian) of the `VectorField`.
+
+        Returns
+        -------
+        The divergence as a `ScalarFunction`. If `return_gradient` is `True`, also the gradient
+        is returned.
+        """
         grad = self.grad
         div = ScalarFunction(data=np.sum(np.array([grad[..., d, d] for d in range(self.dim)]), axis=0))
         if return_gradient:
@@ -72,6 +84,9 @@ class VectorField(BaseFunction):
             has to be used.
         axis
             If not `None`, the function is plotted on the provided axis.
+        figsize
+            Width and height of the figure in inches.
+            Only used if `axis` is `None` and a new figure is created.
         zorder
             Determines the ordering of the plots on the axis.
 
@@ -158,6 +173,9 @@ class VectorField(BaseFunction):
             Determines whether or not to show the axes.
         axis
             If not `None`, the function is plotted on the provided axis.
+        figsize
+            Width and height of the figure in inches.
+            Only used if `axis` is `None` and a new figure is created.
         zorder
             Determines the ordering of the plots on the axis.
         integration_direction
@@ -213,6 +231,9 @@ class VectorField(BaseFunction):
             Determines whether or not to show the underlying identity grid.
         axis
             If not `None`, the function is plotted on the provided axis.
+        figsize
+            Width and height of the figure in inches.
+            Only used if `axis` is `None` and a new figure is created.
         show_displacement_vectors
             Determines whether or not to show the corresponding displacement
             vectors.
@@ -496,6 +517,9 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
         ----------
         sampler_options
             Additional options to pass to the sampler.
+        get_time_dependent_diffeomorphism
+            Determines whether or not to return the `TimeDependentDiffeomorphism` or only
+            the final `Diffeomorphism`.
 
         Returns
         -------
@@ -517,7 +541,7 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
         return diffeomorphisms[-1]
 
     def animate(self, title="", interval=1, color_length=False, scale=None, show_axis=False, figsize=(10, 10)):
-        """Animates the time-dependent vector field.
+        """Animates the `TimeDependentVectorField` using the `plot`-function of `VectorField`.
 
         Parameters
         ----------
@@ -525,6 +549,9 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
             The title of the plot.
         interval
             Interval in which to sample.
+        color_length
+            Determines whether or not to show the lengths of the vectors using
+            different colors.
         scale
             Factor used for scaling the arrows in the `quiver`-plot.
             If `None`, a default auto-scaling from `matplotlib` is applied.
@@ -532,6 +559,9 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
             has to be used.
         show_axis
             Determines whether or not to show the axes.
+        figsize
+            Width and height of the figure in inches.
+            Only used if `axis` is `None` and a new figure is created.
 
         Returns
         -------

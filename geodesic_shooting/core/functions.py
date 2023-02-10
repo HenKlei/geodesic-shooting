@@ -44,15 +44,19 @@ class ScalarFunction(BaseFunction):
             Determines whether or not to show a colorbar (only used if `axis=None`).
         axis
             If not `None`, the function is plotted on the provided axis.
+        figsize
+            Width and height of the figure in inches.
+            Only used if `axis` is `None` and a new figure is created.
         extent
             Determines the left, right, bottom, and top coordinates of the plot.
             Only used in the 2-dimensional case.
 
         Returns
         -------
-        If `axis` is None, the created figure is returned, otherwise a pair containing
-        the axis and the return value of `axis.plot` respectively `axis.imshow` (can be
-        used to create colorbars) is returned.
+        If `axis` is `None`, the created figure, the axis and the values returned by the
+        plot function (can be used to create colorbars) are returned, otherwise the axis
+        and the values returned by the plot function (can be used to create colorbars) are
+        returned.
         """
         assert self.dim in {1, 2, 3}
 
