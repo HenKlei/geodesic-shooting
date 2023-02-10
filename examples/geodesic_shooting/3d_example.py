@@ -2,6 +2,7 @@ import numpy as np
 
 import geodesic_shooting
 from geodesic_shooting.core import ScalarFunction
+from geodesic_shooting.utils.summary import plot_registration_results
 
 
 if __name__ == "__main__":
@@ -13,15 +14,8 @@ if __name__ == "__main__":
     input_ = ScalarFunction(data=input_)
     target = ScalarFunction(data=target)
 
-    print(f"Initial relative norm of difference: {(target - input_).norm / target.norm}")
-
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=500., exponent=1)
-    result = gs.register(input_, target, sigma=0.05, return_all=True)
+    gs = geodesic_shooting.GeodesicShooting(alpha=5., exponent=2)
+    result = gs.register(input_, target, sigma=0.01, return_all=True)
 
-    transformed_input = result['transformed_input']
-
-    print(f"Registration finished after {result['iterations']} iterations.")
-    print(f"Registration took {result['time']} seconds.")
-    print(f"Reason for the registration algorithm to stop: {result['reason_registration_ended']}.")
-    print(f"Relative norm of difference: {(target - transformed_input).norm / target.norm}")
+    plot_registration_results(result)

@@ -1,6 +1,7 @@
 __pycache__
 *.pyc
 *.swp
-examples/*/results/
+examples/*/results*/
 *.egg-info
 *.pickle
+*.tex

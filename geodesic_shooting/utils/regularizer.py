@@ -163,7 +163,7 @@ class BiharmonicRegularizer:
 
         for i in np.ndindex(spatial_shape):
             for d in range(dim):
-                helper_operator[i] += 2.*self.alpha*(1. - np.cos(2.*np.pi*i[d]/spatial_shape[d]))
+                helper_operator[i] += 2.*self.alpha*(1. - np.cos(2.*np.pi*i[d] / spatial_shape[d]))
 
         helper_operator += 1.
         helper_operator = helper_operator**self.exponent

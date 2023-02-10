@@ -1,16 +1,16 @@
 import numpy as np
 from numbers import Number
-from copy import deepcopy
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from matplotlib.collections import LineCollection
 
-from geodesic_shooting.core import ScalarFunction
-from geodesic_shooting.utils import grid
-import geodesic_shooting.utils.grad as grad
+from geodesic_shooting.core.base import BaseFunction, BaseTimeDependentFunction
+from geodesic_shooting.core import Diffeomorphism, TimeDependentDiffeomorphism, ScalarFunction
+from geodesic_shooting.utils import sampler, grid
 from geodesic_shooting.utils.helper_functions import lincomb
 
 
-class VectorField:
+class VectorField(BaseFunction):
     """Class that represents a vector-valued function, i.e. a vector field."""
     def __init__(self, spatial_shape=(), data=None):
         """Constructor.
@@ -29,60 +29,41 @@ class VectorField:
             components of the shape of `data` (without the last component)
             fit to the provided `spatial_shape`.
         """
+        super().__init__(spatial_shape, data)
+
+        assert len(self.spatial_shape) == self._data.shape[-1]
+
+    def _compute_spatial_shape(self, spatial_shape, data):
         if data is None:
-            assert spatial_shape != ()
-        else:
-            if spatial_shape != ():
-                assert spatial_shape == data.shape[0:-1]
-            else:
-                spatial_shape = data.shape[0:-1]
+            return spatial_shape
+        return data.shape[0:-1]
 
-        self.spatial_shape = spatial_shape
-        self.dim = len(self.spatial_shape)
-        self.full_shape = (*self.spatial_shape, self.dim)
+    def _compute_full_shape(self):
+        return (*self.spatial_shape, self.dim)
 
-        if data is None:
-            data = np.zeros(self.full_shape)
-        assert len(spatial_shape) == data.shape[-1]
-        self._data = data
-        assert self._data.shape == self.full_shape
-
-    @property
-    def grad(self):
-        """Computes the (discrete, approximate) gradient/Jacobian using finite differences.
-
-        Returns
-        -------
-        Finite difference approximation of the gradient/Jacobian.
-        """
-        return grad.finite_difference(self)
-
-    def to_numpy(self, shape=None):
-        """Returns the `VectorField` represented as a numpy-array.
+    def get_divergence(self, return_gradient=False):
+        """Computes the divergence of the `VectorField`.
 
         Parameters
         ----------
-        shape
-            If not `None`, the numpy-array is reshaped according to `shape`.
+        return_gradient
+            Determines whether or not to also return the gradient (Jacobian) of the `VectorField`.
 
         Returns
         -------
-        Numpy-array containing the entries of the `VectorField`.
+        The divergence as a `ScalarFunction`. If `return_gradient` is `True`, also the gradient
+        is returned.
         """
-        if shape:
-            return self._data.reshape(shape)
-        return self._data
+        grad = self.grad
+        div = ScalarFunction(data=np.sum(np.array([grad[..., d, d] for d in range(self.dim)]), axis=0))
+        if return_gradient:
+            return div, grad
+        return div
 
-    def flatten(self):
-        """Returns the `VectorField` represented as a flattened numpy-array.
+    div = property(get_divergence)
 
-        Returns
-        -------
-        Flattened numpy-array containing the entries of the `VectorField`.
-        """
-        return self.to_numpy().flatten()
-
-    def plot(self, title="", interval=1, show_axis=False, scale=None, axis=None):
+    def plot(self, title="", interval=1, color_length=False, show_axis=False, scale=None, axis=None, figsize=(10, 10),
+             zorder=1):
         """Plots the `VectorField` using `matplotlib`'s `quiver` function.
 
         Parameters
@@ -91,6 +72,9 @@ class VectorField:
             The title of the plot.
         interval
             Interval in which to sample.
+        color_length
+            Determines whether or not to show the lengths of the vectors using
+            different colors.
         show_axis
             Determines whether or not to show the axes.
         scale
@@ -100,19 +84,26 @@ class VectorField:
             has to be used.
         axis
             If not `None`, the function is plotted on the provided axis.
+        figsize
+            Width and height of the figure in inches.
+            Only used if `axis` is `None` and a new figure is created.
+        zorder
+            Determines the ordering of the plots on the axis.
 
         Returns
         -------
-        If `axis` is None, the created figure is returned, otherwise the axis
-        is returned.
+        If `axis` is None, the created figure and the axis are returned,
+        otherwise only the altered axis is returned.
         """
-        assert self.dim == 2
+        assert self.dim in {1, 2, 3}
 
         created_figure = False
         if not axis:
             created_figure = True
-            fig = plt.figure()
-            axis = fig.add_subplot(1, 1, 1)
+            if self.dim == 3:
+                fig, axis = plt.subplots(1, 1, figsize=figsize, subplot_kw={'projection': '3d'})
+            else:
+                fig, axis = plt.subplots(1, 1, figsize=figsize)
 
         if show_axis is False:
             axis.set_axis_off()
@@ -123,30 +114,229 @@ class VectorField:
         if np.max(np.linalg.norm(self.to_numpy(), axis=-1)) < 1e-10:
             scale = 1
 
-        x = grid.coordinate_grid(self.spatial_shape).to_numpy()
-        axis.quiver(x[::interval, ::interval, 0], x[::interval, ::interval, 1],
-                    self[::interval, ::interval, 0], self[::interval, ::interval, 1],
-                    units='xy', scale=scale)
+        identity_grid = grid.coordinate_grid(self.spatial_shape)
+
+        if color_length:
+            colors = np.linalg.norm(self.to_numpy(), axis=-1)
+            if self.dim == 1:
+                axis.quiver(identity_grid[::interval, 0], np.zeros(self.spatial_shape),
+                            self[::interval, 0], np.zeros(self.spatial_shape), colors,
+                            scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
+            elif self.dim == 2:
+                axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
+                            self[::interval, ::interval, 0], self[::interval, ::interval, 1], colors,
+                            scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
+            elif self.dim == 3:
+                axis.quiver(identity_grid[::interval, ::interval, ::interval, 0],
+                            identity_grid[::interval, ::interval, ::interval, 1],
+                            identity_grid[::interval, ::interval, ::interval, 2],
+                            self[::interval, ::interval, ::interval, 0],
+                            self[::interval, ::interval, ::interval, 1],
+                            self[::interval, ::interval, ::interval, 2],
+                            colors=colors, zorder=zorder)
+        else:
+            if self.dim == 1:
+                axis.quiver(identity_grid[::interval, 0], np.zeros(self.spatial_shape),
+                            self[::interval, 0], np.zeros(self.spatial_shape),
+                            scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
+            elif self.dim == 2:
+                axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
+                            self[::interval, ::interval, 0], self[::interval, ::interval, 1],
+                            scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
+            elif self.dim == 3:
+                axis.quiver(identity_grid[::interval, ::interval, ::interval, 0],
+                            identity_grid[::interval, ::interval, ::interval, 1],
+                            identity_grid[::interval, ::interval, ::interval, 2],
+                            self[::interval, ::interval, ::interval, 0],
+                            self[::interval, ::interval, ::interval, 1],
+                            self[::interval, ::interval, ::interval, 2],
+                            zorder=zorder)
 
         if created_figure:
             return fig, axis
         return axis
 
-    def save(self, filepath, title=""):
+    def plot_streamlines(self, title="", density=1, color_length=False, show_axis=False, axis=None, figsize=(10, 10),
+                         zorder=1, integration_direction='forward'):
+        """Plots the `VectorField` using `matplotlib`'s `quiver` function.
+
+        Parameters
+        ----------
+        title
+            The title of the plot.
+        density
+            Determines the density of the streamlines.
+        color_length
+            Determines whether or not to show the lengths of the vectors using
+            different colors.
+        show_axis
+            Determines whether or not to show the axes.
+        axis
+            If not `None`, the function is plotted on the provided axis.
+        figsize
+            Width and height of the figure in inches.
+            Only used if `axis` is `None` and a new figure is created.
+        zorder
+            Determines the ordering of the plots on the axis.
+        integration_direction
+            The direction in which to integrate the streamlines.
+
+        Returns
+        -------
+        If `axis` is None, the created figure and the axis are returned,
+        otherwise only the altered axis is returned.
+        """
+        assert self.dim == 2
+
+        created_figure = False
+        if not axis:
+            created_figure = True
+            fig, axis = plt.subplots(1, 1, figsize=figsize)
+
+        if show_axis is False:
+            axis.set_axis_off()
+
+        axis.set_aspect('equal')
+        axis.set_title(title)
+
+        if color_length:
+            colors = np.linalg.norm(self.to_numpy(), axis=-1).T
+            xs = np.arange(self.spatial_shape[0])
+            ys = np.arange(self.spatial_shape[1])
+            axis.streamplot(xs, ys, self[..., 0].T, self[..., 1].T,
+                            density=density, color=colors, zorder=zorder, integration_direction=integration_direction)
+        else:
+            xs = np.arange(self.spatial_shape[0])
+            ys = np.arange(self.spatial_shape[1])
+            axis.streamplot(xs, ys, self[..., 0].T, self[..., 1].T,
+                            density=density, zorder=zorder, integration_direction=integration_direction)
+
+        if created_figure:
+            return fig, axis
+        return axis
+
+    def plot_as_warpgrid(self, title="", interval=1, show_axis=False, show_identity_grid=True, axis=None,
+                         figsize=(10, 10), show_displacement_vectors=False, color_length=False):
+        """Plots the `VectorField` as a warpgrid using `matplotlib`.
+
+        Parameters
+        ----------
+        title
+            The title of the plot.
+        interval
+            Interval in which to sample.
+        show_axis
+            Determines whether or not to show the axes.
+        show_identity_grid
+            Determines whether or not to show the underlying identity grid.
+        axis
+            If not `None`, the function is plotted on the provided axis.
+        figsize
+            Width and height of the figure in inches.
+            Only used if `axis` is `None` and a new figure is created.
+        show_displacement_vectors
+            Determines whether or not to show the corresponding displacement
+            vectors.
+        color_length
+            Determines whether or not to show the lengths of the vectors using
+            different colors.
+            Only used if `show_displacement_vectors` is `True`.
+
+        Returns
+        -------
+        If `axis` is None, the created figure and the axis are returned,
+        otherwise only the altered axis is returned.
+        """
+        assert self.dim == 2
+
+        created_figure = False
+        if not axis:
+            created_figure = True
+            fig, axis = plt.subplots(1, 1, figsize=figsize)
+
+        def plot_grid(x, y, **kwargs):
+            segs1 = np.stack([x, y], axis=-1)
+            segs2 = segs1.transpose(1, 0, 2)
+            axis.add_collection(LineCollection(segs1, **kwargs))
+            axis.add_collection(LineCollection(segs2, **kwargs))
+            axis.autoscale()
+
+        identity_grid = grid.coordinate_grid(self.spatial_shape)
+        grid_x, grid_y = identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1]
+        grid_x = np.vstack([grid_x, identity_grid[-1, ::interval, 0][np.newaxis, ...]])
+        grid_x = np.hstack([grid_x, np.hstack([identity_grid[::interval, -1, 0],
+                                               identity_grid[-1, -1, 0]])[..., np.newaxis]])
+        grid_y = np.vstack([grid_y, identity_grid[-1, ::interval, 1][np.newaxis, ...]])
+        grid_y = np.hstack([grid_y, np.hstack([identity_grid[::interval, -1, 1],
+                                               identity_grid[-1, -1, 1]])[..., np.newaxis]])
+        if show_identity_grid:
+            plot_grid(grid_x, grid_y, color="lightgrey")
+
+        dist_x, dist_y = self[::interval, ::interval, 0], self[::interval, ::interval, 1]
+        dist_x = np.vstack([dist_x, self[-1, ::interval, 0][np.newaxis, ...]])
+        dist_x = np.hstack([dist_x, np.hstack([self[::interval, -1, 0], self[-1, -1, 0]])[..., np.newaxis]])
+        dist_y = np.vstack([dist_y, self[-1, ::interval, 1][np.newaxis, ...]])
+        dist_y = np.hstack([dist_y, np.hstack([self[::interval, -1, 1], self[-1, -1, 1]])[..., np.newaxis]])
+        dist_x, dist_y = grid_x + dist_x * self.spatial_shape[0], grid_y + dist_y * self.spatial_shape[1]
+        plot_grid(dist_x, dist_y, color="C0")
+
+        if show_displacement_vectors:
+            if color_length:
+                colors = np.linalg.norm(self.to_numpy(), axis=-1)
+                axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
+                            self[::interval, ::interval, 0] * self.spatial_shape[0],
+                            self[::interval, ::interval, 1] * self.spatial_shape[1],
+                            colors, scale_units='xy', units='xy', angles='xy', scale=1, zorder=2)
+            else:
+                axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
+                            self[::interval, ::interval, 0] * self.spatial_shape[0],
+                            self[::interval, ::interval, 1] * self.spatial_shape[1],
+                            scale_units='xy', units='xy', angles='xy', scale=1, zorder=2)
+
+        if show_axis is False:
+            axis.set_axis_off()
+
+        axis.set_aspect('equal')
+        axis.set_title(title)
+
+        if created_figure:
+            return fig, axis
+        return axis
+
+    def save(self, filepath, dpi=100, plot_type='default',
+             plot_args={'title': '', 'interval': 1, 'color_length': False, 'show_axis': False, 'scale': None,
+                        'axis': None, 'figsize': (20, 20)}):
         """Saves the plot of the `VectorField` produced by the `plot`-function.
 
         Parameters
         ----------
         filepath
             Path to save the plot to.
-        title
-            Title of the plot.
+        dpi
+            The resolution in dots per inch.
+            See https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.savefig.html
+            for more details.
+        plot_type
+            String determining the type of the plot, possible options are `default`
+            (corresponds to a quiver-plot), `streamlines` and `warpgrid`.
+        plot_args
+            Dictionary of optional arguments that can be passed to the plot function chosen
+            as `plot_type`.
         """
+        assert plot_type in {'default', 'streamlines', 'warpgrid'}
+        if 'axis' in plot_args:
+            assert plot_args['axis'] is None
+
         try:
-            fig, _ = self.plot(title=title, axis=None)
-            fig.savefig(filepath)
+            if plot_type == 'default':
+                fig, _ = self.plot(**plot_args)
+            elif plot_type == 'streamlines':
+                fig, _ = self.plot_streamlines(**plot_args)
+            elif plot_type == 'warpgrid':
+                fig, _ = self.plot_as_warpgrid(**plot_args)
+            fig.savefig(filepath, dpi=dpi, bbox_inches='tight')
             plt.close(fig)
-        except Exception as e:
+        except Exception:
             pass
 
     def save_tikz(self, filepath, title="", interval=1, scale=1.):
@@ -181,104 +371,22 @@ class VectorField:
                 x = grid.coordinate_grid(self.spatial_shape).to_numpy()
                 for pos_x, disp_x in zip(x[::interval], self[::interval]):
                     for pos, disp in zip(pos_x[::interval], disp_x[::interval]):
-                        tikz_file.write(f"\t\t\t\\draw (axis cs:{pos[0]/self.spatial_shape[0]}, "
-                                        f"{pos[1]/self.spatial_shape[1]}) "
-                                        f"-- (axis cs:{(pos[0]+disp[0]*scale)/self.spatial_shape[0]}, "
-                                        f"{(pos[1]+disp[1]*scale)/self.spatial_shape[1]});\n")
+                        tikz_file.write(f"\t\t\t\\draw (axis cs:{pos[0] / self.spatial_shape[0]}, "
+                                        f"{pos[1] / self.spatial_shape[1]}) "
+                                        f"-- (axis cs:{(pos[0] + disp[0] * scale) / self.spatial_shape[0]}, "
+                                        f"{(pos[1] + disp[1] * scale) / self.spatial_shape[1]});\n")
                 tikz_file.write("\t\t\\end{axis}\n"
                                 "\t\\end{tikzpicture}\n"
                                 "\\end{document}\n")
         except Exception:
             pass
 
-    def plot_as_warpgrid(self, title="", interval=1, show_axis=False, invert_yaxis=True, axis=None):
-        """Plots the `VectorField` as a warpgrid using `matplotlib`.
-
-        Parameters
-        ----------
-        title
-            The title of the plot.
-        interval
-            Interval in which to sample.
-        show_axis
-            Determines whether or not to show the axes.
-        invert_yaxis
-            Determines whether or not to invert the vertical axis.
-        axis
-            If not `None`, the function is plotted on the provided axis.
-
-        Returns
-        -------
-        If `axis` is None, the created figure is returned, otherwise the axis
-        is returned.
-        """
-        assert self.dim == 2
-
-        created_figure = False
-        if not axis:
-            created_figure = True
-            fig = plt.figure()
-            axis = fig.add_subplot(1, 1, 1)
-
-        if show_axis is False:
-            axis.set_axis_off()
-
-        if invert_yaxis:
-            axis.invert_yaxis()
-        axis.set_aspect('equal')
-        axis.set_title(title)
-
-        for row in range(0, self.spatial_shape[0], interval):
-            axis.plot(self[row, :, 0], self[row, :, 1], 'k')
-        for col in range(0, self.spatial_shape[1], interval):
-            axis.plot(self[:, col, 0], self[:, col, 1], 'k')
-
-        if created_figure:
-            return fig, axis
-        return axis
-
-    def get_norm(self, product_operator=None, order=None, restriction=np.s_[...]):
-        """Computes the norm of the `VectorField`.
-
-        Remark: If `order=None` and `self.dim >= 2`, the 2-norm of `self.to_numpy().ravel()`
-        is returned, see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
-
-        Parameters
-        ----------
-        product_operator
-            Operator with respect to which to compute the norm. If `None`, the standard l2-inner
-            product is used.
-        order
-            Order of the norm,
-            see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
-        restriction
-            Slice that can be used to restrict the domain on which to compute the norm.
-
-        Returns
-        -------
-        The norm of the `VectorField`.
-        """
-        if product_operator:
-            return np.sqrt(product_operator(self).to_numpy()[restriction].flatten().dot(self.to_numpy()[restriction].flatten()))
-        else:
-            return np.linalg.norm(self.to_numpy()[restriction].flatten(), ord=order)
-
-    norm = property(get_norm)
-
-    def copy(self):
-        """Returns a deepcopy of the `VectorField`.
-
-        Returns
-        -------
-        Deepcopy of the whole `VectorField`.
-        """
-        return deepcopy(self)
-
     def __add__(self, other):
-        assert ((isinstance(other, VectorField) and other.full_shape == self.full_shape)
-                or (isinstance(other, np.ndarray) and other.shape == self.full_shape))
+        assert ((isinstance(other, BaseFunction) and other.full_shape == self.full_shape)
+                or (isinstance(other, np.ndarray) and (other.shape == self.full_shape
+                                                       or other.shape == (self.dim, ))))
         result = self.copy()
-        if isinstance(other, VectorField):
+        if isinstance(other, BaseFunction):
             result._data += other._data
         else:
             result._data += other
@@ -288,7 +396,8 @@ class VectorField:
 
     def __iadd__(self, other):
         assert ((isinstance(other, VectorField) and other.full_shape == self.full_shape)
-                or (isinstance(other, np.ndarray) and other.shape == self.full_shape))
+                or (isinstance(other, np.ndarray) and (other.shape == self.full_shape
+                                                       or other.shape == (self.dim, ))))
         if isinstance(other, VectorField):
             self._data = self._data + other._data
         else:
@@ -297,7 +406,8 @@ class VectorField:
 
     def __sub__(self, other):
         assert ((isinstance(other, VectorField) and other.full_shape == self.full_shape)
-                or (isinstance(other, np.ndarray) and other.shape == self.full_shape))
+                or (isinstance(other, np.ndarray) and (other.shape == self.full_shape
+                                                       or other.shape == (self.dim, ))))
         result = self.copy()
         if isinstance(other, VectorField):
             result._data -= other._data
@@ -307,7 +417,8 @@ class VectorField:
 
     def __isub__(self, other):
         assert ((isinstance(other, VectorField) and other.full_shape == self.full_shape)
-                or (isinstance(other, np.ndarray) and other.shape == self.full_shape))
+                or (isinstance(other, np.ndarray) and (other.shape == self.full_shape
+                                                       or other.shape == (self.dim, ))))
         if isinstance(other, VectorField):
             self._data = self._data - other._data
         else:
@@ -339,26 +450,8 @@ class VectorField:
         self._data = self._data / other
         return self
 
-    def __eq__(self, other):
-        if isinstance(other, VectorField) and (other.to_numpy() == self.to_numpy()).all():
-            return True
-        return False
 
-    def __getitem__(self, index):
-        return self._data[index]
-
-    def __setitem__(self, index, val):
-        if isinstance(val, VectorField) or isinstance(val, ScalarFunction):
-            self._data[index] = val._data
-        else:
-            self._data[index] = val
-        assert self._data.shape == self.full_shape
-
-    def __str__(self):
-        return str(self.to_numpy())
-
-
-class TimeDependentVectorField:
+class TimeDependentVectorField(BaseTimeDependentFunction):
     """Class that represents a time-dependent vector field."""
     def __init__(self, spatial_shape=(), time_steps=1, data=None):
         """Constructor.
@@ -372,31 +465,14 @@ class TimeDependentVectorField:
             Number of time steps represented in this vector field.
         data
             numpy-array containing the values of the `TimeDependentVectorFieldVectorField`.
-            If `None`, one has to provide `spatial_shape` and `time_steps` and a
+            If `None`, one has to provide `spatial_shape` and `time_steps`, and a
             list containing for each time step a `VectorField` of zeros with shape
             `(*spatial_shape, dim)` is created as data, where `dim` is the dimension of
             the underlying domain (given as `len(spatial_shape)`).
-            If not `None`, either a numpy-array or a `TimeDependentVectorField`
-            has to be provided.
+            If not `None`, either a numpy-array or a `TimeDependentVectorField` or a list
+            of `VectorField`s has to be provided.
         """
-        assert isinstance(time_steps, int) and time_steps > 0
-        self.spatial_shape = spatial_shape
-        self.dim = len(self.spatial_shape)
-        self.time_steps = time_steps
-        self.full_shape = (self.time_steps, *self.spatial_shape, self.dim)
-
-        self._data = []
-        if data is None:
-            for _ in range(self.time_steps):
-                self._data.append(VectorField(self.spatial_shape))
-        else:
-            assert ((isinstance(data, np.ndarray) and data.shape == self.full_shape)
-                    or (isinstance(data, TimeDependentVectorField) and data.full_shape == self.full_shape))
-            for elem in data:
-                if isinstance(elem, VectorField):
-                    self._data.append(elem.copy())
-                else:
-                    self._data.append(VectorField(self.spatial_shape, data=elem))
+        super().__init__(spatial_shape, time_steps, data, time_independent_type=VectorField)
 
     @property
     def average(self):
@@ -408,26 +484,64 @@ class TimeDependentVectorField:
         """
         return lincomb(self, np.ones(len(self)) / len(self))
 
-    def to_numpy(self, shape=None):
-        """Returns the `TimeDependentVectorField` represented as a numpy-array.
+    def integrate(self, sampler_options={'order': 1, 'mode': 'edge'}, get_time_dependent_diffeomorphism=False):
+        """Integrate vector field with respect to time.
 
         Parameters
         ----------
-        shape
-            If not `None`, the numpy-array is reshaped according to `shape`.
+        sampler_options
+            Additional options to pass to the sampler.
 
         Returns
         -------
-        Numpy-array containing the entries of the `TimeDependentVectorField`.
+        Vector field containing the diffeomorphism originating from integrating the
+        time-dependent vector field with respect to time.
         """
-        result = np.array([a.to_numpy() for a in self._data])
-        assert result.shape == self.full_shape
-        if shape:
-            return result.reshape(shape)
-        return result
+        # initial transformation is the identity mapping
+        diffeomorphisms = [grid.identity_diffeomorphism(self.spatial_shape)]
 
-    def animate(self, title="", interval=1, scale=None, show_axis=False):
-        """Animates the time-dependent vector field.
+        # perform integration with respect to time
+        for t in range(self.time_steps):
+            d = diffeomorphisms[-1] + sampler.sample(self[t], diffeomorphisms[-1],
+                                                     sampler_options=sampler_options) / self.time_steps
+            diffeomorphisms.append(Diffeomorphism(data=d))
+
+        if get_time_dependent_diffeomorphism:
+            return TimeDependentDiffeomorphism(data=diffeomorphisms)
+        return diffeomorphisms[-1]
+
+    def integrate_backward(self, sampler_options={'order': 1, 'mode': 'edge'}, get_time_dependent_diffeomorphism=False):
+        """Integrate vector field backward with respect to time.
+
+        Parameters
+        ----------
+        sampler_options
+            Additional options to pass to the sampler.
+        get_time_dependent_diffeomorphism
+            Determines whether or not to return the `TimeDependentDiffeomorphism` or only
+            the final `Diffeomorphism`.
+
+        Returns
+        -------
+        Vector field containing the inverse diffeomorphism originating from integrating
+        the time-dependent vector field backward with respect to time.
+        """
+        # initial transformation is the identity mapping
+        diffeomorphisms = [grid.identity_diffeomorphism(self.spatial_shape)]
+
+        # perform integration backwards with respect to time
+        for t in range(self.time_steps-1, -1, -1):
+            d = VectorField(data=diffeomorphisms[-1]) - (sampler.sample(self[t], diffeomorphisms[-1],
+                                                                        sampler_options=sampler_options)
+                                                         / self.time_steps)
+            diffeomorphisms.append(Diffeomorphism(data=d))
+
+        if get_time_dependent_diffeomorphism:
+            return TimeDependentDiffeomorphism(data=diffeomorphisms)
+        return diffeomorphisms[-1]
+
+    def animate(self, title="", interval=1, color_length=False, scale=None, show_axis=False, figsize=(10, 10)):
+        """Animates the `TimeDependentVectorField` using the `plot`-function of `VectorField`.
 
         Parameters
         ----------
@@ -435,6 +549,9 @@ class TimeDependentVectorField:
             The title of the plot.
         interval
             Interval in which to sample.
+        color_length
+            Determines whether or not to show the lengths of the vectors using
+            different colors.
         scale
             Factor used for scaling the arrows in the `quiver`-plot.
             If `None`, a default auto-scaling from `matplotlib` is applied.
@@ -442,13 +559,18 @@ class TimeDependentVectorField:
             has to be used.
         show_axis
             Determines whether or not to show the axes.
+        figsize
+            Width and height of the figure in inches.
+            Only used if `axis` is `None` and a new figure is created.
 
         Returns
         -------
         The animation object.
         """
-        fig = plt.figure()
-        axis = fig.add_subplot(1, 1, 1)
+        if self.dim == 3:
+            fig, axis = plt.subplots(1, 1, figsize=figsize, subplot_kw={'projection': '3d'})
+        else:
+            fig, axis = plt.subplots(1, 1, figsize=figsize)
 
         if show_axis is False:
             axis.set_axis_off()
@@ -456,50 +578,26 @@ class TimeDependentVectorField:
         axis.set_aspect('equal')
         axis.set_title(title)
 
-        def animate(i):
+        def update(i):
             axis.clear()
-            self[i].plot(title=title, interval=interval, scale=scale, axis=axis)
+            self[i].plot(title=title, interval=interval, color_length=color_length, scale=scale, axis=axis)
 
-        ani = animation.FuncAnimation(fig, animate, frames=self.time_steps, interval=100)
+        time_steps = self.time_steps
+
+        class PauseAnimation:
+            def __init__(self):
+                self.ani = animation.FuncAnimation(fig, update, frames=time_steps, interval=100)
+                self.paused = False
+
+                fig.canvas.mpl_connect('button_press_event', self.toggle_pause)
+
+            def toggle_pause(self, *args, **kwargs):
+                if self.paused:
+                    self.ani.resume()
+                else:
+                    self.ani.pause()
+                self.paused = not self.paused
+
+        ani = PauseAnimation()
+
         return ani
-
-    def get_norm(self, order=None):
-        """Computes the norm of the `TimeDependentVectorField`.
-
-        Remark: If `order=None` and `self.dim >= 2`, the 2-norm of `self.to_numpy().ravel()`
-        is returned, see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
-
-        Parameters
-        ----------
-        order
-            Order of the norm,
-            see https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html.
-
-        Returns
-        -------
-        The norm of the `TimeDependentVectorField`.
-        """
-        return np.linalg.norm(self.to_numpy(), ord=order)
-
-    norm = property(get_norm)
-
-    def __setitem__(self, index, val):
-        assert isinstance(val, VectorField) and val.full_shape == (*self.spatial_shape, self.dim)
-        assert ((isinstance(index, int) and 0 <= index < self.time_steps)
-                or (isinstance(index, tuple) and len(index) == 1 and 0 <= index[0] < self.time_steps))
-        if isinstance(index, tuple):
-            self._data[index[0]] = val
-        else:
-            self._data[index] = val
-
-    def __getitem__(self, index):
-        assert isinstance(index, int) or isinstance(index, tuple)
-        if isinstance(index, int):
-            return self._data[index]
-        return self._data[index[0]][index[1:]]
-
-    def __str__(self):
-        return str(self.to_numpy())
-
-    def __len__(self):
-        return self.time_steps

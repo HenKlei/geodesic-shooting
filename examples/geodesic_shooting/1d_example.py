@@ -1,5 +1,3 @@
-import numpy as np
-
 import geodesic_shooting
 from geodesic_shooting.core import ScalarFunction
 from geodesic_shooting.utils.summary import plot_registration_results
@@ -14,7 +12,7 @@ if __name__ == "__main__":
     target[2*N//5:3*N//5] = 1
 
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=10., exponent=3)
-    result = gs.register(input_, target, sigma=0.005, return_all=True)
+    gs = geodesic_shooting.GeodesicShooting(alpha=4., exponent=2)
+    result = gs.register(input_, target, sigma=0.01, return_all=True)
 
     plot_registration_results(result)
