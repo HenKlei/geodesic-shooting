@@ -16,7 +16,7 @@ if __name__ == "__main__":
 
     result['initial_vector_field'].save_tikz('initial_vector_field_square_to_circle.tex',
                                              title="Initial vector field square to circle",
-                                             interval=5, scale=10)
+                                             interval=2, scale=100)
 
     plot_registration_results(result, frequency=5)
     save_plots_registration_results(result, filepath='results_square_to_circle/')

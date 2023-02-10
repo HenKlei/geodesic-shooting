@@ -14,7 +14,10 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None):
     """
     diffeomorphism = results['flow']
 
-    fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
+    if results['input'].dim == 3:
+        fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, subplot_kw={'projection': '3d'})
+    else:
+        fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
     ax1, vals1 = results['input'].plot("Input", axis=ax1)
     if not isinstance(vals1, list):
         fig.colorbar(vals1, ax=ax1, fraction=0.046, pad=0.04)
@@ -29,13 +32,13 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None):
         fig.colorbar(vals4, ax=ax4, fraction=0.046, pad=0.04)
     plt.show()
 
+    _ = results['vector_fields'].animate("Time-evolution of the vector field", interval=interval, scale=scale)
+    plt.show()
+
+    results['vector_fields'][0].plot("Initial vector field", interval=interval, scale=scale)
+    plt.show()
+
     if results['vector_fields'].dim == 2:
-        _ = results['vector_fields'].animate("Time-evolution of the vector field", interval=interval, scale=scale)
-        plt.show()
-
-        results['vector_fields'][0].plot("Initial vector field", interval=interval, scale=scale)
-        plt.show()
-
         results['vector_fields'][0].plot_as_warpgrid("Initial vector field", interval=interval)
         plt.show()
 
@@ -60,6 +63,11 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None):
         assert time_dependent_diffeomorphism[-1] == diffeomorphism
 
         _ = time_dependent_diffeomorphism.animate("Animation of time-evolution of diffeomorphism", interval=interval)
+        plt.show()
+
+        _ = time_dependent_diffeomorphism.animate_transformation(results['input'],
+                                                                 "Animation of the transformation of the input",
+                                                                 interval=interval)
         plt.show()
 
         diffeomorphism.set_inverse(results['vector_fields'].integrate_backward())

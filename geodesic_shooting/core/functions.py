@@ -3,6 +3,7 @@ from numbers import Number
 import matplotlib.pyplot as plt
 
 from geodesic_shooting.core.base import BaseFunction
+from geodesic_shooting.utils import grid
 
 
 class ScalarFunction(BaseFunction):
@@ -53,17 +54,25 @@ class ScalarFunction(BaseFunction):
         the axis and the return value of `axis.plot` respectively `axis.imshow` (can be
         used to create colorbars) is returned.
         """
-        assert self.dim in (1, 2)
+        assert self.dim in {1, 2, 3}
 
         created_figure = False
         if not axis:
             created_figure = True
-            fig, axis = plt.subplots(1, 1, figsize=figsize)
+            if self.dim == 3:
+                fig, axis = plt.subplots(1, 1, figsize=figsize, subplot_kw={'projection': '3d'})
+            else:
+                fig, axis = plt.subplots(1, 1, figsize=figsize)
 
         if self.dim == 1:
             vals = axis.plot(self.to_numpy())
-        else:  # self.dim == 2
+        elif self.dim == 2:
             vals = axis.imshow(self.to_numpy().transpose(), origin='lower', extent=extent)
+        elif self.dim == 3:
+            identity_grid = grid.coordinate_grid(self.spatial_shape).to_numpy()
+            vals = axis.scatter(identity_grid[..., 0].flatten(),
+                                identity_grid[..., 1].flatten(),
+                                identity_grid[..., 2].flatten(), c=self.to_numpy().flatten())
 
         axis.set_title(title)
 

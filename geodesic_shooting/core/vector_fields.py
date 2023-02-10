@@ -80,12 +80,15 @@ class VectorField(BaseFunction):
         If `axis` is None, the created figure and the axis are returned,
         otherwise only the altered axis is returned.
         """
-        assert self.dim == 2
+        assert self.dim in {1, 2, 3}
 
         created_figure = False
         if not axis:
             created_figure = True
-            fig, axis = plt.subplots(1, 1, figsize=figsize)
+            if self.dim == 3:
+                fig, axis = plt.subplots(1, 1, figsize=figsize, subplot_kw={'projection': '3d'})
+            else:
+                fig, axis = plt.subplots(1, 1, figsize=figsize)
 
         if show_axis is False:
             axis.set_axis_off()
@@ -100,13 +103,39 @@ class VectorField(BaseFunction):
 
         if color_length:
             colors = np.linalg.norm(self.to_numpy(), axis=-1)
-            axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
-                        self[::interval, ::interval, 0], self[::interval, ::interval, 1], colors,
-                        scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
+            if self.dim == 1:
+                axis.quiver(identity_grid[::interval, 0], np.zeros(self.spatial_shape),
+                            self[::interval, 0], np.zeros(self.spatial_shape), colors,
+                            scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
+            elif self.dim == 2:
+                axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
+                            self[::interval, ::interval, 0], self[::interval, ::interval, 1], colors,
+                            scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
+            elif self.dim == 3:
+                axis.quiver(identity_grid[::interval, ::interval, ::interval, 0],
+                            identity_grid[::interval, ::interval, ::interval, 1],
+                            identity_grid[::interval, ::interval, ::interval, 2],
+                            self[::interval, ::interval, ::interval, 0],
+                            self[::interval, ::interval, ::interval, 1],
+                            self[::interval, ::interval, ::interval, 2],
+                            colors=colors, zorder=zorder)
         else:
-            axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
-                        self[::interval, ::interval, 0], self[::interval, ::interval, 1],
-                        scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
+            if self.dim == 1:
+                axis.quiver(identity_grid[::interval, 0], np.zeros(self.spatial_shape),
+                            self[::interval, 0], np.zeros(self.spatial_shape),
+                            scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
+            elif self.dim == 2:
+                axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
+                            self[::interval, ::interval, 0], self[::interval, ::interval, 1],
+                            scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
+            elif self.dim == 3:
+                axis.quiver(identity_grid[::interval, ::interval, ::interval, 0],
+                            identity_grid[::interval, ::interval, ::interval, 1],
+                            identity_grid[::interval, ::interval, ::interval, 2],
+                            self[::interval, ::interval, ::interval, 0],
+                            self[::interval, ::interval, ::interval, 1],
+                            self[::interval, ::interval, ::interval, 2],
+                            zorder=zorder)
 
         if created_figure:
             return fig, axis
@@ -508,7 +537,10 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
         -------
         The animation object.
         """
-        fig, axis = plt.subplots(1, 1, figsize=figsize)
+        if self.dim == 3:
+            fig, axis = plt.subplots(1, 1, figsize=figsize, subplot_kw={'projection': '3d'})
+        else:
+            fig, axis = plt.subplots(1, 1, figsize=figsize)
 
         if show_axis is False:
             axis.set_axis_off()

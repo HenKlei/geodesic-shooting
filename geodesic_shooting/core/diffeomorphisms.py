@@ -4,6 +4,7 @@ import matplotlib.animation as animation
 from matplotlib.collections import LineCollection
 
 from geodesic_shooting.core.base import BaseFunction, BaseTimeDependentFunction
+from geodesic_shooting.core.functions import ScalarFunction
 from geodesic_shooting.utils import grid
 
 
@@ -277,6 +278,26 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
 
         def animate(i):
             axis.clear()
+            self[i].plot(title=title, interval=interval, axis=axis, show_displacement_vectors=False)
+
+        ani = animation.FuncAnimation(fig, animate, frames=self.time_steps, interval=100)
+        return ani
+
+    def animate_transformation(self, function, title="", interval=1, show_axis=False, figsize=(10, 10)):
+        assert isinstance(function, ScalarFunction)
+
+        fig, axis = plt.subplots(1, 1, figsize=figsize)
+
+        if show_axis is False:
+            axis.set_axis_off()
+
+        axis.set_aspect('equal')
+        axis.set_title(title)
+
+        def animate(i):
+            axis.clear()
+            function.push_forward(self[i]).plot(axis=axis,
+                                                extent=(0, self.spatial_shape[0]-1, 0, self.spatial_shape[1]-1))
             self[i].plot(title=title, interval=interval, axis=axis, show_displacement_vectors=False)
 
         ani = animation.FuncAnimation(fig, animate, frames=self.time_steps, interval=100)
