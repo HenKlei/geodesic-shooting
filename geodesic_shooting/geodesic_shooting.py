@@ -52,11 +52,8 @@ class GeodesicShooting:
                 f"\tTime steps: {self.time_steps}\n"
                 f"\tSampler options: {self.sampler_options}")
 
-    def register(self, input_, target, sigma=1.,
-                 optimization_method='L-BFGS-B',
-                 optimizer_options={'disp': True},
-                 initial_vector_field=None,
-                 return_all=False, log_summary=True):
+    def register(self, input_, target, sigma=1., optimization_method='L-BFGS-B', optimizer_options={'disp': True},
+                 initial_vector_field=None, restriction=np.s_[...], return_all=False, log_summary=True):
         """Performs actual registration according to LDDMM algorithm with time-varying vector
            fields that are chosen via geodesics.
 
@@ -78,6 +75,9 @@ class GeodesicShooting:
         initial_vector_field
             Used as initial guess for the initial vector field (will be 0 if None is passed).
             If the norm of the gradient drops below this threshold, the registration is stopped.
+        restriction
+            Slice that can be used to restrict the domain on which to compute the error
+            and its gradient.
         return_all
             Determines whether or not to return all information or only the initial vector field
             that led to the best registration result.
@@ -98,14 +98,19 @@ class GeodesicShooting:
         assert isinstance(target, ScalarFunction)
         assert input_.full_shape == target.full_shape
 
+        inverse_mask = np.ones(input_.spatial_shape, np.bool)
+        inverse_mask[restriction] = 0
+
         # function to compute the L2-error between a given image and the target
         def compute_energy(image):
-            return np.sum(((image - target)**2).to_numpy())
+            return np.sum(((image - target)**2).to_numpy()[restriction])
 
         # function to compute the gradient of the overall energy function
         # with respect to the final vector field
         def compute_grad_energy(image):
-            return 2. * self.regularizer.cauchy_navier_inverse(image.grad * (image - target)[..., np.newaxis])
+            grad_diff = image.grad * (image - target)[..., np.newaxis]
+            grad_diff[inverse_mask] = 0.
+            return VectorField(data=2. * self.regularizer.cauchy_navier_inverse(grad_diff))
 
         # set up variables
         self.shape = input_.spatial_shape
