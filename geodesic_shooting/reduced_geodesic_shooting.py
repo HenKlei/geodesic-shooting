@@ -181,7 +181,7 @@ class ReducedGeodesicShooting:
                 f"\tTime steps: {self.time_steps}\n"
                 f"\tSampler options: {self.sampler_options}")
 
-    def register(self, input_, target, sigma=1.,
+    def register(self, template, target, sigma=1.,
                  optimization_method='L-BFGS-B',
                  optimizer_options={'disp': True},
                  initial_vector_field=None,
@@ -191,7 +191,7 @@ class ReducedGeodesicShooting:
 
         Parameters
         ----------
-        input_
+        template
             Input image as array.
         target
             Target image as array.
@@ -227,9 +227,9 @@ class ReducedGeodesicShooting:
 
         assert sigma > 0
 
-        assert isinstance(input_, ScalarFunction)
+        assert isinstance(template, ScalarFunction)
         assert isinstance(target, ScalarFunction)
-        assert input_.full_shape == target.full_shape
+        assert template.full_shape == target.full_shape
 
         def compute_energy(image):
             return np.sum((image - target).to_numpy()**2)
@@ -240,8 +240,8 @@ class ReducedGeodesicShooting:
                     (image.grad * (image - target)[..., np.newaxis]).flatten())
 
         # set up variables
-        assert self.shape == input_.spatial_shape
-        assert self.dim == input_.dim
+        assert self.shape == template.spatial_shape
+        assert self.dim == template.dim
 
         # define initial vector fields
         if initial_vector_field is None:
@@ -249,7 +249,7 @@ class ReducedGeodesicShooting:
         else:
             assert initial_vector_field.shape == (self.rb_size, )
 
-        opt = {'input': input_, 'target': target}
+        opt = {'input': template, 'target': target}
 
         reason_registration_ended = 'reached maximum number of iterations'
 
@@ -263,8 +263,8 @@ class ReducedGeodesicShooting:
             # compute forward flows according to the vector fields
             flow = self.integrate_forward_flow(vector_fields)
 
-            # push-forward input_ image
-            forward_pushed_input = input_.push_forward(flow)
+            # push-forward template image
+            forward_pushed_input = template.push_forward(flow)
 
             # compute the current energy consisting of intensity difference
             # and regularization
@@ -300,7 +300,7 @@ class ReducedGeodesicShooting:
         flow = self.integrate_forward_flow(vector_fields)
 
         # push-forward input-image
-        transformed_input = input_.push_forward(flow)
+        transformed_input = template.push_forward(flow)
 
         full_initial_vector_field = lincomb(self.rb_vector_fields, res['x'])
         opt['initial_vector_field'] = full_initial_vector_field
