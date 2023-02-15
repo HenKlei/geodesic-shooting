@@ -52,14 +52,14 @@ class GeodesicShooting:
                 f"\tTime steps: {self.time_steps}\n"
                 f"\tSampler options: {self.sampler_options}")
 
-    def register(self, input_, target, sigma=1., optimization_method='L-BFGS-B', optimizer_options={'disp': True},
+    def register(self, template, target, sigma=1., optimization_method='L-BFGS-B', optimizer_options={'disp': True},
                  initial_vector_field=None, restriction=np.s_[...], return_all=False, log_summary=True):
         """Performs actual registration according to LDDMM algorithm with time-varying vector
            fields that are chosen via geodesics.
 
         Parameters
         ----------
-        input_
+        template
             Input image as array.
         target
             Target image as array.
@@ -94,11 +94,11 @@ class GeodesicShooting:
         """
         assert sigma > 0
 
-        assert isinstance(input_, ScalarFunction)
+        assert isinstance(template, ScalarFunction)
         assert isinstance(target, ScalarFunction)
-        assert input_.full_shape == target.full_shape
+        assert template.full_shape == target.full_shape
 
-        inverse_mask = np.ones(input_.spatial_shape, np.bool)
+        inverse_mask = np.ones(template.spatial_shape, np.bool)
         inverse_mask[restriction] = 0
 
         # function to compute the L2-error between a given image and the target
@@ -113,8 +113,8 @@ class GeodesicShooting:
             return VectorField(data=2. * self.regularizer.cauchy_navier_inverse(grad_diff))
 
         # set up variables
-        self.shape = input_.spatial_shape
-        self.dim = input_.dim
+        self.shape = template.spatial_shape
+        self.dim = template.dim
 
         # define initial vector fields
         if initial_vector_field is None:
@@ -125,7 +125,7 @@ class GeodesicShooting:
         assert isinstance(initial_vector_field, VectorField)
         assert initial_vector_field.full_shape == (*self.shape, self.dim)
 
-        opt = {'input': input_, 'target': target}
+        opt = {'input': template, 'target': target}
 
         reason_registration_ended = 'reached maximum number of iterations'
 
@@ -140,8 +140,8 @@ class GeodesicShooting:
             # compute forward flows according to the vector fields
             flow = vector_fields.integrate(sampler_options=self.sampler_options)
 
-            # push-forward input_ image
-            forward_pushed_input = input_.push_forward(flow)
+            # push-forward template image
+            forward_pushed_input = template.push_forward(flow)
 
             # compute the current energy consisting of intensity difference
             # and regularization
@@ -174,7 +174,7 @@ class GeodesicShooting:
         flow = vector_fields.integrate(sampler_options=self.sampler_options)
 
         # push-forward input-image
-        transformed_input = input_.push_forward(flow)
+        transformed_input = template.push_forward(flow)
 
         opt['initial_vector_field'] = VectorField(data=res['x'].reshape((*self.shape, self.dim)))
         opt['transformed_input'] = transformed_input

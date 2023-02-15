@@ -8,14 +8,14 @@ from geodesic_shooting.utils.summary import plot_registration_results, save_plot
 if __name__ == "__main__":
     # create images
     target = make_circle((64, 64), np.array([32, 32]), 20)
-    input_ = make_square((64, 64), np.array([32, 32]), 40)
+    template = make_square((64, 64), np.array([32, 32]), 40)
 
     # set restriction of where to compute the error and the gradient
     restriction = np.s_[2:-20, 2:-20]
 
     # perform the registration
     gs = geodesic_shooting.GeodesicShooting(alpha=10., exponent=2)
-    result = gs.register(input_, target, sigma=0.01, return_all=True, restriction=restriction)
+    result = gs.register(template, target, sigma=0.01, return_all=True, restriction=restriction)
 
     result['initial_vector_field'].save_tikz('initial_vector_field_square_to_circle.tex',
                                              title="Initial vector field square to circle",
