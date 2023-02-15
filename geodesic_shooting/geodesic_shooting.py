@@ -145,7 +145,7 @@ class GeodesicShooting:
 
             # compute the current energy consisting of intensity difference
             # and regularization
-            energy_regularizer = self.regularizer.cauchy_navier(v0).norm
+            energy_regularizer = self.regularizer.cauchy_navier(v0).get_norm(restriction=restriction)
             energy_intensity_unscaled = compute_energy(forward_pushed_input)
             energy_intensity = 1 / sigma**2 * energy_intensity_unscaled
             energy = energy_regularizer + energy_intensity
@@ -188,7 +188,7 @@ class GeodesicShooting:
         if opt['initial_vector_field'] is not None:
             # compute the length of the path on the manifold;
             # this step only requires the initial vector due to conservation of momentum
-            length = self.regularizer.cauchy_navier(opt['initial_vector_field']).norm
+            length = self.regularizer.cauchy_navier(opt['initial_vector_field']).get_norm(restriction=restriction)
         else:
             length = 0.0
 
@@ -198,19 +198,21 @@ class GeodesicShooting:
         opt['reason_registration_ended'] = res['message']
 
         if log_summary:
-            self.summarize_results(opt)
+            self.summarize_results(opt, restriction=restriction)
 
         if return_all:
             return opt
         return opt['initial_vector_field']
 
-    def summarize_results(self, results):
+    def summarize_results(self, results, restriction=np.s_[...]):
         """Log a summary of the results to the console.
 
         Parameters
         ----------
         results
             Dictionary with the results obtained from the `register`-function.
+        restriction
+            Slice that can be used to restrict the domain on which to compute the error.
         """
         self.logger.info("")
         self.logger.info("Registration summary")
@@ -218,8 +220,9 @@ class GeodesicShooting:
         self.logger.info(f"Registration finished after {results['iterations']} iterations.")
         self.logger.info(f"Registration took {results['time']} seconds.")
         self.logger.info(f"Reason for the registration algorithm to stop: {results['reason_registration_ended']}.")
+        norm_difference = (results['target'] - results['transformed_input']).get_norm(restriction=restriction)
         self.logger.info("Relative norm of difference: "
-                         f"{(results['target'] - results['transformed_input']).norm / results['target'].norm}")
+                         f"{norm_difference / results['target'].get_norm(restriction=restriction)}")
         self.logger.info("====================")
 
     def integrate_forward_vector_field(self, initial_vector_field):
