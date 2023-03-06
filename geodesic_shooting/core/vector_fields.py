@@ -41,6 +41,30 @@ class VectorField(BaseFunction):
     def _compute_full_shape(self):
         return (*self.spatial_shape, self.dim)
 
+    def get_magnitude(self):
+        """Computes the magnitude of the `VectorField` as a `ScalarFunction`.
+
+        Returns
+        -------
+        The magnitude as a `ScalarFunction`.
+        """
+        return ScalarFunction(data=np.linalg.norm(self.to_numpy(), axis=-1))
+
+    def get_component_as_function(self, component=0):
+        """Provides the specified component of the `VectorField` as a `ScalarFunction`.
+
+        Parameters
+        ----------
+        component
+            Index of the component to return.
+
+        Returns
+        -------
+        The component as a `ScalarFunction`.
+        """
+        assert isinstance(component, int) and 0 <= component < self.dim
+        return ScalarFunction(data=self.to_numpy()[..., component])
+
     def get_divergence(self, return_gradient=False):
         """Computes the divergence of the `VectorField`.
 
