@@ -119,34 +119,36 @@ class VectorField(BaseFunction):
         if color_length:
             colors = np.linalg.norm(self.to_numpy(), axis=-1)
             if self.dim == 1:
-                axis.quiver(identity_grid[::interval, 0], np.zeros(self.spatial_shape),
+                axis.quiver(identity_grid[::interval, 0] / self.spatial_shape[0], np.zeros(self.spatial_shape),
                             self[::interval, 0], np.zeros(self.spatial_shape), colors,
                             scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
             elif self.dim == 2:
-                axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
+                axis.quiver(identity_grid[::interval, ::interval, 0] / self.spatial_shape[0],
+                            identity_grid[::interval, ::interval, 1] / self.spatial_shape[1],
                             self[::interval, ::interval, 0], self[::interval, ::interval, 1], colors,
                             scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
             elif self.dim == 3:
-                axis.quiver(identity_grid[::interval, ::interval, ::interval, 0],
-                            identity_grid[::interval, ::interval, ::interval, 1],
-                            identity_grid[::interval, ::interval, ::interval, 2],
+                axis.quiver(identity_grid[::interval, ::interval, ::interval, 0] / self.spatial_shape[0],
+                            identity_grid[::interval, ::interval, ::interval, 1] / self.spatial_shape[1],
+                            identity_grid[::interval, ::interval, ::interval, 2] / self.spatial_shape[2],
                             self[::interval, ::interval, ::interval, 0],
                             self[::interval, ::interval, ::interval, 1],
                             self[::interval, ::interval, ::interval, 2],
                             colors=colors, zorder=zorder)
         else:
             if self.dim == 1:
-                axis.quiver(identity_grid[::interval, 0], np.zeros(self.spatial_shape),
+                axis.quiver(identity_grid[::interval, 0] / self.spatial_shape[0], np.zeros(self.spatial_shape),
                             self[::interval, 0], np.zeros(self.spatial_shape),
                             scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
             elif self.dim == 2:
-                axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
+                axis.quiver(identity_grid[::interval, ::interval, 0] / self.spatial_shape[0],
+                            identity_grid[::interval, ::interval, 1] / self.spatial_shape[1],
                             self[::interval, ::interval, 0], self[::interval, ::interval, 1],
                             scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
             elif self.dim == 3:
-                axis.quiver(identity_grid[::interval, ::interval, ::interval, 0],
-                            identity_grid[::interval, ::interval, ::interval, 1],
-                            identity_grid[::interval, ::interval, ::interval, 2],
+                axis.quiver(identity_grid[::interval, ::interval, ::interval, 0] / self.spatial_shape[0],
+                            identity_grid[::interval, ::interval, ::interval, 1] / self.spatial_shape[1],
+                            identity_grid[::interval, ::interval, ::interval, 2] / self.spatial_shape[2],
                             self[::interval, ::interval, ::interval, 0],
                             self[::interval, ::interval, ::interval, 1],
                             self[::interval, ::interval, ::interval, 2],
@@ -199,15 +201,13 @@ class VectorField(BaseFunction):
         axis.set_aspect('equal')
         axis.set_title(title)
 
+        xs = np.arange(self.spatial_shape[0]) / self.spatial_shape[0]
+        ys = np.arange(self.spatial_shape[1]) / self.spatial_shape[1]
         if color_length:
             colors = np.linalg.norm(self.to_numpy(), axis=-1).T
-            xs = np.arange(self.spatial_shape[0])
-            ys = np.arange(self.spatial_shape[1])
             axis.streamplot(xs, ys, self[..., 0].T, self[..., 1].T,
                             density=density, color=colors, zorder=zorder, integration_direction=integration_direction)
         else:
-            xs = np.arange(self.spatial_shape[0])
-            ys = np.arange(self.spatial_shape[1])
             axis.streamplot(xs, ys, self[..., 0].T, self[..., 1].T,
                             density=density, zorder=zorder, integration_direction=integration_direction)
 
