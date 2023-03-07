@@ -189,7 +189,7 @@ class BaseTimeDependentFunction:
         self.spatial_shape = spatial_shape
         self.dim = len(self.spatial_shape)
         self.time_steps = time_steps
-        self.full_shape = (self.time_steps, *self.spatial_shape, self.dim)
+        self.full_shape = self._compute_full_shape()
 
         self._data = []
         if data is None:
@@ -206,6 +206,9 @@ class BaseTimeDependentFunction:
                 else:
                     assert time_independent_type is not None
                     self._data.append(time_independent_type(self.spatial_shape, data=elem))
+
+    def _compute_full_shape(self):
+        return (self.time_steps, *self.spatial_shape, self.dim)
 
     def to_numpy(self, shape=None):
         """Returns the `BaseTimeDependentFunction` represented as a numpy-array.

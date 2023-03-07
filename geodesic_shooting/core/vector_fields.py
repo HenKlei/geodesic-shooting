@@ -5,7 +5,8 @@ import matplotlib.animation as animation
 from matplotlib.collections import LineCollection
 
 from geodesic_shooting.core.base import BaseFunction, BaseTimeDependentFunction
-from geodesic_shooting.core import Diffeomorphism, TimeDependentDiffeomorphism, ScalarFunction
+from geodesic_shooting.core import (Diffeomorphism, TimeDependentDiffeomorphism,
+                                    ScalarFunction, TimeDependentScalarFunction)
 from geodesic_shooting.utils import sampler, grid
 from geodesic_shooting.utils.helper_functions import lincomb
 
@@ -497,6 +498,29 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
             of `VectorField`s has to be provided.
         """
         super().__init__(spatial_shape, time_steps, data, time_independent_type=VectorField)
+
+    def get_magnitude_series(self):
+        """Computes the evolution of the magnitude as a `TimeDependentScalarFunction`.
+
+        Returns
+        -------
+        The magnitude as a `TimeDependentScalarFunction`.
+        """
+        return TimeDependentScalarFunction(data=[v.get_magnitude() for v in self])
+
+    def get_component_as_function_series(self, component=0):
+        """Provides the evolution of the specified component as a `TimeDependentScalarFunction`.
+
+        Parameters
+        ----------
+        component
+            Index of the component to return.
+
+        Returns
+        -------
+        The component as a `TimeDependentScalarFunction`.
+        """
+        return TimeDependentScalarFunction(data=[v.get_component_as_function(component) for v in self])
 
     @property
     def average(self):

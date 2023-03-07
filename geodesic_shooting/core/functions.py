@@ -1,8 +1,9 @@
 import numpy as np
 from numbers import Number
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 
-from geodesic_shooting.core.base import BaseFunction
+from geodesic_shooting.core.base import BaseFunction, BaseTimeDependentFunction
 from geodesic_shooting.utils import grid
 
 
@@ -33,7 +34,7 @@ class ScalarFunction(BaseFunction):
     def _compute_full_shape(self):
         return self.spatial_shape
 
-    def plot(self, title="", colorbar=True, axis=None, figsize=(10, 10), extent=(0., 1., 0., 1.)):
+    def plot(self, title="", colorbar=True, axis=None, figsize=(10, 10), extent=(0., 1., 0., 1.), vmin=None, vmax=None):
         """Plots the `ScalarFunction` using `matplotlib`.
 
         Parameters
@@ -50,6 +51,10 @@ class ScalarFunction(BaseFunction):
         extent
             Determines the left, right, bottom, and top coordinates of the plot.
             Only used in the 2-dimensional case.
+        vmin
+            Minimum value defining the data range of the colorbar.
+        vmax
+            Maximum value defining the data range of the colorbar.
 
         Returns
         -------
@@ -71,12 +76,12 @@ class ScalarFunction(BaseFunction):
         if self.dim == 1:
             vals = axis.plot(self.to_numpy())
         elif self.dim == 2:
-            vals = axis.imshow(self.to_numpy().transpose(), origin='lower', extent=extent)
+            vals = axis.imshow(self.to_numpy().transpose(), origin='lower', extent=extent, vmin=vmin, vmax=vmax)
         elif self.dim == 3:
             identity_grid = grid.coordinate_grid(self.spatial_shape).to_numpy()
             vals = axis.scatter(identity_grid[..., 0].flatten(),
                                 identity_grid[..., 1].flatten(),
-                                identity_grid[..., 2].flatten(), c=self.to_numpy().flatten())
+                                identity_grid[..., 2].flatten(), c=self.to_numpy().flatten(), vmin=vmin, vmax=vmax)
 
         axis.set_title(title)
 
@@ -194,3 +199,74 @@ class ScalarFunction(BaseFunction):
         result = self.copy()
         result._data = result._data**exp
         return result
+
+
+class TimeDependentScalarFunction(BaseTimeDependentFunction):
+    def __init__(self, spatial_shape=(), time_steps=1, data=None):
+        super().__init__(spatial_shape, time_steps, data, time_independent_type=ScalarFunction)
+
+    def _compute_full_shape(self):
+        return (self.time_steps, *self.spatial_shape)
+
+    def animate(self, title="", colorbar=True, show_axis=False, figsize=(10, 10), extent=(0., 1., 0., 1.)):
+        """Animates the `TimeDependentScalarFunction` using the `plot`-function of `ScalarFunction`.
+
+        Parameters
+        ----------
+        title
+            The title of the plot.
+        colorbar
+            Determines whether or not to show a colorbar.
+        show_axis
+            Determines whether or not to show the axes.
+        figsize
+            Width and height of the figure in inches.
+            Only used if `axis` is `None` and a new figure is created.
+        extent
+            Determines the left, right, bottom, and top coordinates of the plot.
+            Only used in the 2-dimensional case.
+
+        Returns
+        -------
+        The animation object.
+        """
+        if self.dim == 3:
+            fig, axis = plt.subplots(1, 1, figsize=figsize, subplot_kw={'projection': '3d'})
+        else:
+            fig, axis = plt.subplots(1, 1, figsize=figsize)
+
+        if show_axis is False:
+            axis.set_axis_off()
+
+        axis.set_aspect('equal')
+        axis.set_title(title)
+
+        zmin = np.min(self.to_numpy())
+        zmax = np.max(self.to_numpy())
+        _, vals = self[0].plot(title=title, axis=axis, extent=extent, vmin=zmin, vmax=zmax)
+        if colorbar:
+            fig.colorbar(vals, ax=axis)
+
+        def update(i):
+            axis.clear()
+            _, vals = self[i].plot(title=title, axis=axis, extent=extent)
+
+        time_steps = self.time_steps
+
+        class PauseAnimation:
+            def __init__(self):
+                self.ani = animation.FuncAnimation(fig, update, frames=time_steps, interval=100)
+                self.paused = False
+
+                fig.canvas.mpl_connect('button_press_event', self.toggle_pause)
+
+            def toggle_pause(self, *args, **kwargs):
+                if self.paused:
+                    self.ani.resume()
+                else:
+                    self.ani.pause()
+                self.paused = not self.paused
+
+        ani = PauseAnimation()
+
+        return ani
