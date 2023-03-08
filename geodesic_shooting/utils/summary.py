@@ -38,6 +38,9 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None):
     results['vector_fields'][0].plot("Initial vector field", interval=interval, scale=scale)
     plt.show()
 
+    results['vector_fields'][0].get_magnitude().plot("Magnitude of initial vector field")
+    plt.show()
+
     if results['vector_fields'].dim == 2:
         results['vector_fields'][0].plot_as_warpgrid("Initial vector field", interval=interval)
         plt.show()
@@ -105,6 +108,8 @@ def save_plots_registration_results(results, filepath='results/'):
     results['initial_vector_field'].save(filepath + 'initial_vector_field_streamlines.png', plot_type='streamlines',
                                          plot_args={'title': "Initial vector field", 'color_length': True,
                                                     'show_axis': True, 'density': 2})
+    results['initial_vector_field'].get_magnitude().save(filepath + 'initial_vector_field_magnitude.png',
+                                                         title='Magnitude of initial vector field')
     results['flow'].save(filepath + 'diffeomorphism.png', title="Diffeomorphism")
     inverse_diffeomorphism = results['vector_fields'].integrate_backward()
     inverse_diffeomorphism.save(filepath + 'inverse_diffeomorphism.png', title="Inverse diffeomorphism")

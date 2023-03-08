@@ -342,6 +342,9 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
                     self.ani.pause()
                 self.paused = not self.paused
 
+            def save(self, filename='animation.gif', writer='imagemagick', fps=10):
+                self.ani.save(filename, writer=writer, fps=fps)
+
         ani = PauseAnimation()
         return ani
 

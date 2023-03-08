@@ -5,7 +5,8 @@ import matplotlib.animation as animation
 from matplotlib.collections import LineCollection
 
 from geodesic_shooting.core.base import BaseFunction, BaseTimeDependentFunction
-from geodesic_shooting.core import Diffeomorphism, TimeDependentDiffeomorphism, ScalarFunction
+from geodesic_shooting.core import (Diffeomorphism, TimeDependentDiffeomorphism,
+                                    ScalarFunction, TimeDependentScalarFunction)
 from geodesic_shooting.utils import sampler, grid
 from geodesic_shooting.utils.helper_functions import lincomb
 
@@ -41,6 +42,30 @@ class VectorField(BaseFunction):
     def _compute_full_shape(self):
         return (*self.spatial_shape, self.dim)
 
+    def get_magnitude(self):
+        """Computes the magnitude of the `VectorField` as a `ScalarFunction`.
+
+        Returns
+        -------
+        The magnitude as a `ScalarFunction`.
+        """
+        return ScalarFunction(data=np.linalg.norm(self.to_numpy(), axis=-1))
+
+    def get_component_as_function(self, component=0):
+        """Provides the specified component of the `VectorField` as a `ScalarFunction`.
+
+        Parameters
+        ----------
+        component
+            Index of the component to return.
+
+        Returns
+        -------
+        The component as a `ScalarFunction`.
+        """
+        assert isinstance(component, int) and 0 <= component < self.dim
+        return ScalarFunction(data=self.to_numpy()[..., component])
+
     def get_divergence(self, return_gradient=False):
         """Computes the divergence of the `VectorField`.
 
@@ -62,8 +87,8 @@ class VectorField(BaseFunction):
 
     div = property(get_divergence)
 
-    def plot(self, title="", interval=1, color_length=False, show_axis=False, scale=None, axis=None, figsize=(10, 10),
-             zorder=1):
+    def plot(self, title="", interval=1, color_length=False, colorbar=True, vmin=None, vmax=None, show_axis=False,
+             scale=None, axis=None, figsize=(10, 10), zorder=1):
         """Plots the `VectorField` using `matplotlib`'s `quiver` function.
 
         Parameters
@@ -75,6 +100,13 @@ class VectorField(BaseFunction):
         color_length
             Determines whether or not to show the lengths of the vectors using
             different colors.
+        colorbar
+            Determines whether or not to show a colorbar.
+            Only used if `color_length` is `True`.
+        vmin
+            Minimum value defining the data range of the colorbar.
+        vmax
+            Maximum value defining the data range of the colorbar.
         show_axis
             Determines whether or not to show the axes.
         scale
@@ -118,35 +150,42 @@ class VectorField(BaseFunction):
 
         if color_length:
             colors = np.linalg.norm(self.to_numpy(), axis=-1)
+            clim = None
+            if vmin and vmax:
+                clim = (vmin, vmax)
             if self.dim == 1:
-                axis.quiver(identity_grid[::interval, 0], np.zeros(self.spatial_shape),
-                            self[::interval, 0], np.zeros(self.spatial_shape), colors,
-                            scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
+                vals = axis.quiver(identity_grid[::interval, 0] / self.spatial_shape[0], np.zeros(self.spatial_shape),
+                                   self[::interval, 0], np.zeros(self.spatial_shape), colors,
+                                   scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder, clim=clim)
             elif self.dim == 2:
-                axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
-                            self[::interval, ::interval, 0], self[::interval, ::interval, 1], colors,
-                            scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
+                vals = axis.quiver(identity_grid[::interval, ::interval, 0] / self.spatial_shape[0],
+                                   identity_grid[::interval, ::interval, 1] / self.spatial_shape[1],
+                                   self[::interval, ::interval, 0], self[::interval, ::interval, 1], colors,
+                                   scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder, clim=clim)
             elif self.dim == 3:
-                axis.quiver(identity_grid[::interval, ::interval, ::interval, 0],
-                            identity_grid[::interval, ::interval, ::interval, 1],
-                            identity_grid[::interval, ::interval, ::interval, 2],
-                            self[::interval, ::interval, ::interval, 0],
-                            self[::interval, ::interval, ::interval, 1],
-                            self[::interval, ::interval, ::interval, 2],
-                            colors=colors, zorder=zorder)
+                vals = axis.quiver(identity_grid[::interval, ::interval, ::interval, 0] / self.spatial_shape[0],
+                                   identity_grid[::interval, ::interval, ::interval, 1] / self.spatial_shape[1],
+                                   identity_grid[::interval, ::interval, ::interval, 2] / self.spatial_shape[2],
+                                   self[::interval, ::interval, ::interval, 0],
+                                   self[::interval, ::interval, ::interval, 1],
+                                   self[::interval, ::interval, ::interval, 2],
+                                   colors=colors, zorder=zorder, clim=clim)
+            if colorbar and created_figure:
+                fig.colorbar(vals, ax=axis)
         else:
             if self.dim == 1:
-                axis.quiver(identity_grid[::interval, 0], np.zeros(self.spatial_shape),
+                axis.quiver(identity_grid[::interval, 0] / self.spatial_shape[0], np.zeros(self.spatial_shape),
                             self[::interval, 0], np.zeros(self.spatial_shape),
                             scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
             elif self.dim == 2:
-                axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
+                axis.quiver(identity_grid[::interval, ::interval, 0] / self.spatial_shape[0],
+                            identity_grid[::interval, ::interval, 1] / self.spatial_shape[1],
                             self[::interval, ::interval, 0], self[::interval, ::interval, 1],
                             scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
             elif self.dim == 3:
-                axis.quiver(identity_grid[::interval, ::interval, ::interval, 0],
-                            identity_grid[::interval, ::interval, ::interval, 1],
-                            identity_grid[::interval, ::interval, ::interval, 2],
+                axis.quiver(identity_grid[::interval, ::interval, ::interval, 0] / self.spatial_shape[0],
+                            identity_grid[::interval, ::interval, ::interval, 1] / self.spatial_shape[1],
+                            identity_grid[::interval, ::interval, ::interval, 2] / self.spatial_shape[2],
                             self[::interval, ::interval, ::interval, 0],
                             self[::interval, ::interval, ::interval, 1],
                             self[::interval, ::interval, ::interval, 2],
@@ -154,6 +193,8 @@ class VectorField(BaseFunction):
 
         if created_figure:
             return fig, axis
+        if color_length and colorbar and not created_figure:
+            return axis, vals
         return axis
 
     def plot_streamlines(self, title="", density=1, color_length=False, show_axis=False, axis=None, figsize=(10, 10),
@@ -199,15 +240,13 @@ class VectorField(BaseFunction):
         axis.set_aspect('equal')
         axis.set_title(title)
 
+        xs = np.arange(self.spatial_shape[0]) / self.spatial_shape[0]
+        ys = np.arange(self.spatial_shape[1]) / self.spatial_shape[1]
         if color_length:
             colors = np.linalg.norm(self.to_numpy(), axis=-1).T
-            xs = np.arange(self.spatial_shape[0])
-            ys = np.arange(self.spatial_shape[1])
             axis.streamplot(xs, ys, self[..., 0].T, self[..., 1].T,
                             density=density, color=colors, zorder=zorder, integration_direction=integration_direction)
         else:
-            xs = np.arange(self.spatial_shape[0])
-            ys = np.arange(self.spatial_shape[1])
             axis.streamplot(xs, ys, self[..., 0].T, self[..., 1].T,
                             density=density, zorder=zorder, integration_direction=integration_direction)
 
@@ -474,6 +513,29 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
         """
         super().__init__(spatial_shape, time_steps, data, time_independent_type=VectorField)
 
+    def get_magnitude_series(self):
+        """Computes the evolution of the magnitude as a `TimeDependentScalarFunction`.
+
+        Returns
+        -------
+        The magnitude as a `TimeDependentScalarFunction`.
+        """
+        return TimeDependentScalarFunction(data=[v.get_magnitude() for v in self])
+
+    def get_component_as_function_series(self, component=0):
+        """Provides the evolution of the specified component as a `TimeDependentScalarFunction`.
+
+        Parameters
+        ----------
+        component
+            Index of the component to return.
+
+        Returns
+        -------
+        The component as a `TimeDependentScalarFunction`.
+        """
+        return TimeDependentScalarFunction(data=[v.get_component_as_function(component) for v in self])
+
     @property
     def average(self):
         """Computes the average `VectorField` over time.
@@ -540,7 +602,8 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
             return TimeDependentDiffeomorphism(data=diffeomorphisms)
         return diffeomorphisms[-1]
 
-    def animate(self, title="", interval=1, color_length=False, scale=None, show_axis=False, figsize=(10, 10)):
+    def animate(self, title="", interval=1, color_length=False, colorbar=True, scale=None, show_axis=False,
+                figsize=(10, 10)):
         """Animates the `TimeDependentVectorField` using the `plot`-function of `VectorField`.
 
         Parameters
@@ -552,6 +615,9 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
         color_length
             Determines whether or not to show the lengths of the vectors using
             different colors.
+        colorbar
+            Determines whether or not to show a colorbar.
+            Only used if `color_length` is `True`.
         scale
             Factor used for scaling the arrows in the `quiver`-plot.
             If `None`, a default auto-scaling from `matplotlib` is applied.
@@ -578,9 +644,17 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
         axis.set_aspect('equal')
         axis.set_title(title)
 
+        if color_length and colorbar:
+            vmin = np.min(self.get_magnitude_series().to_numpy())
+            vmax = np.max(self.get_magnitude_series().to_numpy())
+            _, vals = self[0].plot(title=title, interval=interval, color_length=color_length, colorbar=True,
+                                   vmin=vmin, vmax=vmax, scale=scale, axis=axis)
+            fig.colorbar(vals)
+
         def update(i):
             axis.clear()
-            self[i].plot(title=title, interval=interval, color_length=color_length, scale=scale, axis=axis)
+            self[i].plot(title=title, interval=interval, color_length=color_length, colorbar=False,
+                         scale=scale, axis=axis)
 
         time_steps = self.time_steps
 
@@ -597,6 +671,9 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
                 else:
                     self.ani.pause()
                 self.paused = not self.paused
+
+            def save(self, filename='animation.gif', writer='imagemagick', fps=10):
+                self.ani.save(filename, writer=writer, fps=fps)
 
         ani = PauseAnimation()
 

@@ -16,11 +16,18 @@ if __name__ == "__main__":
                         axis=-1)
 
     displacement_field = VectorField(data=f(grid_x, grid_y))
+    magnitude = displacement_field.get_magnitude()
+    x_component = displacement_field.get_component_as_function(0)
+    y_component = displacement_field.get_component_as_function(1)
+
     displacement_field.plot_as_warpgrid(title="Warpgrid", show_displacement_vectors=True)
     displacement_field.plot(title="Displacement vector field")
     displacement_field.plot(title="Displacement vector field with colors", color_length=True)
     displacement_field.plot_streamlines(title="Streamlines")
     displacement_field.plot_streamlines(title="Streamlines with colors", color_length=True, density=2)
+    magnitude.plot(title="Magnitude of vector field")
+    x_component.plot(title="x-component of vector field")
+    y_component.plot(title="y-component of vector field")
     plt.show()
 
     def f(x, y):
