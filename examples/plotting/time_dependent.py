@@ -22,8 +22,10 @@ if __name__ == "__main__":
     x_component_series = time_dependent_vector_field.get_component_as_function_series(0)
     y_component_series = time_dependent_vector_field.get_component_as_function_series(1)
 
-    anim1 = time_dependent_vector_field.animate(title="Animation of time-dependent vector field")
+    anim1 = time_dependent_vector_field.animate(title="Animation of time-dependent vector field", color_length=True)
+    anim1.save('animation_vector_field.gif')
     anim2 = magnitude_series.animate(title="Magnitude of vector field")
+    anim2.save('animation_magnitude.gif')
     anim3 = x_component_series.animate(title="x-component of vector field")
     anim4 = y_component_series.animate(title="y-component of vector field")
     plt.show()

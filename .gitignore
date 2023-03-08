@@ -5,3 +5,4 @@ examples/*/results*/
 *.egg-info
 *.pickle
 *.tex
+*.gif
