@@ -127,12 +127,10 @@ class GeodesicShooting:
 
         opt = {'input': template, 'target': target}
 
-        reason_registration_ended = 'reached maximum number of iterations'
-
         start_time = time.perf_counter()
 
         # function that computes the energy
-        def energy_and_gradient(v0):
+        def energy_and_gradient(v0, compute_grad=True):
             v0 = VectorField(data=v0.reshape((*self.shape, self.dim)))
             # integrate initial vector field forward in time
             vector_fields = self.integrate_forward_vector_field(v0)
@@ -150,22 +148,87 @@ class GeodesicShooting:
             energy_intensity = 1 / sigma**2 * energy_intensity_unscaled
             energy = energy_regularizer + energy_intensity
 
-            # compute gradient of the intensity difference
-            gradient_l2_energy = compute_grad_energy(forward_pushed_input) / sigma**2
+            if compute_grad:
+                # compute gradient of the intensity difference
+                gradient_l2_energy = compute_grad_energy(forward_pushed_input) / sigma**2
 
-            # compute gradient of the intensity difference with respect to the initial vector field
-            gradient_initial_vector = self.integrate_backward_adjoint_Jacobi_field(gradient_l2_energy, vector_fields)
+                # compute gradient of the intensity difference with respect
+                # to the initial vector field
+                gradient_initial_vector = self.integrate_backward_adjoint_Jacobi_field(gradient_l2_energy,
+                                                                                       vector_fields)
 
-            return energy, gradient_initial_vector.to_numpy().flatten()
+                return energy, gradient_initial_vector.to_numpy().flatten()
+            else:
+                return energy
 
         def save_current_state(x):
             opt['x'] = x
 
         # use scipy optimizer for minimizing energy function
         with self.logger.block("Perform image matching via geodesic shooting ..."):
-            res = optimize.minimize(energy_and_gradient, initial_vector_field.to_numpy().flatten(),
-                                    method=optimization_method, jac=True, options=optimizer_options,
-                                    callback=save_current_state)
+            if optimization_method == 'GD':
+                def gradient_descent(func, x0, grad_norm_tol=1e-5, rel_func_update_tol=1e-8, maxiter=1000,
+                                     maxiter_armijo=20, alpha0=1., rho=0.5, c1=1e-4, disp=True, callback=None):
+                    def line_search(x, func_x, grad_x, d):
+                        alpha = alpha0
+                        d_dot_grad = d.dot(grad_x)
+                        func_x_update = func(x + alpha * d, compute_grad=False)
+                        k = 0
+                        while (not func_x_update <= func_x + c1 * alpha * d_dot_grad) and k < maxiter_armijo:
+                            alpha *= rho
+                            func_x_update = func(x + alpha * d, compute_grad=False)
+                            k += 1
+                        return alpha
+
+                    message = ''
+                    with self.logger.block('Starting optimization using gradient descent ...'):
+                        x = x0
+                        if callback is not None:
+                            callback(np.copy(x))
+                        func_x, grad_x = func(x)
+                        old_func_x = func_x
+                        rel_func_update = rel_func_update_tol + 1
+                        norm_grad_x = np.linalg.norm(grad_x)
+                        i = 0
+                        if disp:
+                            self.logger.info(f'iter: {i:5d}\tf= {func_x:.5e}\t|grad|= {norm_grad_x:.5e}')
+                        try:
+                            while True:
+                                d = -grad_x
+                                alpha = line_search(x, func_x, grad_x, d)
+                                x = x + alpha * d
+                                func_x, grad_x = func(x)
+                                rel_func_update = abs((func_x - old_func_x) / old_func_x)
+                                old_func_x = func_x
+                                norm_grad_x = np.linalg.norm(grad_x)
+                                i += 1
+                                if disp:
+                                    self.logger.info(f'iter: {i:5d}\tf= {func_x:.5e}\t|grad|= {norm_grad_x:.5e}')
+                                if callback is not None:
+                                    callback(np.copy(x))
+                                if norm_grad_x <= grad_norm_tol:
+                                    message = 'gradient norm below tolerance'
+                                    break
+                                elif rel_func_update <= rel_func_update_tol:
+                                    message = 'relative function value update below tolerance'
+                                    break
+                                elif i >= maxiter:
+                                    message = 'maximum number of iterations reached'
+                                    break
+                        except KeyboardInterrupt:
+                            message = 'optimization stopped due to keyboard interrupt'
+                            self.logger.warning('Optimization interrupted ...')
+
+                    self.logger.info('Finished optimization ...')
+                    result = {'x': x, 'nit': i, 'message': message}
+                    return result
+
+                res = gradient_descent(energy_and_gradient, initial_vector_field.to_numpy().flatten(),
+                                       callback=save_current_state, **optimizer_options)
+            else:
+                res = optimize.minimize(energy_and_gradient, initial_vector_field.to_numpy().flatten(),
+                                        method=optimization_method, jac=True, options=optimizer_options,
+                                        callback=save_current_state)
 
         # compute time-dependent vector field from optimal initial vector field
         vector_fields = self.integrate_forward_vector_field(VectorField(data=res['x'].reshape((*self.shape, self.dim))))
@@ -183,7 +246,8 @@ class GeodesicShooting:
 
         elapsed_time = int(time.perf_counter() - start_time)
 
-        self.logger.info(f"Finished registration ({reason_registration_ended}) ...")
+        opt['reason_registration_ended'] = res['message']
+        self.logger.info(f"Finished registration ({opt['reason_registration_ended']}) ...")
 
         if opt['initial_vector_field'] is not None:
             # compute the length of the path on the manifold;
@@ -195,7 +259,6 @@ class GeodesicShooting:
         opt['length'] = length
         opt['iterations'] = res['nit']
         opt['time'] = elapsed_time
-        opt['reason_registration_ended'] = res['message']
 
         if log_summary:
             self.summarize_results(opt)

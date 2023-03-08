@@ -11,6 +11,7 @@ def test_circle_to_square():
 
     # perform the registration
     gs = geodesic_shooting.GeodesicShooting(alpha=10., exponent=2)
-    result = gs.register(template, target, sigma=0.01, return_all=True)
+    result = gs.register(template, target, sigma=0.01, return_all=True, optimization_method='GD',
+                         optimizer_options={'maxiter': 20})
 
     assert (target - result['transformed_input']).norm / target.norm < 1e-2

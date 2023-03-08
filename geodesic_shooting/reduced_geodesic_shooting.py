@@ -251,8 +251,6 @@ class ReducedGeodesicShooting:
 
         opt = {'input': template, 'target': target}
 
-        reason_registration_ended = 'reached maximum number of iterations'
-
         start_time = time.perf_counter()
 
         # function that computes the energy
@@ -312,7 +310,8 @@ class ReducedGeodesicShooting:
 
         elapsed_time = int(time.perf_counter() - start_time)
 
-        self.logger.info(f"Finished registration ({reason_registration_ended}) ...")
+        opt['reason_registration_ended'] = res['message']
+        self.logger.info(f"Finished registration ({opt['reason_registration_ended']}) ...")
 
         if opt['initial_vector_field'] is not None:
             # compute the length of the path on the manifold;
@@ -324,7 +323,6 @@ class ReducedGeodesicShooting:
         opt['length'] = length
         opt['iterations'] = res['nit']
         opt['time'] = elapsed_time
-        opt['reason_registration_ended'] = res['message']
 
         if log_summary:
             self.summarize_results(opt)
