@@ -3,6 +3,7 @@ from numbers import Number
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.collections import LineCollection
+from pyevtk.vtk import VtkFile, VtkRectilinearGrid
 
 from geodesic_shooting.core.base import BaseFunction, BaseTimeDependentFunction
 from geodesic_shooting.core import (Diffeomorphism, TimeDependentDiffeomorphism,
@@ -419,6 +420,61 @@ class VectorField(BaseFunction):
                                 "\\end{document}\n")
         except Exception:
             pass
+
+    def save_vtk(self, filepath, data_label="Vector field"):
+        """Saves the `VectorField` as a vtk file.
+
+        Parameters
+        ----------
+        filepath
+            Path to save the plot to (without file extension).
+        data_label
+            Label for the vector field data.
+        """
+        assert self.dim in [2, 3]
+
+        if self.dim == 2:
+            nx, ny = self.spatial_shape
+            nz = 1
+        elif self.dim == 3:
+            nx, ny, nz = self.spatial_shape
+        lx, ly, lz = 1.0, 1.0, 1.0
+        x = np.linspace(0, lx, nx, dtype="float64")
+        y = np.linspace(0, ly, ny, dtype="float64")
+        if self.dim == 2:
+            z = np.linspace(0, lz, nz-1, dtype="float64")
+        elif self.dim == 3:
+            z = np.linspace(0, lz, nz, dtype="float64")
+        start, end = (0, 0, 0), (nx-1, ny-1, nz-1)
+
+        w = VtkFile(filepath, VtkRectilinearGrid)
+        w.openGrid(start=start, end=end)
+        w.openPiece(start=start, end=end)
+
+        vx = np.array(self.to_numpy()[..., 0], order='F')
+        vy = np.array(self.to_numpy()[..., 1], order='F')
+        if self.dim == 2:
+            vx = vx[..., np.newaxis]
+            vy = vy[..., np.newaxis]
+            vz = np.zeros_like(vx, order='F')
+        elif self.dim == 3:
+            vz = np.array(self.to_numpy()[..., 2], order='F')
+        w.openData("Point", vectors=data_label)
+        w.addData(data_label, (vx, vy, vz))
+        w.closeData("Point")
+
+        w.openElement("Coordinates")
+        w.addData("x_coordinates", x)
+        w.addData("y_coordinates", y)
+        w.addData("z_coordinates", z)
+        w.closeElement("Coordinates")
+
+        w.closePiece()
+        w.closeGrid()
+
+        w.appendData(data=(vx, vy, vz))
+        w.appendData(x).appendData(y).appendData(z)
+        w.save()
 
     def __add__(self, other):
         assert ((isinstance(other, BaseFunction) and other.full_shape == self.full_shape)
