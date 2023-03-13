@@ -105,6 +105,7 @@ def save_plots_registration_results(results, filepath='results/'):
     results['initial_vector_field'].save(filepath + 'initial_vector_field.png', plot_type='default',
                                          plot_args={'title': "Initial vector field", 'color_length': True,
                                                     'show_axis': True})
+    results['initial_vector_field'].save_vtk(filepath + 'initial_vector_field_vtk')
     results['initial_vector_field'].save(filepath + 'initial_vector_field_streamlines.png', plot_type='streamlines',
                                          plot_args={'title': "Initial vector field", 'color_length': True,
                                                     'show_axis': True, 'density': 2})

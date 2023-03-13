@@ -6,3 +6,4 @@ examples/*/results*/
 *.pickle
 *.tex
 *.gif
+*.vtr

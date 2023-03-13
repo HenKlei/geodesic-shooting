@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 from geodesic_shooting.core import ScalarFunction, VectorField, TimeDependentVectorField
 from geodesic_shooting.utils import grid
@@ -27,6 +28,41 @@ def test_functions():
     assert np.isclose((2. * f + g).norm, 30.)
 
 
+def test_functions_plots():
+    n = 200
+    shape = (n, 2*n)
+
+    def f(x, y):
+        return np.stack([0.8*np.exp(-x**2-y**2) / 6, -0.4*np.exp(-x**2-y**2) / 6], axis=-1)
+
+    def g(x, y):
+        return np.exp(-x**2-y**2)
+
+    fig, axis = plt.subplots()
+    grid_x, grid_y = np.meshgrid(np.linspace(-3, 3, shape[0]), np.linspace(-3, 3, shape[1]), indexing='ij')
+    function = ScalarFunction(data=g(grid_x, grid_y))
+    function.plot(axis=axis, extent=(0, shape[0]-1, 0, shape[1]-1))
+    zero_vector_field = VectorField(spatial_shape=shape)
+    zero_vector_field.plot_as_warpgrid(title="Original function on identity grid", axis=axis, interval=10)
+
+    fig, axis = plt.subplots()
+    displacement_field = VectorField(data=f(grid_x, grid_y))
+    time_steps = 30
+    time_dependent_field = TimeDependentVectorField(data=[displacement_field]*time_steps)
+    diffeomorphism = time_dependent_field.integrate()
+    inverse_diffeomorphism = time_dependent_field.integrate_backward()
+    function2 = function.push_forward(inverse_diffeomorphism)
+    displacement_field.plot_as_warpgrid(axis=axis, interval=10)
+    function2.plot(title="Gaussian deformation", axis=axis, extent=(0, shape[0]-1, 0, shape[1]-1))
+
+    fig, axis = plt.subplots()
+    function2 = function2.push_forward(diffeomorphism)
+    zero_vector_field.plot_as_warpgrid(axis=axis, interval=10)
+    function2.plot(title="Inverted Gaussian deformation", axis=axis, extent=(0, shape[0]-1, 0, shape[1]-1))
+
+    (function - function2).abs().plot(title="Absolute difference", colorbar=True, extent=(0, shape[0]-1, 0, shape[1]-1))
+
+
 def test_vector_fields():
     shape = (5, 10)
     v = VectorField(shape)
@@ -47,6 +83,34 @@ def test_vector_fields():
     assert np.isclose((v + w).norm, 20.)
     assert np.isclose((w + v).norm, 20.)
     assert np.isclose((2. * v + w).norm, 30.)
+
+
+def test_vector_fields_plots():
+    n = 20
+    shape = (n, 2*n)
+    grid_x, grid_y = np.meshgrid(np.linspace(-3, 3, shape[0]), np.linspace(-3, 3, shape[1]), indexing='ij')
+
+    def f(x, y):
+        return np.stack([(0.75*(1 - x) / np.exp(np.sqrt((1 - x)**2 + y**2))
+                          + 100*(10 - x) / np.exp(np.sqrt((10 - x)**2 + y**2))) / 6,
+                         -y / np.exp(np.sqrt((1 - x)**2 + y**2)) / 6],
+                        axis=-1)
+
+    displacement_field = VectorField(data=f(grid_x, grid_y))
+    magnitude = displacement_field.get_magnitude()
+    x_component = displacement_field.get_component_as_function(0)
+    y_component = displacement_field.get_component_as_function(1)
+
+    displacement_field.save_vtk("displacement_field", data_label="Displacement vector field")
+
+    displacement_field.plot_as_warpgrid(title="Warpgrid", show_displacement_vectors=True)
+    displacement_field.plot(title="Displacement vector field")
+    displacement_field.plot(title="Displacement vector field with colors", color_length=True)
+    displacement_field.plot_streamlines(title="Streamlines")
+    displacement_field.plot_streamlines(title="Streamlines with colors", color_length=True, density=2)
+    magnitude.plot(title="Magnitude of vector field")
+    x_component.plot(title="x-component of vector field")
+    y_component.plot(title="y-component of vector field")
 
 
 def test_time_integration():
