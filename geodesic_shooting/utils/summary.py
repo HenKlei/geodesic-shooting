@@ -105,15 +105,25 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, show
                                                      restriction=results['restriction'])
         plt.show()
 
+        diff = results['input'] - inverse_transformed_registration_result
+        diff.plot("Difference between input and inverse transformed registration result",
+                  show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
+        plt.show()
+
         inverse_transformed_target = results['target'].push_forward(diffeomorphism.inverse)
         inverse_transformed_target.plot("Inverse transformed target",
                                         show_restriction_boundary=show_restriction_boundary,
                                         restriction=results['restriction'])
         plt.show()
 
+        diff = results['input'] - inverse_transformed_target
+        diff.plot("Difference between input and inverse transformed target",
+                  show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
+        plt.show()
 
-def save_plots_registration_results(results, filepath='results/', postfix='',
-                                    interval=10, show_restriction_boundary=True):
+
+def save_plots_registration_results(results, filepath='results/', postfix='', interval=1,
+                                    show_restriction_boundary=True):
     """Saves some plots of the results from registration via geodesic shooting.
 
     Parameters
@@ -157,7 +167,28 @@ def save_plots_registration_results(results, filepath='results/', postfix='',
         comp = results['initial_vector_field'].get_component_as_function(d)
         comp.save(filepath + f'initial_vector_field_component_{d}.png',
                   title='Initial vector field component ' + str(d) + postfix)
-    results['flow'].save(filepath + 'diffeomorphism.png', title='Diffeomorphism' + postfix, show_axis=True)
-    inverse_diffeomorphism = results['vector_fields'].integrate_backward()
-    inverse_diffeomorphism.save(filepath + 'inverse_diffeomorphism.png', title='Inverse diffeomorphism' + postfix,
-                                show_axis=True)
+    diffeomorphism = results['flow']
+    diffeomorphism.save(filepath + 'diffeomorphism.png', title='Diffeomorphism' + postfix, show_axis=True,
+                        interval=interval)
+    diffeomorphism.set_inverse(results['vector_fields'].integrate_backward())
+    diffeomorphism.inverse.save(filepath + 'inverse_diffeomorphism.png', title='Inverse diffeomorphism' + postfix,
+                                show_axis=True, interval=interval)
+
+    inverse_transformed_registration_result = results['transformed_input'].push_forward(diffeomorphism.inverse)
+    inverse_transformed_registration_result.save(filepath + 'inverse_transformed_registration_result.png',
+                                                 title='Inverse transformed registration result' + postfix,
+                                                 show_restriction_boundary=show_restriction_boundary,
+                                                 restriction=results['restriction'])
+    diff = results['input'] - inverse_transformed_registration_result
+    diff.save(filepath + 'diff_input_inverse_transformed_registration_result.png',
+              title='Difference between input and inverse transformed registration result' + postfix,
+              show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
+    inverse_transformed_target = results['target'].push_forward(diffeomorphism.inverse)
+    inverse_transformed_target.save(filepath + 'inverse_transformed_target.png',
+                                    title='Inverse transformed target' + postfix,
+                                    show_restriction_boundary=show_restriction_boundary,
+                                    restriction=results['restriction'])
+    diff = results['input'] - inverse_transformed_target
+    diff.save(filepath + 'diff_input_inverse_transformed_target.png',
+              title='Difference between input and inverse transformed target' + postfix,
+              show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
