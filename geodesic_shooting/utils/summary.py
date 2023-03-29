@@ -69,7 +69,7 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, show
                                                          show_displacement_vectors=True)
         plt.show()
 
-        diffeomorphism.plot("Diffeomorphism", interval=interval, show_displacement_vectors=True, color_length=True)
+        diffeomorphism.plot("Diffeomorphism", interval=interval)
         plt.show()
 
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
