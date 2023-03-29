@@ -19,7 +19,7 @@ if __name__ == "__main__":
     function = ScalarFunction(data=g(grid_x, grid_y))
 
     fig, axis = plt.subplots()
-    _, vals = function.plot(axis=axis, extent=(0, shape[0]-1, 0, shape[1]-1))
+    _, vals = function.plot(axis=axis)
     function.grad.plot(title="Finite difference approximation of the gradient vector field of the function",
                        axis=axis, interval=10, scale=None)
     fig.colorbar(vals)
@@ -30,7 +30,7 @@ if __name__ == "__main__":
 
     true_gradient = VectorField(data=g_gradient(grid_x, grid_y))
     fig, axis = plt.subplots()
-    _, vals = function.plot(axis=axis, extent=(0, shape[0]-1, 0, shape[1]-1))
+    _, vals = function.plot(axis=axis)
     true_gradient.plot(title="Exact gradient vector field of the function",
                        axis=axis, interval=10, scale=None)
     fig.colorbar(vals)
@@ -48,9 +48,9 @@ if __name__ == "__main__":
     displacement_field = VectorField(data=f(grid_x, grid_y))
 
     fig, axis = plt.subplots()
-    _, vals = displacement_field.div.plot(axis=axis, extent=(0, shape[0], 0, shape[1]))
+    _, vals = displacement_field.div.plot(axis=axis)
     displacement_field.plot("Finite difference approximation of the divergence of the displacement vector field",
-                            axis=axis, interval=10, scale=0.1)
+                            axis=axis, interval=10, scale=None)
     fig.colorbar(vals)
     plt.show()
 
@@ -59,14 +59,14 @@ if __name__ == "__main__":
 
     true_divergence = ScalarFunction(data=f_divergence(grid_x, grid_y))
     fig, axis = plt.subplots()
-    _, vals = true_divergence.plot(axis=axis, extent=(0, shape[0], 0, shape[1]))
-    displacement_field.plot("Exact divergence of the displacement vector field", axis=axis, interval=10, scale=0.1)
+    _, vals = true_divergence.plot(axis=axis)
+    displacement_field.plot("Exact divergence of the displacement vector field", axis=axis, interval=10, scale=None)
     fig.colorbar(vals)
     plt.show()
 
     fig, axis = plt.subplots()
-    _, vals = (true_divergence - displacement_field.div).abs().plot(axis=axis, extent=(0, shape[0], 0, shape[1]))
-    displacement_field.plot("Absolute error of the divergence approximation", axis=axis, interval=10, scale=0.1)
+    _, vals = (true_divergence - displacement_field.div).abs().plot(axis=axis)
+    displacement_field.plot("Absolute error of the divergence approximation", axis=axis, interval=10, scale=None)
     fig.colorbar(vals)
     plt.show()
 

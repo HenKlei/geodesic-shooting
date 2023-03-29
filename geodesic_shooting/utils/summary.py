@@ -55,28 +55,28 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, show
     plt.title("Singular values of time-evolution of the vector field")
     plt.show()
 
-    results['vector_fields'][0].plot("Initial vector field", interval=interval, scale=scale)
+    results['initial_vector_field'].plot("Initial vector field", interval=interval, scale=scale)
     plt.show()
 
-    results['vector_fields'][0].get_magnitude().plot("Magnitude of initial vector field")
+    results['initial_vector_field'].get_magnitude().plot("Magnitude of initial vector field")
     plt.show()
 
-    if results['vector_fields'].dim == 2:
-        results['vector_fields'][0].plot_as_warpgrid("Initial vector field", interval=interval)
+    if results['initial_vector_field'].dim == 2:
+        results['initial_vector_field'].plot_as_warpgrid("Initial vector field", interval=interval)
         plt.show()
 
-        results['vector_fields'][0].plot_as_warpgrid("Initial vector field", interval=interval,
-                                                     show_displacement_vectors=True)
+        results['initial_vector_field'].plot_as_warpgrid("Initial vector field", interval=interval,
+                                                         show_displacement_vectors=True)
         plt.show()
 
-        diffeomorphism.plot("Diffeomorphism", interval=interval)
+        diffeomorphism.plot("Diffeomorphism", interval=interval, show_displacement_vectors=True, color_length=True)
         plt.show()
 
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
-        ax1 = results['vector_fields'][0].plot("Initial vector field", axis=ax1, interval=interval, scale=scale)
+        ax1 = results['initial_vector_field'].plot("Initial vector field", axis=ax1, interval=interval, scale=scale)
         ax2 = results['vector_fields'][-1].plot("Final vector field", axis=ax2, interval=interval, scale=scale)
-        ax3 = (results['vector_fields'][0] - results['vector_fields'][-1]).plot("Difference", axis=ax3,
-                                                                                interval=interval, scale=scale)
+        ax3 = (results['initial_vector_field'] - results['vector_fields'][-1]).plot("Difference", axis=ax3,
+                                                                                    interval=interval, scale=scale)
         plt.show()
 
         time_dependent_diffeomorphism = results['vector_fields'].integrate(get_time_dependent_diffeomorphism=True)

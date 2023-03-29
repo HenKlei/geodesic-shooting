@@ -112,6 +112,8 @@ class Diffeomorphism(BaseFunction):
             axis.autoscale()
 
         identity_grid = grid.coordinate_grid(self.spatial_shape)
+        identity_grid = np.stack([identity_grid[..., 0] / self.spatial_shape[0],
+                                  identity_grid[..., 1] / self.spatial_shape[1]], axis=-1)
         grid_x, grid_y = identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1]
         grid_x = np.vstack([grid_x, identity_grid[-1, ::interval, 0][np.newaxis, ...]])
         grid_x = np.hstack([grid_x, np.hstack([identity_grid[::interval, -1, 0],
@@ -122,11 +124,14 @@ class Diffeomorphism(BaseFunction):
         if show_identity_grid:
             plot_grid(grid_x, grid_y, color="lightgrey")
 
-        dist_x, dist_y = self[::interval, ::interval, 0], self[::interval, ::interval, 1]
-        dist_x = np.vstack([dist_x, self[-1, ::interval, 0][np.newaxis, ...]])
-        dist_x = np.hstack([dist_x, np.hstack([self[::interval, -1, 0], self[-1, -1, 0]])[..., np.newaxis]])
-        dist_y = np.vstack([dist_y, self[-1, ::interval, 1][np.newaxis, ...]])
-        dist_y = np.hstack([dist_y, np.hstack([self[::interval, -1, 1], self[-1, -1, 1]])[..., np.newaxis]])
+        dist_x = self[::interval, ::interval, 0] / self.spatial_shape[0]
+        dist_y = self[::interval, ::interval, 1] / self.spatial_shape[1]
+        dist_x = np.vstack([dist_x, self[-1, ::interval, 0][np.newaxis, ...] / self.spatial_shape[0]])
+        dist_x = np.hstack([dist_x, np.hstack([self[::interval, -1, 0],
+                                               self[-1, -1, 0]])[..., np.newaxis] / self.spatial_shape[0]])
+        dist_y = np.vstack([dist_y, self[-1, ::interval, 1][np.newaxis, ...] / self.spatial_shape[1]])
+        dist_y = np.hstack([dist_y, np.hstack([self[::interval, -1, 1],
+                                               self[-1, -1, 1]])[..., np.newaxis] / self.spatial_shape[1]])
         dist_x = grid_x + (dist_x - grid_x) * self.spatial_shape[0]
         dist_y = grid_y + (dist_y - grid_y) * self.spatial_shape[1]
         plot_grid(dist_x, dist_y, color="C0")
@@ -135,13 +140,17 @@ class Diffeomorphism(BaseFunction):
             if color_length:
                 colors = np.linalg.norm(self.to_numpy(), axis=-1)
                 axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
-                            self[::interval, ::interval, 0] * self.spatial_shape[0],
-                            self[::interval, ::interval, 1] * self.spatial_shape[1],
+                            self[::interval, ::interval, 0]
+                            - identity_grid[::interval, ::interval, 0] * self.spatial_shape[0],
+                            self[::interval, ::interval, 1]
+                            - identity_grid[::interval, ::interval, 1] * self.spatial_shape[1],
                             colors, scale_units='xy', units='xy', angles='xy', scale=1, zorder=2)
             else:
                 axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
-                            self[::interval, ::interval, 0] * self.spatial_shape[0],
-                            self[::interval, ::interval, 1] * self.spatial_shape[1],
+                            self[::interval, ::interval, 0]
+                            - identity_grid[::interval, ::interval, 0] * self.spatial_shape[0],
+                            self[::interval, ::interval, 1]
+                            - identity_grid[::interval, ::interval, 1] * self.spatial_shape[1],
                             scale_units='xy', units='xy', angles='xy', scale=1, zorder=2)
 
         if not show_axis:
