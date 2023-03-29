@@ -138,7 +138,7 @@ class VectorField(BaseFunction):
             else:
                 fig, axis = plt.subplots(1, 1, figsize=figsize)
 
-        if show_axis is False:
+        if not show_axis:
             axis.set_axis_off()
 
         axis.set_aspect('equal')
@@ -235,7 +235,7 @@ class VectorField(BaseFunction):
             created_figure = True
             fig, axis = plt.subplots(1, 1, figsize=figsize)
 
-        if show_axis is False:
+        if not show_axis:
             axis.set_axis_off()
 
         axis.set_aspect('equal')
@@ -333,7 +333,7 @@ class VectorField(BaseFunction):
                             self[::interval, ::interval, 1] * self.spatial_shape[1],
                             scale_units='xy', units='xy', angles='xy', scale=1, zorder=2)
 
-        if show_axis is False:
+        if not show_axis:
             axis.set_axis_off()
 
         axis.set_aspect('equal')
@@ -694,7 +694,7 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
         else:
             fig, axis = plt.subplots(1, 1, figsize=figsize)
 
-        if show_axis is False:
+        if not show_axis:
             axis.set_axis_off()
 
         axis.set_aspect('equal')

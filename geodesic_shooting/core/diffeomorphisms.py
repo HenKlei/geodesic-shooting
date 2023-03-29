@@ -144,7 +144,7 @@ class Diffeomorphism(BaseFunction):
                             self[::interval, ::interval, 1] * self.spatial_shape[1],
                             scale_units='xy', units='xy', angles='xy', scale=1, zorder=2)
 
-        if show_axis is False:
+        if not show_axis:
             axis.set_axis_off()
 
         axis.set_aspect('equal')
@@ -285,7 +285,7 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
             dist_x, dist_y = get_scaled_and_extended_grid_points(t)
             axis.scatter(dist_x, dist_y, c="C1", zorder=2)
 
-        if show_axis is False:
+        if not show_axis:
             axis.set_axis_off()
 
         axis.set_aspect('equal')
@@ -316,7 +316,7 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
         """
         fig, axis = plt.subplots(1, 1, figsize=figsize)
 
-        if show_axis is False:
+        if not show_axis:
             axis.set_axis_off()
 
         axis.set_aspect('equal')
@@ -348,7 +348,8 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
         ani = PauseAnimation()
         return ani
 
-    def animate_transformation(self, function, title="", interval=1, show_axis=False, figsize=(10, 10)):
+    def animate_transformation(self, function, title="", interval=1, show_axis=False, figsize=(10, 10),
+                               show_restriction_boundary=True, restriction=np.s_[...]):
         """Animates the `TimeDependentDiffeomorphism` together with a transformed `ScalarFunction`.
 
         Parameters
@@ -373,7 +374,7 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
 
         fig, axis = plt.subplots(1, 1, figsize=figsize)
 
-        if show_axis is False:
+        if not show_axis:
             axis.set_axis_off()
 
         axis.set_aspect('equal')
@@ -382,7 +383,9 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
         def update(i):
             axis.clear()
             function.push_forward(self[i]).plot(axis=axis,
-                                                extent=(0, self.spatial_shape[0]-1, 0, self.spatial_shape[1]-1))
+                                                extent=(0, self.spatial_shape[0]-1, 0, self.spatial_shape[1]-1),
+                                                show_restriction_boundary=show_restriction_boundary,
+                                                restriction=restriction)
             self[i].plot(title=title, interval=interval, axis=axis, show_displacement_vectors=False)
 
         time_steps = self.time_steps

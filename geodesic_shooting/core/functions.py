@@ -2,6 +2,7 @@ import numpy as np
 from numbers import Number
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import skimage
 
 from geodesic_shooting.core.base import BaseFunction, BaseTimeDependentFunction
 from geodesic_shooting.utils import grid
@@ -34,7 +35,8 @@ class ScalarFunction(BaseFunction):
     def _compute_full_shape(self):
         return self.spatial_shape
 
-    def plot(self, title="", colorbar=True, axis=None, figsize=(10, 10), extent=(0., 1., 0., 1.), vmin=None, vmax=None):
+    def plot(self, title="", colorbar=True, axis=None, figsize=(10, 10), extent=(0., 1., 0., 1.), vmin=None, vmax=None,
+             show_restriction_boundary=True, restriction=np.s_[...]):
         """Plots the `ScalarFunction` using `matplotlib`.
 
         Parameters
@@ -76,7 +78,13 @@ class ScalarFunction(BaseFunction):
         if self.dim == 1:
             vals = axis.plot(self.to_numpy())
         elif self.dim == 2:
-            vals = axis.imshow(self.to_numpy().transpose(), origin='lower', extent=extent, vmin=vmin, vmax=vmax)
+            image = np.copy(self.to_numpy().transpose())
+            if show_restriction_boundary and restriction != np.s_[...]:
+                label_img = np.zeros_like(image, dtype=bool)
+                label_img[restriction] = True
+                mask = skimage.segmentation.find_boundaries(label_img, mode='outer')
+                image[mask] = np.nan
+            vals = axis.imshow(image, origin='lower', extent=extent, vmin=vmin, vmax=vmax)
         elif self.dim == 3:
             identity_grid = grid.coordinate_grid(self.spatial_shape).to_numpy()
             vals = axis.scatter(identity_grid[..., 0].flatten(),
@@ -91,7 +99,8 @@ class ScalarFunction(BaseFunction):
             return fig, axis, vals
         return axis, vals
 
-    def save(self, filepath, title="", colorbar=True, extent=(0., 1., 0., 1.), dpi=100):
+    def save(self, filepath, title="", colorbar=True, extent=(0., 1., 0., 1.), dpi=100,
+             show_restriction_boundary=True, restriction=np.s_[...]):
         """Saves the plot of the `ScalarFunction` produced by the `plot`-function.
 
         Parameters
@@ -111,7 +120,8 @@ class ScalarFunction(BaseFunction):
             for more details.
         """
         try:
-            fig, _, _ = self.plot(title=title, colorbar=colorbar, axis=None, extent=extent)
+            fig, _, _ = self.plot(title=title, colorbar=colorbar, axis=None, extent=extent,
+                                  show_restriction_boundary=show_restriction_boundary, restriction=restriction)
             fig.savefig(filepath, dpi=dpi, bbox_inches='tight')
             plt.close(fig)
         except Exception:
@@ -235,7 +245,7 @@ class TimeDependentScalarFunction(BaseTimeDependentFunction):
         else:
             fig, axis = plt.subplots(1, 1, figsize=figsize)
 
-        if show_axis is False:
+        if not show_axis:
             axis.set_axis_off()
 
         axis.set_aspect('equal')

@@ -259,6 +259,7 @@ class GeodesicShooting:
         opt['length'] = length
         opt['iterations'] = res['nit']
         opt['time'] = elapsed_time
+        opt['restriction'] = restriction
 
         if log_summary:
             self.summarize_results(opt, restriction=restriction)
