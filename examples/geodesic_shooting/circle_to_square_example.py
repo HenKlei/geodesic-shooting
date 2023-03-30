@@ -15,5 +15,5 @@ if __name__ == "__main__":
     result = gs.register(template, target, sigma=0.01, return_all=True, optimization_method='GD',
                          optimizer_options={'maxiter': 20})
 
-    plot_registration_results(result)
+    plot_registration_results(result, frequency=5)
     save_plots_registration_results(result, filepath='results_circle_to_square/')

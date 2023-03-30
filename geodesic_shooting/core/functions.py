@@ -35,8 +35,8 @@ class ScalarFunction(BaseFunction):
     def _compute_full_shape(self):
         return self.spatial_shape
 
-    def plot(self, title="", colorbar=True, axis=None, figsize=(10, 10), extent=(0., 1., 0., 1.), vmin=None, vmax=None,
-             show_restriction_boundary=True, restriction=np.s_[...]):
+    def plot(self, title="", colorbar=True, axis=None, show_axis=True, figsize=(10, 10), extent=(0., 1., 0., 1.),
+             vmin=None, vmax=None, show_restriction_boundary=True, restriction=np.s_[...]):
         """Plots the `ScalarFunction` using `matplotlib`.
 
         Parameters
@@ -92,6 +92,8 @@ class ScalarFunction(BaseFunction):
                                 identity_grid[..., 2].flatten(), c=self.to_numpy().flatten(), vmin=vmin, vmax=vmax)
 
         axis.set_title(title)
+        if not show_axis:
+            axis.set_axis_off()
 
         if created_figure:
             if colorbar:
@@ -99,7 +101,7 @@ class ScalarFunction(BaseFunction):
             return fig, axis, vals
         return axis, vals
 
-    def save(self, filepath, title="", colorbar=True, extent=(0., 1., 0., 1.), dpi=100,
+    def save(self, filepath, title="", colorbar=True, extent=(0., 1., 0., 1.), dpi=100, show_axis=True,
              show_restriction_boundary=True, restriction=np.s_[...]):
         """Saves the plot of the `ScalarFunction` produced by the `plot`-function.
 
@@ -120,7 +122,7 @@ class ScalarFunction(BaseFunction):
             for more details.
         """
         try:
-            fig, _, _ = self.plot(title=title, colorbar=colorbar, axis=None, extent=extent,
+            fig, _, _ = self.plot(title=title, colorbar=colorbar, axis=None, show_axis=show_axis, extent=extent,
                                   show_restriction_boundary=show_restriction_boundary, restriction=restriction)
             fig.savefig(filepath, dpi=dpi, bbox_inches='tight')
             plt.close(fig)
@@ -218,7 +220,7 @@ class TimeDependentScalarFunction(BaseTimeDependentFunction):
     def _compute_full_shape(self):
         return (self.time_steps, *self.spatial_shape)
 
-    def animate(self, title="", colorbar=True, show_axis=False, figsize=(10, 10), extent=(0., 1., 0., 1.)):
+    def animate(self, title="", colorbar=True, show_axis=True, figsize=(10, 10), extent=(0., 1., 0., 1.)):
         """Animates the `TimeDependentScalarFunction` using the `plot`-function of `ScalarFunction`.
 
         Parameters
@@ -253,13 +255,13 @@ class TimeDependentScalarFunction(BaseTimeDependentFunction):
 
         zmin = np.min(self.to_numpy())
         zmax = np.max(self.to_numpy())
-        _, vals = self[0].plot(title=title, axis=axis, extent=extent, vmin=zmin, vmax=zmax)
+        _, vals = self[0].plot(title=title, axis=axis, extent=extent, show_axis=show_axis, vmin=zmin, vmax=zmax)
         if colorbar:
             fig.colorbar(vals, ax=axis)
 
         def update(i):
             axis.clear()
-            _, vals = self[i].plot(title=title, axis=axis, extent=extent)
+            _, vals = self[i].plot(title=title, axis=axis, extent=extent, show_axis=show_axis, vmin=zmin, vmax=zmax)
 
         time_steps = self.time_steps
 

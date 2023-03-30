@@ -65,7 +65,7 @@ class Diffeomorphism(BaseFunction):
         assert hasattr(self, 'inverse_diffeomorphism'), "Inverse diffeomorphism not set."
         return self.inverse_diffeomorphism
 
-    def plot(self, title="", interval=1, show_axis=False, show_identity_grid=True, axis=None,
+    def plot(self, title="", interval=1, show_axis=True, show_identity_grid=True, axis=None,
              figsize=(10, 10), show_displacement_vectors=False, color_length=False):
         """Plots the `Diffeomorphism` as a warpgrid using `matplotlib`.
 
@@ -163,7 +163,7 @@ class Diffeomorphism(BaseFunction):
             return fig, axis
         return axis
 
-    def save(self, filepath, title="", interval=1, show_axis=False, show_identity_grid=True,
+    def save(self, filepath, title="", interval=1, show_axis=True, show_identity_grid=True,
              show_displacement_vectors=False, color_length=False, dpi=100):
         """Saves the plot of the `VectorField` produced by the `plot`-function.
 
@@ -225,7 +225,7 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
         """
         super().__init__(spatial_shape, time_steps, data)
 
-    def plot(self, title="", interval=1, frequency=1, show_axis=False, show_identity_grid=True, axis=None,
+    def plot(self, title="", interval=1, frequency=1, show_axis=True, show_identity_grid=True, axis=None,
              figsize=(10, 10)):
         """Plots the `TimeDependentDiffeomorphism` as trajectories of points using `matplotlib`.
 
@@ -304,7 +304,7 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
             return fig, axis
         return axis
 
-    def animate(self, title="", interval=1, show_axis=False, figsize=(10, 10)):
+    def animate(self, title="", interval=1, show_axis=True, figsize=(10, 10)):
         """Animates the `TimeDependentDiffeomorphism`.
 
         Parameters
@@ -333,7 +333,8 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
 
         def update(i):
             axis.clear()
-            self[i].plot(title=title, interval=interval, axis=axis, show_displacement_vectors=False)
+            self[i].plot(title=title, interval=interval, axis=axis, show_axis=show_axis,
+                         show_displacement_vectors=False)
 
         time_steps = self.time_steps
 
@@ -357,7 +358,7 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
         ani = PauseAnimation()
         return ani
 
-    def animate_transformation(self, function, title="", interval=1, show_axis=False, figsize=(10, 10),
+    def animate_transformation(self, function, title="", interval=1, show_axis=True, figsize=(10, 10),
                                show_restriction_boundary=True, restriction=np.s_[...]):
         """Animates the `TimeDependentDiffeomorphism` together with a transformed `ScalarFunction`.
 
@@ -391,11 +392,11 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
 
         def update(i):
             axis.clear()
-            function.push_forward(self[i]).plot(axis=axis,
-                                                extent=(0, self.spatial_shape[0]-1, 0, self.spatial_shape[1]-1),
+            function.push_forward(self[i]).plot(axis=axis, show_axis=show_axis,
                                                 show_restriction_boundary=show_restriction_boundary,
                                                 restriction=restriction)
-            self[i].plot(title=title, interval=interval, axis=axis, show_displacement_vectors=False)
+            self[i].plot(title=title, interval=interval, axis=axis, show_axis=show_axis,
+                         show_displacement_vectors=False)
 
         time_steps = self.time_steps
 
@@ -412,6 +413,9 @@ class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
                 else:
                     self.ani.pause()
                 self.paused = not self.paused
+
+            def save(self, filename='animation.gif', writer='imagemagick', fps=10):
+                self.ani.save(filename, writer=writer, fps=fps)
 
         ani = PauseAnimation()
         return ani

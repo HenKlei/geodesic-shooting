@@ -154,13 +154,12 @@ def save_plots_registration_results(results, filepath='results/', postfix='', in
               show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
     results['initial_vector_field'].save(filepath + 'initial_vector_field.png', plot_type='default',
                                          plot_args={'title': 'Initial vector field' + postfix, 'interval': interval,
-                                                    'color_length': True, 'show_axis': True, 'scale': None,
-                                                    'figsize': (20, 20)})
+                                                    'color_length': True, 'scale': None, 'figsize': (20, 20)})
     results['initial_vector_field'].save_vtk(filepath + 'initial_vector_field_vtk')
     results['initial_vector_field'].save(filepath + 'initial_vector_field_streamlines.png', plot_type='streamlines',
                                          plot_args={'title': 'Initial vector field' + postfix, 'interval': interval,
-                                                    'color_length': True, 'show_axis': True, 'scale': None,
-                                                    'figsize': (20, 20), 'density': 2})
+                                                    'color_length': True, 'scale': None, 'figsize': (20, 20),
+                                                    'density': 2})
     results['initial_vector_field'].get_magnitude().save(filepath + 'initial_vector_field_magnitude.png',
                                                          title='Magnitude of initial vector field' + postfix)
     for d in range(results['initial_vector_field'].dim):
@@ -168,11 +167,10 @@ def save_plots_registration_results(results, filepath='results/', postfix='', in
         comp.save(filepath + f'initial_vector_field_component_{d}.png',
                   title='Initial vector field component ' + str(d) + postfix)
     diffeomorphism = results['flow']
-    diffeomorphism.save(filepath + 'diffeomorphism.png', title='Diffeomorphism' + postfix, show_axis=True,
-                        interval=interval)
+    diffeomorphism.save(filepath + 'diffeomorphism.png', title='Diffeomorphism' + postfix, interval=interval)
     diffeomorphism.set_inverse(results['vector_fields'].integrate_backward())
     diffeomorphism.inverse.save(filepath + 'inverse_diffeomorphism.png', title='Inverse diffeomorphism' + postfix,
-                                show_axis=True, interval=interval)
+                                interval=interval)
 
     inverse_transformed_registration_result = results['transformed_input'].push_forward(diffeomorphism.inverse)
     inverse_transformed_registration_result.save(filepath + 'inverse_transformed_registration_result.png',
@@ -192,3 +190,25 @@ def save_plots_registration_results(results, filepath='results/', postfix='', in
     diff.save(filepath + 'diff_input_inverse_transformed_target.png',
               title='Difference between input and inverse transformed target' + postfix,
               show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
+
+    time_dependent_diffeomorphism = results['vector_fields'].integrate(get_time_dependent_diffeomorphism=True)
+    assert time_dependent_diffeomorphism[-1] == diffeomorphism
+
+    ani = time_dependent_diffeomorphism.animate('Animation of time-evolution of diffeomorphism' + postfix,
+                                                interval=interval)
+    try:
+        ani.save(filepath + 'animation_time_evolution_diffeomorphism.gif', writer='imagemagick',
+                 fps=max(1, len(time_dependent_diffeomorphism) // 10))
+    except Exception as e:
+        print(f"Could not save animation! Error: {e}")
+
+    ani = time_dependent_diffeomorphism.animate_transformation(results['input'],
+                                                               'Animation of the transformation of the input' + postfix,
+                                                               interval=interval,
+                                                               show_restriction_boundary=show_restriction_boundary,
+                                                               restriction=results['restriction'])
+    try:
+        ani.save(filepath + 'animation_transformation_input.gif', writer='imagemagick',
+                 fps=max(1, len(time_dependent_diffeomorphism) // 10))
+    except Exception as e:
+        print(f"Could not save animation! Error: {e}")

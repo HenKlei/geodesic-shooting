@@ -88,7 +88,7 @@ class VectorField(BaseFunction):
 
     div = property(get_divergence)
 
-    def plot(self, title="", interval=1, color_length=False, colorbar=True, vmin=None, vmax=None, show_axis=False,
+    def plot(self, title="", interval=1, color_length=False, colorbar=True, vmin=None, vmax=None, show_axis=True,
              scale=None, axis=None, figsize=(10, 10), zorder=1):
         """Plots the `VectorField` using `matplotlib`'s `quiver` function.
 
@@ -198,7 +198,7 @@ class VectorField(BaseFunction):
             return axis, vals
         return axis
 
-    def plot_streamlines(self, title="", density=1, color_length=False, show_axis=False, axis=None, figsize=(10, 10),
+    def plot_streamlines(self, title="", density=1, color_length=False, show_axis=True, axis=None, figsize=(10, 10),
                          zorder=1, integration_direction='forward'):
         """Plots the `VectorField` using `matplotlib`'s `quiver` function.
 
@@ -255,7 +255,7 @@ class VectorField(BaseFunction):
             return fig, axis
         return axis
 
-    def plot_as_warpgrid(self, title="", interval=1, show_axis=False, show_identity_grid=True, axis=None,
+    def plot_as_warpgrid(self, title="", interval=1, show_axis=True, show_identity_grid=True, axis=None,
                          figsize=(10, 10), show_displacement_vectors=False, color_length=False):
         """Plots the `VectorField` as a warpgrid using `matplotlib`.
 
@@ -344,7 +344,7 @@ class VectorField(BaseFunction):
         return axis
 
     def save(self, filepath, dpi=100, plot_type='default',
-             plot_args={'title': '', 'interval': 1, 'color_length': False, 'show_axis': False, 'scale': None,
+             plot_args={'title': '', 'interval': 1, 'color_length': False, 'show_axis': True, 'scale': None,
                         'axis': None, 'figsize': (20, 20)}):
         """Saves the plot of the `VectorField` produced by the `plot`-function.
 
@@ -658,7 +658,7 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
             return TimeDependentDiffeomorphism(data=diffeomorphisms)
         return diffeomorphisms[-1]
 
-    def animate(self, title="", interval=1, color_length=False, colorbar=True, scale=None, show_axis=False,
+    def animate(self, title="", interval=1, color_length=False, colorbar=True, scale=None, show_axis=True,
                 figsize=(10, 10)):
         """Animates the `TimeDependentVectorField` using the `plot`-function of `VectorField`.
 
@@ -704,13 +704,13 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
             vmin = np.min(self.get_magnitude_series().to_numpy())
             vmax = np.max(self.get_magnitude_series().to_numpy())
             _, vals = self[0].plot(title=title, interval=interval, color_length=color_length, colorbar=True,
-                                   vmin=vmin, vmax=vmax, scale=scale, axis=axis)
+                                   show_axis=show_axis, vmin=vmin, vmax=vmax, scale=scale, axis=axis)
             fig.colorbar(vals)
 
         def update(i):
             axis.clear()
             self[i].plot(title=title, interval=interval, color_length=color_length, colorbar=False,
-                         scale=scale, axis=axis)
+                         show_axis=show_axis, scale=scale, axis=axis)
 
         time_steps = self.time_steps
 
