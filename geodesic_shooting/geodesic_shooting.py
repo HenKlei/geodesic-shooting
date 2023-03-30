@@ -98,7 +98,7 @@ class GeodesicShooting:
         assert isinstance(target, ScalarFunction)
         assert template.full_shape == target.full_shape
 
-        inverse_mask = np.ones(template.spatial_shape, np.bool)
+        inverse_mask = np.ones(template.spatial_shape, bool)
         inverse_mask[restriction] = 0
 
         # function to compute the L2-error between a given image and the target
@@ -169,6 +169,9 @@ class GeodesicShooting:
             if optimization_method == 'GD':
                 def gradient_descent(func, x0, grad_norm_tol=1e-5, rel_func_update_tol=1e-8, maxiter=1000,
                                      maxiter_armijo=20, alpha0=1., rho=0.5, c1=1e-4, disp=True, callback=None):
+                    assert grad_norm_tol > 0 and rel_func_update_tol > 0
+                    assert isinstance(maxiter, int) and maxiter > 0
+
                     def line_search(x, func_x, grad_x, d):
                         alpha = alpha0
                         d_dot_grad = d.dot(grad_x)
@@ -194,16 +197,6 @@ class GeodesicShooting:
                             self.logger.info(f'iter: {i:5d}\tf= {func_x:.5e}\t|grad|= {norm_grad_x:.5e}')
                         try:
                             while True:
-                                d = -grad_x
-                                alpha = line_search(x, func_x, grad_x, d)
-                                x = x + alpha * d
-                                func_x, grad_x = func(x)
-                                rel_func_update = abs((func_x - old_func_x) / old_func_x)
-                                old_func_x = func_x
-                                norm_grad_x = np.linalg.norm(grad_x)
-                                i += 1
-                                if disp:
-                                    self.logger.info(f'iter: {i:5d}\tf= {func_x:.5e}\t|grad|= {norm_grad_x:.5e}')
                                 if callback is not None:
                                     callback(np.copy(x))
                                 if norm_grad_x <= grad_norm_tol:
@@ -215,6 +208,20 @@ class GeodesicShooting:
                                 elif i >= maxiter:
                                     message = 'maximum number of iterations reached'
                                     break
+
+                                d = -grad_x
+                                alpha = line_search(x, func_x, grad_x, d)
+                                x = x + alpha * d
+                                func_x, grad_x = func(x)
+                                if not np.isclose(old_func_x, 0.):
+                                    rel_func_update = abs((func_x - old_func_x) / old_func_x)
+                                else:
+                                    rel_func_update = 0.
+                                old_func_x = func_x
+                                norm_grad_x = np.linalg.norm(grad_x)
+                                i += 1
+                                if disp:
+                                    self.logger.info(f'iter: {i:5d}\tf= {func_x:.5e}\t|grad|= {norm_grad_x:.5e}')
                         except KeyboardInterrupt:
                             message = 'optimization stopped due to keyboard interrupt'
                             self.logger.warning('Optimization interrupted ...')
