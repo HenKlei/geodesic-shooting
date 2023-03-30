@@ -155,18 +155,19 @@ class VectorField(BaseFunction):
             if vmin and vmax:
                 clim = (vmin, vmax)
             if self.dim == 1:
-                vals = axis.quiver(identity_grid[::interval, 0] / self.spatial_shape[0], np.zeros(self.spatial_shape),
-                                   self[::interval, 0], np.zeros(self.spatial_shape), colors,
-                                   scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder, clim=clim)
+                vals = axis.quiver(identity_grid[::interval, 0] / (self.spatial_shape[0] - 1),
+                                   np.zeros(self.spatial_shape), self[::interval, 0], np.zeros(self.spatial_shape),
+                                   colors, scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder,
+                                   clim=clim)
             elif self.dim == 2:
-                vals = axis.quiver(identity_grid[::interval, ::interval, 0] / self.spatial_shape[0],
-                                   identity_grid[::interval, ::interval, 1] / self.spatial_shape[1],
+                vals = axis.quiver(identity_grid[::interval, ::interval, 0] / (self.spatial_shape[0] - 1),
+                                   identity_grid[::interval, ::interval, 1] / (self.spatial_shape[1] - 1),
                                    self[::interval, ::interval, 0], self[::interval, ::interval, 1], colors,
                                    scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder, clim=clim)
             elif self.dim == 3:
-                vals = axis.quiver(identity_grid[::interval, ::interval, ::interval, 0] / self.spatial_shape[0],
-                                   identity_grid[::interval, ::interval, ::interval, 1] / self.spatial_shape[1],
-                                   identity_grid[::interval, ::interval, ::interval, 2] / self.spatial_shape[2],
+                vals = axis.quiver(identity_grid[::interval, ::interval, ::interval, 0] / (self.spatial_shape[0] - 1),
+                                   identity_grid[::interval, ::interval, ::interval, 1] / (self.spatial_shape[1] - 1),
+                                   identity_grid[::interval, ::interval, ::interval, 2] / (self.spatial_shape[2] - 1),
                                    self[::interval, ::interval, ::interval, 0],
                                    self[::interval, ::interval, ::interval, 1],
                                    self[::interval, ::interval, ::interval, 2],
@@ -175,18 +176,18 @@ class VectorField(BaseFunction):
                 fig.colorbar(vals, ax=axis)
         else:
             if self.dim == 1:
-                axis.quiver(identity_grid[::interval, 0] / self.spatial_shape[0], np.zeros(self.spatial_shape),
+                axis.quiver(identity_grid[::interval, 0] / (self.spatial_shape[0] - 1), np.zeros(self.spatial_shape),
                             self[::interval, 0], np.zeros(self.spatial_shape),
                             scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
             elif self.dim == 2:
-                axis.quiver(identity_grid[::interval, ::interval, 0] / self.spatial_shape[0],
-                            identity_grid[::interval, ::interval, 1] / self.spatial_shape[1],
+                axis.quiver(identity_grid[::interval, ::interval, 0] / (self.spatial_shape[0] - 1),
+                            identity_grid[::interval, ::interval, 1] / (self.spatial_shape[1] - 1),
                             self[::interval, ::interval, 0], self[::interval, ::interval, 1],
                             scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder)
             elif self.dim == 3:
-                axis.quiver(identity_grid[::interval, ::interval, ::interval, 0] / self.spatial_shape[0],
-                            identity_grid[::interval, ::interval, ::interval, 1] / self.spatial_shape[1],
-                            identity_grid[::interval, ::interval, ::interval, 2] / self.spatial_shape[2],
+                axis.quiver(identity_grid[::interval, ::interval, ::interval, 0] / (self.spatial_shape[0] - 1),
+                            identity_grid[::interval, ::interval, ::interval, 1] / (self.spatial_shape[1] - 1),
+                            identity_grid[::interval, ::interval, ::interval, 2] / (self.spatial_shape[2] - 1),
                             self[::interval, ::interval, ::interval, 0],
                             self[::interval, ::interval, ::interval, 1],
                             self[::interval, ::interval, ::interval, 2],
@@ -241,8 +242,8 @@ class VectorField(BaseFunction):
         axis.set_aspect('equal')
         axis.set_title(title)
 
-        xs = np.arange(self.spatial_shape[0]) / self.spatial_shape[0]
-        ys = np.arange(self.spatial_shape[1]) / self.spatial_shape[1]
+        xs = np.arange(self.spatial_shape[0]) / (self.spatial_shape[0] - 1)
+        ys = np.arange(self.spatial_shape[1]) / (self.spatial_shape[1] - 1)
         if color_length:
             colors = np.linalg.norm(self.to_numpy(), axis=-1).T
             axis.streamplot(xs, ys, self[..., 0].T, self[..., 1].T,
@@ -302,6 +303,8 @@ class VectorField(BaseFunction):
             axis.autoscale()
 
         identity_grid = grid.coordinate_grid(self.spatial_shape)
+        identity_grid = np.stack([identity_grid[..., 0] / (self.spatial_shape[0] - 1),
+                                  identity_grid[..., 1] / (self.spatial_shape[1] - 1)], axis=-1)
         grid_x, grid_y = identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1]
         grid_x = np.vstack([grid_x, identity_grid[-1, ::interval, 0][np.newaxis, ...]])
         grid_x = np.hstack([grid_x, np.hstack([identity_grid[::interval, -1, 0],
@@ -312,25 +315,27 @@ class VectorField(BaseFunction):
         if show_identity_grid:
             plot_grid(grid_x, grid_y, color="lightgrey")
 
-        dist_x, dist_y = self[::interval, ::interval, 0], self[::interval, ::interval, 1]
-        dist_x = np.vstack([dist_x, self[-1, ::interval, 0][np.newaxis, ...]])
-        dist_x = np.hstack([dist_x, np.hstack([self[::interval, -1, 0], self[-1, -1, 0]])[..., np.newaxis]])
-        dist_y = np.vstack([dist_y, self[-1, ::interval, 1][np.newaxis, ...]])
-        dist_y = np.hstack([dist_y, np.hstack([self[::interval, -1, 1], self[-1, -1, 1]])[..., np.newaxis]])
-        dist_x, dist_y = grid_x + dist_x * self.spatial_shape[0], grid_y + dist_y * self.spatial_shape[1]
+        dist_x = self[::interval, ::interval, 0] / (self.spatial_shape[0] - 1)
+        dist_y = self[::interval, ::interval, 1] / (self.spatial_shape[1] - 1)
+        dist_x = np.vstack([dist_x, self[-1, ::interval, 0][np.newaxis, ...] / (self.spatial_shape[0] - 1)])
+        dist_x = np.hstack([dist_x, np.hstack([self[::interval, -1, 0],
+                                               self[-1, -1, 0]])[..., np.newaxis] / (self.spatial_shape[0] - 1)])
+        dist_y = np.vstack([dist_y, self[-1, ::interval, 1][np.newaxis, ...] / (self.spatial_shape[1] - 1)])
+        dist_y = np.hstack([dist_y, np.hstack([self[::interval, -1, 1],
+                                               self[-1, -1, 1]])[..., np.newaxis] / (self.spatial_shape[1] - 1)])
+        dist_x = grid_x + dist_x * (self.spatial_shape[0] - 1)
+        dist_y = grid_y + dist_y * (self.spatial_shape[1] - 1)
         plot_grid(dist_x, dist_y, color="C0")
 
         if show_displacement_vectors:
             if color_length:
                 colors = np.linalg.norm(self.to_numpy(), axis=-1)
                 axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
-                            self[::interval, ::interval, 0] * self.spatial_shape[0],
-                            self[::interval, ::interval, 1] * self.spatial_shape[1],
+                            self[::interval, ::interval, 0], self[::interval, ::interval, 1],
                             colors, scale_units='xy', units='xy', angles='xy', scale=1, zorder=2)
             else:
                 axis.quiver(identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1],
-                            self[::interval, ::interval, 0] * self.spatial_shape[0],
-                            self[::interval, ::interval, 1] * self.spatial_shape[1],
+                            self[::interval, ::interval, 0], self[::interval, ::interval, 1],
                             scale_units='xy', units='xy', angles='xy', scale=1, zorder=2)
 
         if not show_axis:
@@ -411,10 +416,10 @@ class VectorField(BaseFunction):
                 x = grid.coordinate_grid(self.spatial_shape).to_numpy()
                 for pos_x, disp_x in zip(x[::interval], self[::interval]):
                     for pos, disp in zip(pos_x[::interval], disp_x[::interval]):
-                        tikz_file.write(f"\t\t\t\\draw (axis cs:{pos[0] / self.spatial_shape[0]}, "
-                                        f"{pos[1] / self.spatial_shape[1]}) "
-                                        f"-- (axis cs:{(pos[0] + disp[0] * scale) / self.spatial_shape[0]}, "
-                                        f"{(pos[1] + disp[1] * scale) / self.spatial_shape[1]});\n")
+                        tikz_file.write(f"\t\t\t\\draw (axis cs:{pos[0] / (self.spatial_shape[0] - 1)}, "
+                                        f"{pos[1] / (self.spatial_shape[1] - 1)}) "
+                                        f"-- (axis cs:{(pos[0] + disp[0] * scale) / (self.spatial_shape[0] - 1)}, "
+                                        f"{(pos[1] + disp[1] * scale) / (self.spatial_shape[1] - 1)});\n")
                 tikz_file.write("\t\t\\end{axis}\n"
                                 "\t\\end{tikzpicture}\n"
                                 "\\end{document}\n")

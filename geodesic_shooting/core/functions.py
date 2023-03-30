@@ -101,8 +101,8 @@ class ScalarFunction(BaseFunction):
             return fig, axis, vals
         return axis, vals
 
-    def save(self, filepath, title="", colorbar=True, extent=(0., 1., 0., 1.), dpi=100, show_axis=True,
-             show_restriction_boundary=True, restriction=np.s_[...]):
+    def save(self, filepath, title="", colorbar=True, figsize=(10, 10), extent=(0., 1., 0., 1.), dpi=100,
+             show_axis=True, show_restriction_boundary=True, restriction=np.s_[...]):
         """Saves the plot of the `ScalarFunction` produced by the `plot`-function.
 
         Parameters
@@ -122,8 +122,9 @@ class ScalarFunction(BaseFunction):
             for more details.
         """
         try:
-            fig, _, _ = self.plot(title=title, colorbar=colorbar, axis=None, show_axis=show_axis, extent=extent,
-                                  show_restriction_boundary=show_restriction_boundary, restriction=restriction)
+            fig, _, _ = self.plot(title=title, colorbar=colorbar, axis=None, show_axis=show_axis, figsize=figsize,
+                                  extent=extent, show_restriction_boundary=show_restriction_boundary,
+                                  restriction=restriction)
             fig.savefig(filepath, dpi=dpi, bbox_inches='tight')
             plt.close(fig)
         except Exception:
