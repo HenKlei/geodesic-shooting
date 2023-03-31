@@ -44,13 +44,22 @@ class VectorField(BaseFunction):
         return (*self.spatial_shape, self.dim)
 
     def get_magnitude(self):
-        """Computes the magnitude of the `VectorField` as a `ScalarFunction`.
+        """Computes the magnitude of each vector in the `VectorField` as a `ScalarFunction`.
 
         Returns
         -------
         The magnitude as a `ScalarFunction`.
         """
-        return ScalarFunction(data=np.linalg.norm(self.to_numpy(), axis=-1))
+        return ScalarFunction(data=np.linalg.norm(self.copy().to_numpy(), axis=-1))
+
+    def get_angle(self):
+        """Computes the angle of each vector in the `VectorField` as a `ScalarFunction`.
+
+        Returns
+        -------
+        The angle as a `ScalarFunction`.
+        """
+        return ScalarFunction(data=np.arctan(self.copy().to_numpy()[..., 1], self.copy().to_numpy()[..., 0]))
 
     def get_component_as_function(self, component=0):
         """Provides the specified component of the `VectorField` as a `ScalarFunction`.

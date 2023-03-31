@@ -67,6 +67,24 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, figs
     results['initial_vector_field'].get_magnitude().plot("Magnitude of initial vector field", figsize=figsize)
     plt.show()
 
+    results['initial_vector_field'].get_angle().plot("Angle of initial vector field", figsize=figsize)
+    plt.show()
+
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=figsize)
+    ax1, vals1 = results['initial_vector_field'].plot("Initial vector field", axis=ax1, interval=interval,
+                                                      scale=scale, color_length=True, figsize=figsize)
+    if not isinstance(vals1, list):
+        fig.colorbar(vals1, ax=ax1, fraction=0.046, pad=0.04)
+    ax2, vals2 = results['initial_vector_field'].get_magnitude().plot("Magnitude of initial vector field",
+                                                                      axis=ax2, figsize=figsize)
+    if not isinstance(vals2, list):
+        fig.colorbar(vals2, ax=ax2, fraction=0.046, pad=0.04)
+    ax3, vals3 = results['initial_vector_field'].get_angle().plot("Angle of initial vector field",
+                                                                  axis=ax3, figsize=figsize)
+    if not isinstance(vals3, list):
+        fig.colorbar(vals3, ax=ax3, fraction=0.046, pad=0.04)
+    plt.show()
+
     if results['initial_vector_field'].dim == 2:
         results['initial_vector_field'].plot_as_warpgrid("Initial vector field", interval=interval, figsize=figsize)
         plt.show()
@@ -186,6 +204,8 @@ def save_plots_registration_results(results, filepath='results/', postfix='', in
     results['initial_vector_field'].get_magnitude().save(filepath + 'initial_vector_field_magnitude.png',
                                                          title='Magnitude of initial vector field' + postfix,
                                                          figsize=figsize)
+    results['initial_vector_field'].get_angle().save(filepath + 'initial_vector_field_angle.png',
+                                                     title='Angle of initial vector field' + postfix, figsize=figsize)
     for d in range(results['initial_vector_field'].dim):
         comp = results['initial_vector_field'].get_component_as_function(d)
         comp.save(filepath + f'initial_vector_field_component_{d}.png',
