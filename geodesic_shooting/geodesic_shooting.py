@@ -130,7 +130,7 @@ class GeodesicShooting:
         start_time = time.perf_counter()
 
         # function that computes the energy
-        def energy_and_gradient(v0, compute_grad=True):
+        def energy_and_gradient(v0, compute_grad=True, return_all_energies=False):
             v0 = VectorField(data=v0.reshape((*self.shape, self.dim)))
             # integrate initial vector field forward in time
             vector_fields = self.integrate_forward_vector_field(v0)
@@ -157,9 +157,16 @@ class GeodesicShooting:
                 gradient_initial_vector = self.integrate_backward_adjoint_Jacobi_field(gradient_l2_energy,
                                                                                        vector_fields)
 
-                return energy, gradient_initial_vector.to_numpy().flatten()
+                if return_all_energies:
+                    return energy, energy_regularizer, energy_intensity_unscaled, energy_intensity, \
+                            gradient_initial_vector.to_numpy().flatten()
+                else:
+                    return energy, gradient_initial_vector.to_numpy().flatten()
             else:
-                return energy
+                if return_all_energies:
+                    return energy, energy_regularizer, energy_intensity_unscaled, energy_intensity
+                else:
+                    return energy
 
         def save_current_state(x):
             opt['x'] = x
@@ -233,6 +240,7 @@ class GeodesicShooting:
                 res = gradient_descent(energy_and_gradient, initial_vector_field.to_numpy().flatten(),
                                        callback=save_current_state, **optimizer_options)
             else:
+                save_current_state(initial_vector_field.to_numpy().flatten())
                 res = optimize.minimize(energy_and_gradient, initial_vector_field.to_numpy().flatten(),
                                         method=optimization_method, jac=True, options=optimizer_options,
                                         callback=save_current_state)
@@ -250,6 +258,13 @@ class GeodesicShooting:
         opt['transformed_input'] = transformed_input
         opt['flow'] = flow
         opt['vector_fields'] = vector_fields
+        energy, energy_regularizer, energy_intensity_unscaled, energy_intensity, gradient = \
+            energy_and_gradient(opt['x'], compute_grad=True, return_all_energies=True)
+        opt['energy_regularizer'] = energy_regularizer
+        opt['energy_intensity_unscaled'] = energy_intensity_unscaled
+        opt['energy_intensity'] = energy_intensity
+        opt['energy'] = energy
+        opt['norm_gradient'] = np.linalg.norm(gradient)
 
         elapsed_time = int(time.perf_counter() - start_time)
 
