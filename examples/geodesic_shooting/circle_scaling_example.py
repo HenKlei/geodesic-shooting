@@ -11,8 +11,11 @@ if __name__ == "__main__":
     target = make_circle((64, 64), np.array([32, 32]), 20)
 
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=20., exponent=3)
-    result = gs.register(template, target, sigma=0.01, return_all=True)
+    gs = geodesic_shooting.GeodesicShooting(alpha=0.1, exponent=1)
+    result = gs.register(template, target, sigma=0.01, return_all=True, optimizer_options={'maxiter': 2})
 
     plot_registration_results(result)
+    gs.regularizer.cauchy_navier(result['initial_vector_field']).plot()
+    import matplotlib.pyplot as plt
+    plt.show()
     save_plots_registration_results(result, filepath='results_circle_scaling/')
