@@ -11,6 +11,6 @@ def test_circle_scaling():
 
     # perform the registration
     gs = geodesic_shooting.GeodesicShooting(alpha=0.01, exponent=1)
-    result = gs.register(template, target, sigma=0.01, return_all=True)
+    result = gs.register(template, target, sigma=0.01, return_all=True, optimizer_options={'disp': True, 'maxiter': 20})
 
     assert (target - result['transformed_input']).norm / target.norm < 1e-2

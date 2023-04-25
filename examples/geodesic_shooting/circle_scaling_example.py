@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
     # perform the registration
     gs = geodesic_shooting.GeodesicShooting(alpha=0.01, exponent=1)
-    result = gs.register(template, target, sigma=0.01, return_all=True)
+    result = gs.register(template, target, sigma=0.01, return_all=True, optimizer_options={'disp': True, 'maxiter': 20})
 
     plot_registration_results(result)
     gs.regularizer.cauchy_navier(result['initial_vector_field']).plot(title='Cauchy Navier operator applied '
