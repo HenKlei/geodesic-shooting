@@ -10,7 +10,7 @@ def test_circle_scaling():
     target = make_circle((64, 64), np.array([32, 32]), 20)
 
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=20., exponent=3)
+    gs = geodesic_shooting.GeodesicShooting(alpha=0.01, exponent=1)
     result = gs.register(template, target, sigma=0.01, return_all=True)
 
     assert (target - result['transformed_input']).norm / target.norm < 5e-2

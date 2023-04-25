@@ -11,7 +11,7 @@ if __name__ == "__main__":
     target = make_square((64, 64), np.array([32, 32]), 40)
 
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=0.01, exponent=1, gamma=2.)
+    gs = geodesic_shooting.GeodesicShooting(alpha=0.01, exponent=1, gamma=5.)
     result = gs.register(template, target, sigma=0.01, return_all=True, optimization_method='GD',
                          optimizer_options={'maxiter': 50, 'grad_norm_tol': 1e-3})
 
