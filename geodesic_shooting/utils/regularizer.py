@@ -58,7 +58,10 @@ class BiharmonicRegularizer:
         self.logger.info("Finished initialization of regularization matrices ...")
 
     def helmholtz(self, v):
-        """Application of the Helmholtz operator L = (-alpha * Δ + gamma * I)**exponent to a vector field.
+        """Application of the Helmholtz operator `L` to a vector field.
+
+        Here, the (self-adjoint) Helmholtz operator `L` is given
+        as `L = (-alpha * Δ + gamma * I)**exponent`.
 
         Parameters
         ----------
@@ -86,9 +89,12 @@ class BiharmonicRegularizer:
         return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
 
     def cauchy_navier(self, v):
-        """Application of the Cauchy-Navier type operator L^*L to a vector field.
+        """Application of the Cauchy-Navier type operator `L^*L` to a vector field.
 
-        Here, the (self-adjoint) Helmholtz operator L is given as L = (-alpha * Δ + gamma * I)**exponent.
+        Here, the (self-adjoint) Helmholtz operator `L` is given
+        as `L = (-alpha * Δ + gamma * I)**exponent`.
+        Due to the structure of the operator it is easier to apply the operator in Fourier space.
+        However, this implicitly assumes periodic boundary conditions.
 
         Parameters
         ----------
@@ -153,9 +159,10 @@ class BiharmonicRegularizer:
         return np.linalg.matrix_power(self._helmholtz_matrix(input_shape), 2)
 
     def cauchy_navier_inverse(self, v):
-        """Application of the operator `K=(L^*L)^{-1}`, where `L` is the Cauchy-Navier type operator.
+        """Application of the operator `K=(L^*L)^{-1}`, with the Helmholtz operator `L`.
 
-        Due to the structure of the operator it is easier to apply the operator in Fourier space.
+        Due to the structure of the operator it is easier to apply the inverse operator
+        in Fourier space. However, this implicitly assumes periodic boundary conditions.
 
         Parameters
         ----------
