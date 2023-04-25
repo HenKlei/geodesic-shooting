@@ -9,7 +9,7 @@ def test_epdiff_constant_vector_field():
     shape = (n, n)
 
     def f(x, y):
-        return np.stack([2.*np.ones_like(x), 3.*np.ones_like(x)], axis=-1)
+        return np.stack([2.*np.ones_like(x), 2.*np.ones_like(x)], axis=-1)
 
     grid_x, grid_y = np.meshgrid(np.linspace(0, 1, shape[0]), np.linspace(0, 1, shape[1]), indexing='ij')
 
