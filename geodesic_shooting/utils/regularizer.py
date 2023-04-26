@@ -11,7 +11,7 @@ class BiharmonicRegularizer:
     This class implements a regularizer for vector fields to make them smooth,
     such that the corresponding flows define diffeomorphisms.
     """
-    def __init__(self, alpha=1., exponent=1, gamma=1., log_level='INFO'):
+    def __init__(self, alpha=0.1, exponent=1, gamma=1., log_level='INFO'):
         """Constructor.
 
         Parameters

@@ -16,7 +16,7 @@ class GeodesicShooting:
     Geodesic Shooting for Computational Anatomy.
     Miller, Trouvé, Younes, 2006
     """
-    def __init__(self, alpha=6., exponent=2, gamma=1., time_integrator=RK4, time_steps=30,
+    def __init__(self, alpha=0.1, exponent=1, gamma=1., time_integrator=RK4, time_steps=30,
                  sampler_options={'order': 1, 'mode': 'edge'}, log_level='INFO'):
         """Constructor.
 
@@ -52,7 +52,7 @@ class GeodesicShooting:
                 f"\tTime steps: {self.time_steps}\n"
                 f"\tSampler options: {self.sampler_options}")
 
-    def register(self, template, target, sigma=1., optimization_method='L-BFGS-B', optimizer_options={'disp': True},
+    def register(self, template, target, sigma=0.1, optimization_method='L-BFGS-B', optimizer_options={'disp': True},
                  initial_vector_field=None, restriction=np.s_[...], return_all=False, log_summary=True):
         """Performs actual registration according to LDDMM algorithm with time-varying vector
            fields that are chosen via geodesics.
