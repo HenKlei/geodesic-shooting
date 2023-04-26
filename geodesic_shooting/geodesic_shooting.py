@@ -16,7 +16,7 @@ class GeodesicShooting:
     Geodesic Shooting for Computational Anatomy.
     Miller, Trouvé, Younes, 2006
     """
-    def __init__(self, alpha=6., exponent=2, time_integrator=RK4, time_steps=30,
+    def __init__(self, alpha=0.1, exponent=1, gamma=1., time_integrator=RK4, time_steps=30,
                  sampler_options={'order': 1, 'mode': 'edge'}, log_level='INFO'):
         """Constructor.
 
@@ -35,7 +35,7 @@ class GeodesicShooting:
         log_level
             Verbosity of the logger.
         """
-        self.regularizer = BiharmonicRegularizer(alpha, exponent)
+        self.regularizer = BiharmonicRegularizer(alpha, exponent, gamma)
 
         self.time_integrator = time_integrator
         self.time_steps = time_steps
@@ -52,7 +52,7 @@ class GeodesicShooting:
                 f"\tTime steps: {self.time_steps}\n"
                 f"\tSampler options: {self.sampler_options}")
 
-    def register(self, template, target, sigma=1., optimization_method='L-BFGS-B', optimizer_options={'disp': True},
+    def register(self, template, target, sigma=0.1, optimization_method='L-BFGS-B', optimizer_options={'disp': True},
                  initial_vector_field=None, restriction=np.s_[...], return_all=False, log_summary=True):
         """Performs actual registration according to LDDMM algorithm with time-varying vector
            fields that are chosen via geodesics.
@@ -103,7 +103,7 @@ class GeodesicShooting:
 
         # function to compute the L2-error between a given image and the target
         def compute_energy(image):
-            return np.sum(((image - target)**2).to_numpy()[restriction])
+            return (image-target).get_norm(restriction=restriction)**2
 
         # function to compute the gradient of the overall energy function
         # with respect to the final vector field
@@ -143,7 +143,7 @@ class GeodesicShooting:
 
             # compute the current energy consisting of intensity difference
             # and regularization
-            energy_regularizer = self.regularizer.cauchy_navier(v0).get_norm(restriction=restriction)
+            energy_regularizer = self.regularizer.helmholtz(v0).get_norm(restriction=restriction)**2
             energy_intensity_unscaled = compute_energy(forward_pushed_input)
             energy_intensity = 1 / sigma**2 * energy_intensity_unscaled
             energy = energy_regularizer + energy_intensity

@@ -11,7 +11,7 @@ class BiharmonicRegularizer:
     This class implements a regularizer for vector fields to make them smooth,
     such that the corresponding flows define diffeomorphisms.
     """
-    def __init__(self, alpha=1, exponent=1, log_level='INFO'):
+    def __init__(self, alpha=0.1, exponent=1, gamma=1., log_level='INFO'):
         """Constructor.
 
         Parameters
@@ -23,10 +23,12 @@ class BiharmonicRegularizer:
         """
         assert alpha >= 0
         assert exponent > 0
+        assert gamma > 0
         assert isinstance(exponent, int)
 
         self.alpha = alpha
         self.exponent = exponent
+        self.gamma = gamma
 
         self.helper_operator = None
 
@@ -55,8 +57,11 @@ class BiharmonicRegularizer:
         self.cauchy_navier_inverse_matrix = np.kron(np.eye(dim, dtype=int), inv_matrix)
         self.logger.info("Finished initialization of regularization matrices ...")
 
-    def cauchy_navier(self, v):
-        """Application of the Cauchy-Navier type operator (-alpha * Δ + exponent * I) to a function.
+    def helmholtz(self, v):
+        """Application of the Helmholtz operator `L` to a vector field.
+
+        Here, the (self-adjoint) Helmholtz operator `L` is given
+        as `L = (-alpha * Δ + gamma * I)**exponent`.
 
         Parameters
         ----------
@@ -83,7 +88,40 @@ class BiharmonicRegularizer:
 
         return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
 
-    def _cauchy_navier_matrix(self, input_shape):
+    def cauchy_navier(self, v):
+        """Application of the Cauchy-Navier type operator `L^*L` to a vector field.
+
+        Here, the (self-adjoint) Helmholtz operator `L` is given
+        as `L = (-alpha * Δ + gamma * I)**exponent`.
+        Due to the structure of the operator it is easier to apply the operator in Fourier space.
+        However, this implicitly assumes periodic boundary conditions.
+
+        Parameters
+        ----------
+        v
+            `VectorField` to apply the operator to.
+
+        Returns
+        -------
+        `VectorField` of the same shape as the input.
+        """
+        assert isinstance(v, VectorField)
+        # check if helper operator is already defined
+        if self.helper_operator is None or self.helper_operator.shape != v.spatial_shape:
+            self.helper_operator = self.compute_helper_operator(v.dim, v.spatial_shape)
+
+        # transform input to Fourier space
+        function_fourier = self.fftn(v.to_numpy())
+
+        # perform operation in Fourier space
+        result_fourier = function_fourier * self.helper_operator**2
+
+        # transform back
+        result_inverse_fourier = self.ifftn(result_fourier)
+
+        return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
+
+    def _helmholtz_matrix(self, input_shape):
         assert isinstance(input_shape, tuple)
         len_input_shape = len(input_shape)
         assert len_input_shape > 0
@@ -96,7 +134,7 @@ class BiharmonicRegularizer:
             main_diagonal = -2. * np.ones(input_shape[dim])
             first_diagonal = np.ones(input_shape[dim]-1)
             laplacian = (np.diag(main_diagonal, 0) + np.diag(first_diagonal, 1)
-                         + np.diag(first_diagonal, -1))
+                         + np.diag(first_diagonal, -1)) * (input_shape[dim] - 1.)**2
 
             if len_input_shape == 1:
                 return laplacian
@@ -115,12 +153,16 @@ class BiharmonicRegularizer:
         mat = np.zeros((size, size))
         for dimension in range(len_input_shape):
             mat += recursive_kronecker_product(dimension)
-        return np.linalg.matrix_power((- self.alpha * mat + np.eye(size)), self.exponent)
+        return np.linalg.matrix_power((- self.alpha * mat + self.gamma * np.eye(size)), self.exponent)
+
+    def _cauchy_navier_matrix(self, input_shape):
+        return np.linalg.matrix_power(self._helmholtz_matrix(input_shape), 2)
 
     def cauchy_navier_inverse(self, v):
-        """Application of the operator `K=L^{-1}` where `L` is the Cauchy-Navier type operator.
+        """Application of the operator `K=(L^*L)^{-1}`, with the Helmholtz operator `L`.
 
-        Due to the structure of the operator it is easier to apply the operator in Fourier space.
+        Due to the structure of the operator it is easier to apply the inverse operator
+        in Fourier space. However, this implicitly assumes periodic boundary conditions.
 
         Parameters
         ----------
@@ -140,7 +182,7 @@ class BiharmonicRegularizer:
         function_fourier = self.fftn(v.to_numpy())
 
         # perform operation in Fourier space
-        result_fourier = function_fourier / self.helper_operator
+        result_fourier = function_fourier / (self.helper_operator**2)
 
         # transform back
         result_inverse_fourier = self.ifftn(result_fourier)
@@ -163,9 +205,10 @@ class BiharmonicRegularizer:
 
         for i in np.ndindex(spatial_shape):
             for d in range(dim):
-                helper_operator[i] += 2.*self.alpha*(1. - np.cos(2.*np.pi*i[d] / spatial_shape[d]))
+                helper_operator[i] += 2. * self.alpha * (1. - np.cos(2. * np.pi * i[d] / spatial_shape[d])) \
+                                      * spatial_shape[d]**2
 
-        helper_operator += 1.
+        helper_operator += self.gamma
         helper_operator = helper_operator**self.exponent
 
         return np.stack([helper_operator, ] * dim, axis=-1)

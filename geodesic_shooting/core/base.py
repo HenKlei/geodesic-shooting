@@ -1,6 +1,7 @@
 import numpy as np
 from copy import deepcopy
 
+from geodesic_shooting.utils.helper_functions import tuple_product
 import geodesic_shooting.utils.grad as grad
 from geodesic_shooting.utils import sampler
 
@@ -111,11 +112,14 @@ class BaseFunction:
         -------
         The norm of the `BaseFunction`.
         """
+        vol = 1. / tuple_product(self.spatial_shape)
         if product_operator:
-            apply_product_operator = product_operator(self).to_numpy()[restriction]
-            return np.sqrt(apply_product_operator.flatten().dot(self.to_numpy()[restriction].flatten()))
+            apply_product_operator = product_operator(self).to_numpy()[restriction].flatten()
+            return np.sqrt(apply_product_operator.dot(self.to_numpy()[restriction].flatten())) * np.sqrt(vol)
         else:
-            return np.linalg.norm(self.to_numpy()[restriction].flatten(), ord=order)
+            if order is None:
+                order = 2
+            return np.linalg.norm(self.to_numpy()[restriction].flatten(), ord=order) * np.power(vol, 1./order)
 
     norm = property(get_norm)
 
@@ -246,6 +250,7 @@ class BaseTimeDependentFunction:
         -------
         The norm of the `BaseTimeDependentFunction`.
         """
+        # TODO: Check this!!!
         return np.linalg.norm(self.to_numpy()[restriction].flatten(), ord=order)
 
     norm = property(get_norm)

@@ -14,7 +14,7 @@ if __name__ == "__main__":
     restriction = np.s_[2:-20, 2:-20]
 
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=10., exponent=2)
+    gs = geodesic_shooting.GeodesicShooting(alpha=0.01, exponent=1)
     result = gs.register(template, target, sigma=0.01, return_all=True, restriction=restriction)
 
     result['initial_vector_field'].save_tikz('initial_vector_field_square_to_circle.tex',

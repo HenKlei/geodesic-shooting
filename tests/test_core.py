@@ -16,16 +16,16 @@ def test_functions():
     assert np.isclose(f.norm, 0.)
 
     f[0, 0] = 10.
-    assert np.isclose(f.norm, 10.)
+    assert np.isclose(f.norm, 10. / np.sqrt(tuple_product(shape)))
     assert np.isclose(f.get_norm(order=np.inf), 10.)
-    assert np.isclose(f.get_norm(order=5), 10.)
+    assert np.isclose(f.get_norm(order=5), 10. / tuple_product(shape)**(1./5.))
 
     g = f.copy()
     assert np.isclose((f - g).norm, 0.)
     assert np.isclose((g - f).norm, 0.)
-    assert np.isclose((f + g).norm, 20.)
-    assert np.isclose((g + f).norm, 20.)
-    assert np.isclose((2. * f + g).norm, 30.)
+    assert np.isclose((f + g).norm, 20. / np.sqrt(tuple_product(shape)))
+    assert np.isclose((g + f).norm, 20. / np.sqrt(tuple_product(shape)))
+    assert np.isclose((2. * f + g).norm, 30. / np.sqrt(tuple_product(shape)))
 
 
 def test_functions_plots():
@@ -73,16 +73,16 @@ def test_vector_fields():
     assert np.isclose(v.norm, 0.)
 
     v[0, 0, 0] = 10.
-    assert np.isclose(v.norm, 10.)
+    assert np.isclose(v.norm, 10. / np.sqrt(tuple_product(shape)))
     assert np.isclose(v.get_norm(order=np.inf), 10.)
-    assert np.isclose(v.get_norm(order=5), 10.)
+    assert np.isclose(v.get_norm(order=5), 10. / tuple_product(shape)**(1./5.))
 
     w = v.copy()
     assert np.isclose((v - w).norm, 0.)
     assert np.isclose((w - v).norm, 0.)
-    assert np.isclose((v + w).norm, 20.)
-    assert np.isclose((w + v).norm, 20.)
-    assert np.isclose((2. * v + w).norm, 30.)
+    assert np.isclose((v + w).norm, 20. / np.sqrt(tuple_product(shape)))
+    assert np.isclose((w + v).norm, 20. / np.sqrt(tuple_product(shape)))
+    assert np.isclose((2. * v + w).norm, 30. / np.sqrt(tuple_product(shape)))
 
 
 def test_vector_fields_plots():
@@ -145,7 +145,7 @@ def test_time_integration():
     function = ScalarFunction(spatial_shape=shape)
     function[5, 10] = 1.
     transformed_function = function.push_forward(diffeomorphism)
-    assert np.isclose(abs(transformed_function.norm - 1.), 0.)
+    assert np.isclose(abs(transformed_function.norm - 1. / np.sqrt(tuple_product(shape))), 0.)
     inverse_transformed_function = transformed_function.push_forward(inverse_diffeomorphism)
     assert np.isclose((inverse_transformed_function - function).norm, 0.)
 
