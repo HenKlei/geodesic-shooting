@@ -193,6 +193,7 @@ class GeodesicShooting:
                     def line_search(x, func_x, grad_x, d):
                         alpha = alpha0
                         d_dot_grad = d.dot(grad_x)
+                        assert d_dot_grad < 0., 'The direction d is not a descent direction!'
                         func_x_update = func(x + alpha * d, compute_grad=False)
                         k = 0
                         while (not func_x_update <= func_x + c1 * alpha * d_dot_grad) and k < maxiter_armijo:
@@ -387,7 +388,7 @@ class GeodesicShooting:
 
         # perform forward in time integration of initial vector field
         for t in range(0, self.time_steps-1):
-            # perform the explicit Euler integration step
+            # perform the time integration step using the time integrator
             vector_fields[t+1] = ti.step(vector_fields[t])
 
         return vector_fields
@@ -461,6 +462,7 @@ class GeodesicShooting:
 
         # perform backward in time integration of the gradient of the energy function
         for t in range(self.time_steps-2, -1, -1):
+            # perform the backward time integration step using the time integrator
             delta_v, v_old = ti.step_backwards([delta_v, v_old], {'v': vector_fields[t]})
 
         # return adjoint variable `delta_v` that corresponds to the gradient
