@@ -29,6 +29,18 @@ def test_regularizer_inverse():
     assert (regularizer.cauchy_navier(regularizer.cauchy_navier_inverse(vector_field)) - vector_field).norm < 1e-7
 
 
+def test_regularizer_in_norm():
+    regularizer = BiharmonicRegularizer(alpha=10., exponent=1, gamma=2.)
+    image = make_circle((64, 64), np.array([32, 32]), 10)
+    vector_field = image.grad
+
+    assert (regularizer.helmholtz(regularizer.helmholtz(vector_field))
+            - regularizer.cauchy_navier(vector_field)).norm < 1e-4
+
+    assert np.abs(regularizer.helmholtz(vector_field).norm
+                  - vector_field.get_norm(product_operator=regularizer.cauchy_navier)) < 1e-14
+
+
 @pytest.mark.parametrize("alpha", [1., 0.1, 0.01])
 @pytest.mark.parametrize("exponent", [1])
 @pytest.mark.parametrize("gamma", [10., 1., 0.1])
