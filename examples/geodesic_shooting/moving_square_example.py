@@ -11,8 +11,9 @@ if __name__ == "__main__":
     template = make_square((64, 64), np.array([32, 32]), 30)
 
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=0.05, exponent=1)
-    result = gs.register(template, target, sigma=0.05, return_all=True)
+    gs = geodesic_shooting.GeodesicShooting(alpha=10., exponent=1, gamma=2.)
+    result = gs.register(template, target, sigma=1, return_all=True, optimization_method='GD',
+                         optimizer_options={'disp': True, 'maxiter': 20})
 
     plot_registration_results(result, frequency=5)
     save_plots_registration_results(result, filepath='results_moving_square/')
