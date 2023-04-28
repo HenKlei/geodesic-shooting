@@ -23,12 +23,14 @@ if __name__ == "__main__":
 
     magnitude_evo_cn_vector_fields = []
     evolution_transformed_template = []
-    for vf, diffeo in zip(result['vector_fields'].to_numpy(), result['vector_fields'].integrate(get_time_dependent_diffeomorphism=True).to_numpy()):
+    for vf, diffeo in zip(result['vector_fields'].to_numpy(),
+                          result['vector_fields'].integrate(get_time_dependent_diffeomorphism=True).to_numpy()):
         magnitude_evo_cn_vector_fields.append(gs.regularizer.cauchy_navier(VectorField(data=vf)).get_magnitude())
         evolution_transformed_template.append(template.push_forward(Diffeomorphism(data=diffeo)))
 
     magnitude_evo_cn_vector_fields = TimeDependentScalarFunction(data=magnitude_evo_cn_vector_fields)
-    ani1 = magnitude_evo_cn_vector_fields.animate(title='Evolution of magnitude of Cauchy Navier operator applied to vector fields')
+    ani1 = magnitude_evo_cn_vector_fields.animate(title='Evolution of magnitude of Cauchy Navier operator '
+                                                        'applied to vector fields')
     evolution_transformed_template = TimeDependentScalarFunction(data=evolution_transformed_template)
     ani2 = evolution_transformed_template.animate(title='Evolution of transformed template')
     import matplotlib.pyplot as plt
