@@ -59,7 +59,7 @@ class VectorField(BaseFunction):
         -------
         The angle as a `ScalarFunction`.
         """
-        return ScalarFunction(data=np.arctan(self.copy().to_numpy()[..., 1], self.copy().to_numpy()[..., 0]))
+        return ScalarFunction(data=np.arctan2(self.copy().to_numpy()[..., 1], self.copy().to_numpy()[..., 0]))
 
     def get_component_as_function(self, component=0):
         """Provides the specified component of the `VectorField` as a `ScalarFunction`.
