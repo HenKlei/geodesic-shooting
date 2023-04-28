@@ -57,7 +57,6 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, figs
     plt.show()
 
     _, singular_values = pod(results['vector_fields'], return_singular_values='all')
-    print(singular_values)
     plt.semilogy(singular_values)
     plt.title("Singular values of time-evolution of the vector field")
     plt.show()
@@ -200,6 +199,11 @@ def save_plots_registration_results(results, filepath='results/', postfix='', in
     diff = results['target'] - results['transformed_input']
     diff.save(filepath + 'difference.png', title='Difference of target and result' + postfix, figsize=figsize,
               show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
+    _, singular_values = pod(results['vector_fields'], return_singular_values='all')
+    plt.semilogy(singular_values)
+    plt.title('Singular values of time-evolution of the vector field')
+    plt.savefig(filepath + 'singular_values_time_evolution_vector_field.png')
+    plt.close()
     results['initial_vector_field'].save(filepath + 'initial_vector_field.png', plot_type='default',
                                          plot_args={'title': 'Initial vector field' + postfix, 'interval': interval,
                                                     'color_length': True, 'scale': None, 'figsize': figsize})
