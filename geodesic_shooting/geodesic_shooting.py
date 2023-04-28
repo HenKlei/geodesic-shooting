@@ -153,9 +153,10 @@ class GeodesicShooting:
 
             # compute the current energy consisting of intensity difference
             # and regularization
-            energy_regularizer = self.regularizer.helmholtz(v0).get_norm(restriction=restriction)**2
+            energy_regularizer = v0.get_norm(product_operator=self.regularizer.cauchy_navier,
+                                             restriction=restriction)**2
             energy_intensity_unscaled = compute_energy(forward_pushed_input)
-            energy_intensity = 1 / sigma**2 * energy_intensity_unscaled
+            energy_intensity = energy_intensity_unscaled / sigma**2
             energy = energy_regularizer + energy_intensity
 
             if compute_grad:
