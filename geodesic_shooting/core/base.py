@@ -114,6 +114,7 @@ class BaseFunction:
         """
         vol = 1. / tuple_product(self.spatial_shape)
         if product_operator:
+            assert order is None or order == 2
             apply_product_operator = product_operator(self).to_numpy()[restriction].flatten()
             return np.sqrt(apply_product_operator.dot(self.to_numpy()[restriction].flatten())) * np.sqrt(vol)
         else:
