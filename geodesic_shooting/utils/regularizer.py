@@ -59,7 +59,7 @@ class BiharmonicRegularizer:
             self.init_matrices(spatial_shape)
 
     def __str__(self):
-        return f"{self.__class__.__name__}: alpha={self.alpha}, exponent={self.exponent}"
+        return f"{self.__class__.__name__}: alpha={self.alpha}, exponent={self.exponent}, gamma={self.gamma}"
 
     def init_matrices(self, shape):
         """Initializes the Cauchy-Navier operator matrix and the LU decomposition of the matrix.
