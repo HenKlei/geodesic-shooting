@@ -1,7 +1,7 @@
 import numpy as np
 
 import geodesic_shooting
-from geodesic_shooting.utils.create_example_images import make_circle, make_square
+from geodesic_shooting.utils.create_example_images import make_circle
 
 
 def test_translation():
