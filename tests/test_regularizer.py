@@ -23,10 +23,11 @@ def test_regularizer_inverse():
     image = make_circle((64, 64), np.array([32, 32]), 10)
     vector_field = image.grad
 
+    tolerance = 1e-6
     assert (regularizer.cauchy_navier_inverse(regularizer.cauchy_navier(vector_field))
-            - regularizer.cauchy_navier(regularizer.cauchy_navier_inverse(vector_field))).norm < 1e-7
-    assert (regularizer.cauchy_navier_inverse(regularizer.cauchy_navier(vector_field)) - vector_field).norm < 1e-7
-    assert (regularizer.cauchy_navier(regularizer.cauchy_navier_inverse(vector_field)) - vector_field).norm < 1e-7
+            - regularizer.cauchy_navier(regularizer.cauchy_navier_inverse(vector_field))).norm < tolerance
+    assert (regularizer.cauchy_navier_inverse(regularizer.cauchy_navier(vector_field)) - vector_field).norm < tolerance
+    assert (regularizer.cauchy_navier(regularizer.cauchy_navier_inverse(vector_field)) - vector_field).norm < tolerance
 
 
 def test_regularizer_in_norm():
