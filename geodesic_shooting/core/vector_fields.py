@@ -677,7 +677,7 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
             return TimeDependentDiffeomorphism(data=diffeomorphisms)
         return diffeomorphisms[-1]
 
-    def animate(self, title="", interval=1, color_length=False, colorbar=True, scale=None, show_axis=True,
+    def animate(self, title="", interval=1, color_length=True, colorbar=True, scale=None, show_axis=True,
                 figsize=(10, 10)):
         """Animates the `TimeDependentVectorField` using the `plot`-function of `VectorField`.
 

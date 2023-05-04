@@ -23,4 +23,4 @@ if __name__ == "__main__":
                                              interval=2, scale=100)
 
     plot_registration_results(result, frequency=5)
-    save_plots_registration_results(result, filepath='results_square_to_circle/')
+    save_plots_registration_results(result, filepath='results_square_to_circle/', save_animations=True)
