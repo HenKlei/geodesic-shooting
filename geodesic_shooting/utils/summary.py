@@ -57,6 +57,7 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, figs
         fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, subplot_kw={'projection': '3d'})
     else:
         fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
+    fig.set_size_inches(40, 10)
     ax1, vals1 = results['input'].plot("Input", axis=ax1,
                                        show_restriction_boundary=show_restriction_boundary, restriction=rest)
     if not isinstance(vals1, list):
@@ -74,6 +75,7 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, figs
                            show_restriction_boundary=show_restriction_boundary, restriction=rest)
     if not isinstance(vals4, list):
         fig.colorbar(vals4, ax=ax4, fraction=0.046, pad=0.04)
+    plt.tight_layout()
     plt.show()
 
     _ = results['vector_fields'].animate("Time-evolution of the vector field", interval=interval, scale=scale,
@@ -100,6 +102,7 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, figs
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=figsize, subplot_kw={'projection': '3d'})
     else:
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=figsize)
+    fig.set_size_inches(30, 10)
     ax1, vals1 = results['initial_vector_field'].plot("Initial vector field", axis=ax1, interval=interval,
                                                       scale=scale, color_length=True)
     if not isinstance(vals1, list):
@@ -112,6 +115,7 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, figs
                                                                       axis=ax3, figsize=figsize)
         if not isinstance(vals3, list):
             fig.colorbar(vals3, ax=ax3, fraction=0.046, pad=0.04)
+    plt.tight_layout()
     plt.show()
 
     if results['initial_vector_field'].dim == 2:
@@ -126,6 +130,7 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, figs
         plt.show()
 
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=figsize)
+        fig.set_size_inches(30, 10)
         ax1, vals1 = results['initial_vector_field'].plot("Initial vector field", axis=ax1, interval=interval,
                                                           scale=scale, color_length=True, figsize=figsize)
         if not isinstance(vals1, list):
@@ -141,6 +146,7 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, figs
                                                                                            figsize=figsize)
         if not isinstance(vals3, list):
             fig.colorbar(vals3, ax=ax3, fraction=0.046, pad=0.04)
+        plt.tight_layout()
         plt.show()
 
         time_dependent_diffeomorphism = results['vector_fields'].integrate(get_time_dependent_diffeomorphism=True)
@@ -244,6 +250,7 @@ def save_plots_registration_results(results, filepath='results/', postfix='', in
         fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, subplot_kw={'projection': '3d'})
     else:
         fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
+    fig.set_size_inches(40, 10)
     ax1, vals1 = results['input'].plot("Input", axis=ax1,
                                        show_restriction_boundary=show_restriction_boundary, restriction=rest)
     if not isinstance(vals1, list):
@@ -262,7 +269,8 @@ def save_plots_registration_results(results, filepath='results/', postfix='', in
                            show_restriction_boundary=show_restriction_boundary, restriction=rest)
     if not isinstance(vals4, list):
         fig.colorbar(vals4, ax=ax4, fraction=0.046, pad=0.04)
-    fig.savefig(filepath + 'overview_images_results.png', dpi=dpi)
+    plt.tight_layout()
+    fig.savefig(filepath + 'overview_images_results.png', dpi=dpi, bbox_inches='tight')
     plt.close(fig)
 
     results['input'].save(filepath + 'input.png', title='Input' + postfix, figsize=figsize, dpi=dpi,
@@ -300,6 +308,23 @@ def save_plots_registration_results(results, filepath='results/', postfix='', in
                   title='Initial vector field component ' + str(d) + postfix, figsize=figsize, dpi=dpi)
 
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+    fig.set_size_inches(30, 10)
+    ax1, vals1 = results['initial_vector_field'].plot("Initial vector field", axis=ax1, interval=interval,
+                                                      scale=scale, color_length=True)
+    if not isinstance(vals1, list):
+        fig.colorbar(vals1, ax=ax1, fraction=0.046, pad=0.04)
+    ax2, vals2 = results['initial_vector_field'].get_magnitude().plot("Magnitude of initial vector field", axis=ax2)
+    if not isinstance(vals2, list):
+        fig.colorbar(vals2, ax=ax2, fraction=0.046, pad=0.04)
+    ax3, vals3 = results['initial_vector_field'].get_angle().plot("Angle of initial vector field", axis=ax3)
+    if not isinstance(vals3, list):
+        fig.colorbar(vals3, ax=ax3, fraction=0.046, pad=0.04)
+    plt.tight_layout()
+    fig.savefig(filepath + 'overview_initial_vector_field_results.png', dpi=dpi, bbox_inches='tight')
+    plt.close(fig)
+
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+    fig.set_size_inches(30, 10)
     ax1, vals1 = results['initial_vector_field'].plot("Initial vector field", axis=ax1, interval=interval, scale=scale,
                                                       color_length=True)
     if not isinstance(vals1, list):
@@ -314,7 +339,8 @@ def save_plots_registration_results(results, filepath='results/', postfix='', in
                                                                                        color_length=True)
     if not isinstance(vals3, list):
         fig.colorbar(vals3, ax=ax3, fraction=0.046, pad=0.04)
-    fig.savefig(filepath + 'overview_vector_field_results.png', dpi=dpi)
+    plt.tight_layout()
+    fig.savefig(filepath + 'overview_vector_field_results.png', dpi=dpi, bbox_inches='tight')
     plt.close(fig)
 
     diffeomorphism.save(filepath + 'diffeomorphism.png', title='Diffeomorphism' + postfix,  figsize=figsize,
