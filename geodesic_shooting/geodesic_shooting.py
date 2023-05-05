@@ -135,6 +135,7 @@ class GeodesicShooting:
         assert initial_vector_field.full_shape == (*self.shape, self.dim)
 
         opt = {'input': template, 'target': target}
+        target_norm = target.get_norm(restriction=restriction)
 
         start_time = time.perf_counter()
 
@@ -205,14 +206,16 @@ class GeodesicShooting:
                         x = x0
                         if callback is not None:
                             callback(np.copy(x))
-                        func_x, grad_x = func(x)
+                        func_x, _, energy_intensity_unscaled, _, grad_x = func(x, compute_grad=True,
+                                                                               return_all_energies=True)
                         old_func_x = func_x
                         rel_func_update = rel_func_update_tol + 1
                         norm_grad_x = np.linalg.norm(grad_x)
                         i = 0
                         if disp:
                             self.logger.info(f'iter: {i:5d}\tf= {func_x:.5e}\t|grad|= {norm_grad_x:.5e}\t'
-                                             f'rel.func.upd.= {rel_func_update:.5e}')
+                                             f'rel.func.upd.= {rel_func_update:.5e}\t'
+                                             f'rel.diff.= {(np.sqrt(energy_intensity_unscaled) / target_norm):.5e}')
                         try:
                             while True:
                                 if callback is not None:
@@ -233,7 +236,8 @@ class GeodesicShooting:
                                     d = -grad_x
                                 alpha = line_search(x, func_x, grad_x, d)
                                 x = x + alpha * d
-                                func_x, grad_x = func(x)
+                                func_x, _, energy_intensity_unscaled, _, grad_x = func(x, compute_grad=True,
+                                                                                       return_all_energies=True)
                                 if not np.isclose(old_func_x, 0.):
                                     rel_func_update = abs((func_x - old_func_x) / old_func_x)
                                 else:
@@ -243,7 +247,8 @@ class GeodesicShooting:
                                 i += 1
                                 if disp:
                                     self.logger.info(f'iter: {i:5d}\tf= {func_x:.5e}\t|grad|= {norm_grad_x:.5e}\t'
-                                                     f'rel.func.upd.= {rel_func_update:.5e}')
+                                                     f'rel.func.upd.= {rel_func_update:.5e}\trel.diff.= '
+                                                     f'{(np.sqrt(energy_intensity_unscaled) / target_norm):.5e}')
                         except KeyboardInterrupt:
                             message = 'optimization stopped due to keyboard interrupt'
                             self.logger.warning('Optimization interrupted ...')
