@@ -83,79 +83,6 @@ def plot_initial_momenta_and_landmarks(momenta, positions, kernel=GaussianKernel
     return axis
 
 
-def plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions, kernel=GaussianKernel(),
-                               min_x=-1., max_x=1., min_y=-1., max_y=1., N=30,
-                               title='', axis=None, landmark_size=10, arrow_scale=2.):
-    """Plot the trajectories of the landmarks.
-
-    Parameters
-    ----------
-    time_evolution_momenta
-        Array containing the landmark momenta at different time instances.
-    time_evolution_positions
-        Array containing the landmark positions at different time instances.
-    kernel
-        Kernel to use for extending the vector field to the whole domain.
-    min_x
-        Minimum x-value.
-    max_x
-        Maximum x-value.
-    min_y
-        Minimum y-value.
-    max_y
-        Maximum y-value.
-    N
-        Size of the vector field grid.
-    title
-        Title of the plot.
-    axis
-        If not `None`, the function is plotted on the provided axis.
-    landmark_size
-        Size of the landmarks.
-    arrow_scale
-        Scaling factor for the arrows.
-
-    Returns
-    -------
-    The created plot.
-    """
-    assert time_evolution_momenta.ndim == 2
-    assert time_evolution_momenta.shape == time_evolution_positions.shape
-
-    dim = 2
-
-    created_figure = False
-    if not axis:
-        created_figure = True
-        fig = plt.figure()
-        axis = fig.add_subplot(1, 1, 1)
-
-    axis.set_aspect('equal')
-    axis.set_title(title)
-
-    vector_field = construct_vector_field(time_evolution_momenta[0].reshape((-1, dim)),
-                                          time_evolution_positions[0].reshape((-1, dim)))
-
-    xs = np.array([[x for x in np.linspace(min_x, max_x, N)] for _ in np.linspace(min_y, max_y, N)])
-    ys = np.array([[y for _ in np.linspace(min_x, max_x, N)] for y in np.linspace(min_y, max_y, N)])
-    vector_field_x = np.array([[vector_field(np.array([x, y]))[0] for x in np.linspace(min_x, max_x, N)]
-                              for y in np.linspace(min_y, max_y, N)])
-    vector_field_y = np.array([[vector_field(np.array([x, y]))[1] for x in np.linspace(min_x, max_x, N)]
-                              for y in np.linspace(min_y, max_y, N)])
-
-    axis.quiver(xs, ys, vector_field_x, vector_field_y, scale=arrow_scale, angles='xy', scale_units='xy')
-
-    colors = ([f'C{i}' for i in range(len(time_evolution_positions[0].reshape((-1, dim))))]
-              * len(time_evolution_positions))
-
-    axis.scatter(time_evolution_positions.reshape((-1, dim))[:, 0], time_evolution_positions.reshape((-1, dim))[:, 1],
-                 s=landmark_size, color=colors)
-
-    if created_figure:
-        return fig, axis
-    return axis
-
-
 def animate_landmark_trajectories(time_evolution_momenta, time_evolution_positions, kernel=GaussianKernel(),
                                   min_x=-1., max_x=1., min_y=-1., max_y=1., N=30,
                                   title='', landmark_size=10, arrow_scale=2.):
@@ -236,7 +163,7 @@ def animate_landmark_trajectories(time_evolution_momenta, time_evolution_positio
 
 
 def plot_landmark_matchings(input_landmarks, target_landmarks, registered_landmarks,
-                            title='', axis=None, landmark_size=50):
+                            title='', axis=None, position_legend='upper left', landmark_size=50):
     """Plot the results of the matching of landmarks.
 
     Parameters
@@ -251,6 +178,8 @@ def plot_landmark_matchings(input_landmarks, target_landmarks, registered_landma
         Title of the plot.
     axis
         If not `None`, the function is plotted on the provided axis.
+    position_legend
+        Position of the legend, see https://matplotlib.org/stable/api/legend_api.html.
     landmark_size
         Size of the landmarks.
 
@@ -279,7 +208,7 @@ def plot_landmark_matchings(input_landmarks, target_landmarks, registered_landma
     axis.scatter(registered_landmarks[:, 0], registered_landmarks[:, 1],
                  s=landmark_size, color=colors, marker='s', label="Registered landmark")
 
-    plt.legend()
+    axis.legend(loc=position_legend)
 
     if created_figure:
         return fig, axis
