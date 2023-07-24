@@ -12,33 +12,38 @@ from geodesic_shooting.core import ScalarFunction
 
 if __name__ == "__main__":
     # define landmark positions
-    input_landmarks = np.array([[5., 3.], [4., 2.], [1., 0.], [2., 3.]])
-    target_landmarks = np.array([[6., 2.], [5., 1.], [1., -1.], [2.5, 2.]])
+    input_landmarks = np.array([[5./7., 5./7.], [4./7., 4./7.], [1./7., 2./7.], [2./7., 5./7.]])
+    target_landmarks = np.array([[6./7., 4./7.], [5./7., 3./7.], [1./7., 1./7.], [2.5/7., 4./7.]])
 
     # perform the registration using landmark shooting algorithm
-    gs = geodesic_shooting.LandmarkShooting(kwargs_kernel={'sigma': 2.})
-    result = gs.register(input_landmarks, target_landmarks, sigma=0.1, return_all=True, landmarks_labeled=True)
+    gs = geodesic_shooting.LandmarkShooting(kwargs_kernel={'sigma': 0.25})
+    result = gs.register(input_landmarks, target_landmarks, optimization_method='newton',
+                         sigma=0.1, return_all=True, landmarks_labeled=True)
     final_momenta = result['initial_momenta']
     registered_landmarks = result['registered_landmarks']
+
+    vf = gs.get_vector_field(final_momenta, result["input_landmarks"])
+    vf.plot("Vector field at initial time", color_length=True)
+    vf.get_magnitude().plot("Magnitude of vector field at initial time")
 
     # plot results
     plot_landmark_matchings(input_landmarks, target_landmarks, registered_landmarks)
 
     plot_initial_momenta_and_landmarks(final_momenta.flatten(), registered_landmarks.flatten(),
-                                       min_x=0., max_x=7., min_y=-2., max_y=4.)
+                                       min_x=0., max_x=1., min_y=0., max_y=1.)
 
     time_evolution_momenta = result['time_evolution_momenta']
     time_evolution_positions = result['time_evolution_positions']
     plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
-                               min_x=0., max_x=7., min_y=-2., max_y=4.)
+                               min_x=0., max_x=1., min_y=0., max_y=1.)
 
     ani = animate_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
-                                        min_x=0., max_x=7., min_y=-2., max_y=4.)
+                                        min_x=0., max_x=1., min_y=0., max_y=1.)
 
     nx = 70
     ny = 60
-    mins = np.array([0., -2.])
-    maxs = np.array([7., 5.])
+    mins = np.array([0., 0.])
+    maxs = np.array([1., 1.])
     spatial_shape = (nx, ny)
     flow = gs.compute_time_evolution_of_diffeomorphisms(final_momenta, input_landmarks,
                                                         mins=mins, maxs=maxs, spatial_shape=spatial_shape)
