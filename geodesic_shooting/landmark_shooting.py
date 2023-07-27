@@ -194,12 +194,12 @@ class LandmarkShooting:
                 assert isinstance(maxiter, int) and maxiter > 0
 
                 def compute_update_direction(x):
-                    momenta_time_dependent, positions_time_dependent = self.integrate_forward_Hamiltonian(x,
-                                                                                                          initial_positions)
+                    momenta_time_dependent, positions_time_dependent = self.integrate_forward_Hamiltonian(
+                        x, initial_positions)
                     momenta = momenta_time_dependent[-1]
                     positions = positions_time_dependent[-1]
-                    d_positions_1, d_momenta_1 = self.integrate_forward_variational_Hamiltonian(momenta_time_dependent,
-                                                                                                positions_time_dependent)
+                    d_positions_1, d_momenta_1 = self.integrate_forward_variational_Hamiltonian(
+                        momenta_time_dependent, positions_time_dependent)
                     mat = d_momenta_1 + 2 * np.eye(self.size) @ d_positions_1 / sigma ** 2
                     _, grad = energy_and_gradient(x)
                     update = np.linalg.solve(mat, momenta + (positions - target_landmarks.flatten()) / sigma ** 2)
