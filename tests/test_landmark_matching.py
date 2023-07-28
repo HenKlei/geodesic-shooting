@@ -1,6 +1,30 @@
 import numpy as np
 
 import geodesic_shooting
+from geodesic_shooting.utils.kernels import GaussianKernel
+
+
+def test_kernel_gramian():
+    positions = np.array([[5., 3.], [4., 2.], [1., 0.], [2., 3.]])
+    num_elements, dim = positions.shape
+    size = num_elements * dim
+    kernel = GaussianKernel()
+    mat = []
+    pos = positions.reshape((size // dim, dim))
+
+    for i in range(size // dim):
+        mat_row = []
+        for j in range(size // dim):
+            mat_row.append(kernel(pos[i], pos[j]))
+        mat.append(mat_row)
+
+    block_mat = np.block(mat)
+    assert block_mat.shape == (size, size)
+
+    block_mat_2 = kernel.apply_vectorized(positions, positions, dim)
+    assert block_mat_2.shape == (size, size)
+
+    assert np.allclose(block_mat, block_mat_2)
 
 
 def test_landmark_matching():

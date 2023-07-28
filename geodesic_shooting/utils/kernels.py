@@ -1,5 +1,7 @@
 import numpy as np
 
+from scipy.spatial import distance_matrix
+
 
 class Kernel:
     """Base class for kernels."""
@@ -39,6 +41,25 @@ class GaussianKernel(Kernel):
             return res
         else:
             return res * np.eye(x.shape[0])
+
+    def apply_vectorized(self, x, y, dim):
+        if x.ndim == 1:
+            x = x.reshape((-1, dim))
+        if y.ndim == 1:
+            y = y.reshape((-1, dim))
+        num_elements_x = x.shape[ 0]
+        num_elements_y = y.shape[0]
+
+        dist_mat = distance_matrix(x, y)
+        res = np.exp(-dist_mat ** 2 / (2. * self.sigma ** 2))
+        assert res.shape == (num_elements_x, num_elements_y)
+        if self.scalar:
+            return res
+        else:
+            res = np.einsum('ij,kl->ijkl', res, np.eye(dim))
+            assert res.shape == (num_elements_x, num_elements_y, dim, dim)
+            res = res.swapaxes(1, 2).reshape((num_elements_x * dim,num_elements_y * dim))
+            return res
 
     def derivative_1(self, x, y, i):
         """Derivative of kernel with respect to i-th component of x."""

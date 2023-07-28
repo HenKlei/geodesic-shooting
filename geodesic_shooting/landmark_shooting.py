@@ -349,21 +349,7 @@ class LandmarkShooting:
         -------
         Matrix of shape (size x size).
         """
-        assert positions.shape == (self.size, )
-
-        mat = []
-        pos = positions.reshape((self.size // self.dim, self.dim))
-
-        for i in range(self.size // self.dim):
-            mat_row = []
-            for j in range(self.size // self.dim):
-                mat_row.append(self.kernel(pos[i], pos[j]))
-            mat.append(mat_row)
-
-        block_mat = np.block(mat)
-        assert block_mat.shape == (self.size, self.size)
-
-        return block_mat
+        return self.kernel.apply_vectorized(positions,positions, self.dim)
 
     def DK(self, positions):
         """Computes derivative of the matrix K as a third order tensor.
