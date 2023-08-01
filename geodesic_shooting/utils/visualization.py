@@ -7,8 +7,7 @@ from geodesic_shooting.landmark_shooting import construct_vector_field
 
 
 def plot_initial_momenta_and_landmarks(momenta, positions, kernel=GaussianKernel(),
-                                       min_x=-1., max_x=1., min_y=-1., max_y=1., N=30,
-                                       title='', axis=None, landmark_size=50, arrow_scale=2.):
+                                       N=30, title='', axis=None, landmark_size=50, arrow_scale=2.):
     """Plot the given initial momenta and landmarks.
 
     Parameters
@@ -19,14 +18,6 @@ def plot_initial_momenta_and_landmarks(momenta, positions, kernel=GaussianKernel
         Array containing the landmark positions.
     kernel
         Kernel to use for extending the vector field to the whole domain.
-    min_x
-        Minimum x-value.
-    max_x
-        Maximum x-value.
-    min_y
-        Minimum y-value.
-    max_y
-        Maximum y-value.
     N
         Size of the vector field grid.
     title
@@ -59,16 +50,16 @@ def plot_initial_momenta_and_landmarks(momenta, positions, kernel=GaussianKernel
     axis.set_aspect('equal')
     axis.set_title(title)
 
-    vector_field = construct_vector_field(momenta, positions)
+    vector_field = construct_vector_field(momenta, positions, kernel=kernel)
 
-    xs = np.array([[x for x in np.linspace(min_x, max_x, N)] for _ in np.linspace(min_y, max_y, N)])
-    ys = np.array([[y for _ in np.linspace(min_x, max_x, N)] for y in np.linspace(min_y, max_y, N)])
+    xs = np.array([[x for x in np.linspace(0., 1., N)] for _ in np.linspace(0., 1., N)])
+    ys = np.array([[y for _ in np.linspace(0., 1., N)] for y in np.linspace(0., 1., N)])
     vector_field_x = np.array([[vector_field(np.array([x, y]))[0]
-                               for x in np.linspace(min_x, max_x, N)]
-                              for y in np.linspace(min_y, max_y, N)])
+                               for x in np.linspace(0., 1., N)]
+                              for y in np.linspace(0., 1., N)])
     vector_field_y = np.array([[vector_field(np.array([x, y]))[1]
-                               for x in np.linspace(min_x, max_x, N)]
-                              for y in np.linspace(min_y, max_y, N)])
+                               for x in np.linspace(0., 1., N)]
+                              for y in np.linspace(0., 1., N)])
 
     axis.quiver(xs, ys, vector_field_x, vector_field_y, scale=arrow_scale, angles='xy', scale_units='xy')
 
@@ -84,8 +75,7 @@ def plot_initial_momenta_and_landmarks(momenta, positions, kernel=GaussianKernel
 
 
 def plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions, kernel=GaussianKernel(),
-                               min_x=-1., max_x=1., min_y=-1., max_y=1., N=30,
-                               title='', axis=None, landmark_size=10, arrow_scale=2.):
+                               N=30, title='', axis=None, landmark_size=10, arrow_scale=2.):
     """Plot the trajectories of the landmarks.
 
     Parameters
@@ -96,14 +86,6 @@ def plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
         Array containing the landmark positions at different time instances.
     kernel
         Kernel to use for extending the vector field to the whole domain.
-    min_x
-        Minimum x-value.
-    max_x
-        Maximum x-value.
-    min_y
-        Minimum y-value.
-    max_y
-        Maximum y-value.
     N
         Size of the vector field grid.
     title
@@ -134,14 +116,15 @@ def plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
     axis.set_title(title)
 
     vector_field = construct_vector_field(time_evolution_momenta[0].reshape((-1, dim)),
-                                          time_evolution_positions[0].reshape((-1, dim)))
+                                          time_evolution_positions[0].reshape((-1, dim)),
+                                          kernel=kernel)
 
-    xs = np.array([[x for x in np.linspace(min_x, max_x, N)] for _ in np.linspace(min_y, max_y, N)])
-    ys = np.array([[y for _ in np.linspace(min_x, max_x, N)] for y in np.linspace(min_y, max_y, N)])
-    vector_field_x = np.array([[vector_field(np.array([x, y]))[0] for x in np.linspace(min_x, max_x, N)]
-                              for y in np.linspace(min_y, max_y, N)])
-    vector_field_y = np.array([[vector_field(np.array([x, y]))[1] for x in np.linspace(min_x, max_x, N)]
-                              for y in np.linspace(min_y, max_y, N)])
+    xs = np.array([[x for x in np.linspace(0., 1., N)] for _ in np.linspace(0., 1., N)])
+    ys = np.array([[y for _ in np.linspace(0., 1., N)] for y in np.linspace(0., 1., N)])
+    vector_field_x = np.array([[vector_field(np.array([x, y]))[0] for x in np.linspace(0., 1., N)]
+                              for y in np.linspace(0., 1., N)])
+    vector_field_y = np.array([[vector_field(np.array([x, y]))[1] for x in np.linspace(0., 1., N)]
+                              for y in np.linspace(0., 1., N)])
 
     axis.quiver(xs, ys, vector_field_x, vector_field_y, scale=arrow_scale, angles='xy', scale_units='xy')
 
@@ -157,8 +140,7 @@ def plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
 
 
 def animate_landmark_trajectories(time_evolution_momenta, time_evolution_positions, kernel=GaussianKernel(),
-                                  min_x=-1., max_x=1., min_y=-1., max_y=1., N=30,
-                                  title='', landmark_size=10, arrow_scale=2.):
+                                  N=30, title='', landmark_size=10, arrow_scale=2.):
     """Animate the trajectories of the landmarks.
 
     Parameters
@@ -169,14 +151,6 @@ def animate_landmark_trajectories(time_evolution_momenta, time_evolution_positio
         Array containing the landmark positions at different time instances.
     kernel
         Kernel to use for extending the vector field to the whole domain.
-    min_x
-        Minimum x-value.
-    max_x
-        Maximum x-value.
-    min_y
-        Minimum y-value.
-    max_y
-        Maximum y-value.
     N
         Size of the vector field grid.
     title
@@ -202,18 +176,18 @@ def animate_landmark_trajectories(time_evolution_momenta, time_evolution_positio
     axis.set_title(title)
 
     def plot_positions_and_velocity_field(momenta, positions):
-        vector_field = construct_vector_field(momenta[-1], positions[-1])
+        vector_field = construct_vector_field(momenta[-1], positions[-1], kernel=kernel)
 
-        xs = np.array([[x for x in np.linspace(min_x, max_x, N)]
-                       for _ in np.linspace(min_y, max_y, N)])
-        ys = np.array([[y for _ in np.linspace(min_x, max_x, N)]
-                       for y in np.linspace(min_y, max_y, N)])
+        xs = np.array([[x for x in np.linspace(0., 1., N)]
+                       for _ in np.linspace(0., 1., N)])
+        ys = np.array([[y for _ in np.linspace(0., 1., N)]
+                       for y in np.linspace(0., 1., N)])
         vector_field_x = np.array([[vector_field(np.array([x, y]))[0]
-                                   for x in np.linspace(min_x, max_x, N)]
-                                  for y in np.linspace(min_y, max_y, N)])
+                                   for x in np.linspace(0., 1., N)]
+                                  for y in np.linspace(0., 1., N)])
         vector_field_y = np.array([[vector_field(np.array([x, y]))[1]
-                                   for x in np.linspace(min_x, max_x, N)]
-                                  for y in np.linspace(min_y, max_y, N)])
+                                   for x in np.linspace(0., 1., N)]
+                                  for y in np.linspace(0., 1., N)])
 
         axis.quiver(xs, ys, vector_field_x, vector_field_y, scale=arrow_scale, angles='xy', scale_units='xy')
 
@@ -338,34 +312,16 @@ def plot_landmarks(input_landmarks, target_landmarks, registered_landmarks,
     return axis
 
 
-def animate_warpgrids(time_evolution_warp, min_x=-1., max_x=1., min_y=-1., max_y=1.,
-                      title='', interval=1, show_axis=True):
+def animate_warpgrids(time_evolution_warp, title='', interval=1, show_axis=True):
     """Animate the trajectories of the landmarks.
 
     Parameters
     ----------
-    time_evolution_momenta
-        Array containing the landmark momenta at different time instances.
-    time_evolution_positions
-        Array containing the landmark positions at different time instances.
-    kernel
-        Kernel to use for extending the vector field to the whole domain.
-    min_x
-        Minimum x-value.
-    max_x
-        Maximum x-value.
-    min_y
-        Minimum y-value.
-    max_y
-        Maximum y-value.
-    N
-        Size of the vector field grid.
+    time_evolution_warp
     title
         Title of the plot.
-    landmark_size
-        Size of the landmarks.
-    arrow_scale
-        Scaling factor for the arrows.
+    interval
+    show_axis
 
     Returns
     -------
@@ -383,8 +339,8 @@ def animate_warpgrids(time_evolution_warp, min_x=-1., max_x=1., min_y=-1., max_y
     axis.set_aspect('equal')
     axis.set_title(title)
 
-    axis.set_xlim([min_x, max_x])
-    axis.set_ylim([min_y, max_y])
+    axis.set_xlim([0., 1.])
+    axis.set_ylim([0., 1.])
 
     def plot_warp(warp):
         assert warp.ndim == 3
@@ -397,8 +353,8 @@ def animate_warpgrids(time_evolution_warp, min_x=-1., max_x=1., min_y=-1., max_y
 
     def animate(i):
         axis.clear()
-        axis.set_xlim([min_x, max_x])
-        axis.set_ylim([min_y, max_y])
+        axis.set_xlim([0., 1.])
+        axis.set_ylim([0., 1.])
         w = time_evolution_warp[i].reshape((-1, 2)).T.reshape(time_evolution_warp[i].shape)
         plot_warp(w)
 

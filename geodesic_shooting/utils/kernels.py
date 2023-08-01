@@ -120,7 +120,8 @@ class RationalQuadraticKernel(RBFKernel):
         assert x.shape == y.shape
         assert 0 <= i < x.shape[0]
         return 2. * self.alpha * (y[i] - x[i]) / (self.sigma**2
-                                                  * ((1. + np.linalg.norm(x-y)**2 / (self.sigma**2))**(self.alpha + 1)))
+                                                  * ((1. + np.linalg.norm(x-y)**2
+                                                      / (self.sigma**2))**(self.alpha + 1)))
 
     def derivative_2(self, x, y, i):
         """Derivative of kernel with respect to i-th component of y."""

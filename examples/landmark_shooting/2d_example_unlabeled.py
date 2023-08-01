@@ -11,8 +11,8 @@ from geodesic_shooting.core import ScalarFunction
 
 if __name__ == "__main__":
     # define landmark positions
-    input_landmarks = np.array([[4., -.25], [3., 5./3.], [4., 7./3.], [5., 3.]])
-    target_landmarks = np.array([[3.4, -.25], [4., .5], [5., 1.25], [6., 2.]])
+    input_landmarks = np.array([[4./7., 1.75/7.], [3./7., 11./21.], [4./7., 13./21.], [5./7., 5./7.]])
+    target_landmarks = np.array([[3.4/7., 1.75/7.], [4./7., 2.5/7.], [5./7., 3.25/7.], [6./7., 4./7.]])
 
     from geodesic_shooting.utils.kernels import GaussianKernel
     kernel_dist = GaussianKernel(sigma=1., scalar=True)
@@ -33,42 +33,39 @@ if __name__ == "__main__":
     print(f"Matching function value for target landmarks: {compute_matching_function(target_landmarks)}")
 
     # perform the registration using landmark shooting algorithm
-    gs = geodesic_shooting.LandmarkShooting(kwargs_kernel={'sigma': 1.})
+    gs = geodesic_shooting.LandmarkShooting(kwargs_kernel={'sigma': 0.1})
     result = gs.register(input_landmarks, target_landmarks, sigma=0.1, return_all=True,
                          landmarks_labeled=False, kwargs_kernel_dist={'sigma': 1.})
     final_momenta = result['initial_momenta']
     registered_landmarks = result['registered_landmarks']
 
+    kernel = gs.kernel
+
     # plot results
     plot_landmarks(input_landmarks, target_landmarks, registered_landmarks)
 
-    plot_initial_momenta_and_landmarks(final_momenta.flatten(), registered_landmarks.flatten(),
-                                       min_x=0., max_x=7., min_y=-2., max_y=4.)
+    plot_initial_momenta_and_landmarks(final_momenta.flatten(), registered_landmarks.flatten(), kernel=kernel)
 
     time_evolution_momenta = result['time_evolution_momenta']
     time_evolution_positions = result['time_evolution_positions']
-    plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
-                               min_x=0., max_x=7., min_y=-2., max_y=4.)
+    plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions, kernel=kernel)
 
-    ani = animate_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
-                                        min_x=0., max_x=7., min_y=-2., max_y=4.)
+    ani = animate_landmark_trajectories(time_evolution_momenta, time_evolution_positions, kernel=kernel)
 
     nx = 70
     ny = 60
-    mins = np.array([0., -2.])
-    maxs = np.array([7., 5.])
     spatial_shape = (nx, ny)
     flow = gs.compute_time_evolution_of_diffeomorphisms(final_momenta, input_landmarks,
-                                                        mins=mins, maxs=maxs, spatial_shape=spatial_shape)
+                                                        spatial_shape=spatial_shape)
     flow.plot("Flow")
 
     def set_landmarks_in_image(img, landmarks, sigma=1.):
-        x, y = np.meshgrid(np.linspace(mins[0], maxs[0], nx), np.linspace(mins[1], maxs[1], ny))
+        x, y = np.meshgrid(np.linspace(0., 1., nx), np.linspace(0., 1., ny))
         for i, l in enumerate(landmarks):
             dst = (x - l[0])**2 + (y - l[1])**2
             img += (i + 1.) * np.exp(-(dst.T / (sigma**2))) / (sigma**2)
 
-    sigma = gs.kernel.sigma
+    sigma = kernel.sigma
     image = ScalarFunction(spatial_shape)
     target_image = ScalarFunction(spatial_shape)
     set_landmarks_in_image(image, input_landmarks, sigma=sigma)

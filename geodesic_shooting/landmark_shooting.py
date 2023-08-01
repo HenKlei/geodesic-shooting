@@ -422,9 +422,7 @@ class LandmarkShooting:
 
         return d_positions[-1], d_momenta[-1]
 
-    def get_vector_field(self, momenta, positions,
-                         mins=np.array([0., 0.]), maxs=np.array([1., 1.]),
-                         spatial_shape=(100, 100)):
+    def get_vector_field(self, momenta, positions, spatial_shape=(100, 100)):
         """Evaluates vector field given by positions and momenta at grid points.
 
         Parameters
@@ -433,10 +431,6 @@ class LandmarkShooting:
             Array containing the momenta of the landmarks.
         positions
             Array containing the positions of the landmarks.
-        mins
-            Array containing the lower bounds of the coordinates.
-        maxs
-            Array containing the upper bounds of the coordinates.
         spatial_shape
             Tuple containing the spatial shape of the grid the diffeomorphism is defined on.
 
@@ -452,13 +446,12 @@ class LandmarkShooting:
                                          kernel=self.kernel)
 
         for pos in np.ndindex(spatial_shape):
-            spatial_pos = mins + (maxs - mins) * np.array(pos) / np.array(spatial_shape)
+            spatial_pos = np.array(pos) / np.array(spatial_shape)
             vector_field[pos] = vf_func(spatial_pos)
 
         return vector_field
 
     def compute_time_evolution_of_diffeomorphisms(self, initial_momenta, initial_positions,
-                                                  mins=np.array([0., 0.]), maxs=np.array([1., 1.]),
                                                   spatial_shape=(100, 100)):
         """Performs forward integration of diffeomorphism on given grid using the given
            initial momenta and positions.
@@ -469,10 +462,6 @@ class LandmarkShooting:
             Array containing the initial momenta of the landmarks.
         initial_positions
             Array containing the initial positions of the landmarks.
-        mins
-            Array containing the lower bounds of the coordinates.
-        maxs
-            Array containing the upper bounds of the coordinates.
         spatial_shape
             Tuple containing the spatial shape of the grid the diffeomorphism is defined on.
 
@@ -480,16 +469,13 @@ class LandmarkShooting:
         -------
         `VectorField` containing the diffeomorphism at the different time instances.
         """
-        assert mins.ndim == 1 and mins.shape[0] == len(spatial_shape)
-        assert maxs.ndim == 1 and maxs.shape[0] == len(spatial_shape)
-        assert np.all(mins < maxs)
         assert initial_momenta.shape == initial_positions.shape
 
         momenta, positions = self.integrate_forward_Hamiltonian(initial_momenta.flatten(), initial_positions.flatten())
         vector_fields = TimeDependentVectorField(spatial_shape, self.time_steps)
 
         for t, (m, p) in enumerate(zip(momenta, positions)):
-            vector_fields[t] = self.get_vector_field(m, p, mins, maxs, spatial_shape)
+            vector_fields[t] = self.get_vector_field(m, p, spatial_shape)
 
         flow = vector_fields.integrate_backward(sampler_options=self.sampler_options)
 
@@ -505,6 +491,8 @@ def construct_vector_field(momenta, positions, kernel=GaussianKernel()):
         Array containing the momenta of the landmarks.
     positions
         Array containing the positions of the landmarks.
+    kernel
+        Kernel function to use for constructing the vector field.
 
     Returns
     -------
