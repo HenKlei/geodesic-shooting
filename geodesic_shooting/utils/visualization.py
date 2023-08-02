@@ -71,7 +71,8 @@ def plot_initial_momenta_and_landmarks(momenta, positions, kernel=GaussianKernel
 
 
 def plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions, kernel=GaussianKernel(),
-                               N=30, title='', axis=None, landmark_size=10, arrow_scale=2.):
+                               N=30, title='', axis=None, landmark_size=10, arrow_scale=2.,
+                               show_vector_fields=True):
     """Plot the trajectories of the landmarks.
 
     Parameters
@@ -92,6 +93,8 @@ def plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
         Size of the landmarks.
     arrow_scale
         Scaling factor for the arrows.
+    show_vector_fields
+        Determines whether to also show the initial vector field.
 
     Returns
     -------
@@ -111,18 +114,19 @@ def plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
     axis.set_aspect('equal')
     axis.set_title(title)
 
-    vector_field = construct_vector_field(time_evolution_momenta[0].reshape((-1, dim)),
-                                          time_evolution_positions[0].reshape((-1, dim)),
-                                          kernel=kernel)
+    if show_vector_fields:
+        vector_field = construct_vector_field(time_evolution_momenta[0].reshape((-1, dim)),
+                                              time_evolution_positions[0].reshape((-1, dim)),
+                                              kernel=kernel)
 
-    xs = np.array([[x for x in np.linspace(0., 1., N)] for _ in np.linspace(0., 1., N)])
-    ys = np.array([[y for _ in np.linspace(0., 1., N)] for y in np.linspace(0., 1., N)])
-    vector_field_x = np.array([[vector_field(np.array([x, y]))[0] for x in np.linspace(0., 1., N)]
-                              for y in np.linspace(0., 1., N)])
-    vector_field_y = np.array([[vector_field(np.array([x, y]))[1] for x in np.linspace(0., 1., N)]
-                              for y in np.linspace(0., 1., N)])
+        xs = np.array([[x for x in np.linspace(0., 1., N)] for _ in np.linspace(0., 1., N)])
+        ys = np.array([[y for _ in np.linspace(0., 1., N)] for y in np.linspace(0., 1., N)])
+        vector_field_x = np.array([[vector_field(np.array([x, y]))[0] for x in np.linspace(0., 1., N)]
+                                  for y in np.linspace(0., 1., N)])
+        vector_field_y = np.array([[vector_field(np.array([x, y]))[1] for x in np.linspace(0., 1., N)]
+                                  for y in np.linspace(0., 1., N)])
 
-    axis.quiver(xs, ys, vector_field_x, vector_field_y, scale=arrow_scale, angles='xy', scale_units='xy')
+        axis.quiver(xs, ys, vector_field_x, vector_field_y, scale=arrow_scale, angles='xy', scale_units='xy')
 
     colors = ([f'C{i}' for i in range(len(time_evolution_positions[0].reshape((-1, dim))))]
               * len(time_evolution_positions))
