@@ -31,7 +31,7 @@ if __name__ == "__main__":
     # plot results
     plot_landmark_matchings(input_landmarks, target_landmarks, registered_landmarks)
 
-    plot_initial_momenta_and_landmarks(final_momenta.flatten(), registered_landmarks.flatten(), kernel=kernel)
+    plot_initial_momenta_and_landmarks(final_momenta, registered_landmarks, kernel=kernel)
 
     time_evolution_momenta = result['time_evolution_momenta']
     time_evolution_positions = result['time_evolution_positions']

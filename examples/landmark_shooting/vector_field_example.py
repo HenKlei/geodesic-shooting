@@ -23,8 +23,7 @@ if __name__ == "__main__":
     plot_initial_momenta_and_landmarks(initial_momenta.flatten(), input_landmarks.flatten(), kernel=gs.kernel, N=N)
     plt.show()
 
-    momenta, positions = gs.integrate_forward_Hamiltonian(initial_momenta.flatten(),
-                                                          input_landmarks.flatten())
+    momenta, positions = gs.integrate_forward_Hamiltonian(initial_momenta.flatten(), input_landmarks.flatten())
 
     plot_landmark_trajectories(momenta, positions, kernel=gs.kernel, N=N)
     plt.show()

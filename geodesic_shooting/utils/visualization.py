@@ -33,13 +33,9 @@ def plot_initial_momenta_and_landmarks(momenta, positions, kernel=GaussianKernel
     -------
     The created plot.
     """
-    assert momenta.ndim == 1
+    assert momenta.ndim == 2
     assert momenta.shape == positions.shape
-
-    dim = 2
-
-    positions = positions.reshape((-1, dim))
-    momenta = momenta.reshape((-1, dim))
+    assert momenta.shape[1] == 2, "Only implemented for 2d!"
 
     created_figure = False
     if not axis:
