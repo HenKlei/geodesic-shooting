@@ -45,7 +45,7 @@ class LandmarkShooting:
         """
         self.time_integrator = time_integrator
         self.time_steps = time_steps
-        self.dt = 1. / self.time_steps
+        self.dt = 1. / (self.time_steps - 1.)
 
         self.dim = dim
         self.size = dim * num_landmarks
@@ -100,7 +100,7 @@ class LandmarkShooting:
             Used as initial guess for the initial momenta (will agree with the direction pointing
             from the input landmarks to the target landmarks if None is passed).
         return_all
-            Determines whether or not to return all information or only the initial momenta
+            Determines whether to return all information or only the initial momenta
             that led to the best registration result.
 
         Returns
@@ -280,6 +280,15 @@ class LandmarkShooting:
             return opt
         return opt['initial_momenta']
 
+    def _momenta_positions_flatten(self, momenta, positions):
+        if not momenta.shape == (self.size,):
+            momenta = momenta.flatten()
+        if not positions.shape == (self.size,):
+            positions = positions.flatten()
+        assert momenta.shape == (self.size,)
+        assert positions.shape == (self.size,)
+        return momenta, positions
+
     def compute_Hamiltonian(self, momenta, positions):
         """Computes the value of the Hamiltonian given positions and momenta.
 
@@ -294,9 +303,25 @@ class LandmarkShooting:
         -------
         Value of the Hamiltonian.
         """
-        assert momenta.shape == (self.size,)
-        assert positions.shape == (self.size,)
+        momenta, positions = self._momenta_positions_flatten(momenta, positions)
         return 0.5 * momenta.T @ self.K(positions) @ momenta
+
+    def _rhs_momenta_function(self, momentum, position):
+        rhs = np.zeros((self.size,))
+        momentum = momentum.reshape((-1, self.dim))
+        position = position.reshape((-1, self.dim))
+
+        for a, (pa, qa) in enumerate(zip(momentum, position)):
+            for i in range(self.dim):
+                for b, (pb, qb) in enumerate(zip(momentum, position)):
+                    for j in range(self.dim):
+                        for k in range(self.dim):
+                            rhs[a*self.dim + i] -= self.kernel.derivative_1(qa, qb, i)[j, k] * pa[j] * pb[k]
+
+        return rhs
+
+    def _rhs_position_function(self, position, momentum):
+        return self.K(position) @ momentum
 
     def integrate_forward_Hamiltonian(self, initial_momenta, initial_positions):
         """Performs forward integration of Hamiltonian equations to obtain time-dependent momenta
@@ -313,23 +338,16 @@ class LandmarkShooting:
         -------
         Time-dependent momenta and positions.
         """
-        assert initial_momenta.shape == (self.size,)
-        assert initial_positions.shape == (self.size,)
+        initial_momenta, initial_positions = self._momenta_positions_flatten(initial_momenta, initial_positions)
 
         momenta = np.zeros((self.time_steps, self.size))
         positions = np.zeros((self.time_steps, self.size))
         momenta[0] = initial_momenta
         positions[0] = initial_positions
 
-        def rhs_momenta_function(momentum, position):
-            return - 0.5 * (momentum.T @ self.DK(position) @ momentum)
+        ti_momenta = self.time_integrator(self._rhs_momenta_function, self.dt)
 
-        ti_momenta = self.time_integrator(rhs_momenta_function, self.dt)
-
-        def rhs_position_function(position, momentum):
-            return self.K(position) @ momentum
-
-        ti_position = self.time_integrator(rhs_position_function, self.dt)
+        ti_position = self.time_integrator(self._rhs_position_function, self.dt)
 
         for t in range(self.time_steps-1):
             momenta[t+1] = ti_momenta.step(momenta[t], additional_args={'position': positions[t]})
@@ -451,8 +469,8 @@ class LandmarkShooting:
 
         return vector_field
 
-    def compute_time_evolution_of_diffeomorphisms(self, initial_momenta, initial_positions,
-                                                  spatial_shape=(100, 100)):
+    def compute_diffeomorphism(self, initial_momenta, initial_positions, spatial_shape=(100, 100),
+                               get_time_dependent_diffeomorphism=False):
         """Performs forward integration of diffeomorphism on given grid using the given
            initial momenta and positions.
 
@@ -464,6 +482,9 @@ class LandmarkShooting:
             Array containing the initial positions of the landmarks.
         spatial_shape
             Tuple containing the spatial shape of the grid the diffeomorphism is defined on.
+        get_time_dependent_diffeomorphism
+            Determines whether to return the `TimeDependentDiffeomorphism` or only
+            the final `Diffeomorphism`.
 
         Returns
         -------
@@ -471,13 +492,14 @@ class LandmarkShooting:
         """
         assert initial_momenta.shape == initial_positions.shape
 
-        momenta, positions = self.integrate_forward_Hamiltonian(initial_momenta.flatten(), initial_positions.flatten())
+        momenta, positions = self.integrate_forward_Hamiltonian(initial_momenta, initial_positions)
         vector_fields = TimeDependentVectorField(spatial_shape, self.time_steps)
 
         for t, (m, p) in enumerate(zip(momenta, positions)):
             vector_fields[t] = self.get_vector_field(m, p, spatial_shape)
 
-        flow = vector_fields.integrate_backward(sampler_options=self.sampler_options)
+        flow = vector_fields.integrate(sampler_options=self.sampler_options,
+                                       get_time_dependent_diffeomorphism=get_time_dependent_diffeomorphism)
 
         return flow
 

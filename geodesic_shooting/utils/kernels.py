@@ -45,7 +45,7 @@ class RBFKernel:
 
 class GaussianKernel(RBFKernel):
     """Class that implements a Gaussian (matrix-valued, diagonal) kernel."""
-    def __init__(self, scalar=False, sigma=1./np.sqrt(2.)):
+    def __init__(self, scalar=False, sigma=1.):
         """Constructor.
 
         Parameters
@@ -65,18 +65,15 @@ class GaussianKernel(RBFKernel):
         return f"{self.__class__.__name__}: sigma={self.sigma}"
 
     def _apply_rbf(self, d):
-        return np.exp(-d ** 2 / (2. * self.sigma ** 2))
+        return np.exp(-self.sigma * d ** 2)
 
     def derivative_1(self, x, y, i):
         """Derivative of kernel with respect to i-th component of x."""
         assert x.ndim == 1
         assert x.shape == y.shape
         assert 0 <= i < x.shape[0]
-        res = (y[i] - x[i]) / self.sigma**2
-        if self.scalar:
-            return res * self(x, y)
-        else:
-            return res * self(x, y)[0][0]
+        res = 2. * (y[i] - x[i]) * self.sigma
+        return res * self(x, y)
 
     def derivative_2(self, x, y, i):
         """Derivative of kernel with respect to i-th component of y."""

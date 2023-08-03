@@ -55,8 +55,7 @@ if __name__ == "__main__":
     nx = 70
     ny = 60
     spatial_shape = (nx, ny)
-    flow = gs.compute_time_evolution_of_diffeomorphisms(final_momenta, input_landmarks,
-                                                        spatial_shape=spatial_shape)
+    flow = gs.compute_diffeomorphism(final_momenta, input_landmarks, spatial_shape=spatial_shape)
     flow.plot("Flow")
 
     def set_landmarks_in_image(img, landmarks, sigma=1.):

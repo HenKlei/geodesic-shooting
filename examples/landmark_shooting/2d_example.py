@@ -6,7 +6,7 @@ import geodesic_shooting
 from geodesic_shooting.utils.visualization import (animate_landmark_trajectories,
                                                    plot_initial_momenta_and_landmarks,
                                                    plot_landmark_matchings,
-                                                   plot_landmark_trajectories, animate_warpgrids)
+                                                   plot_landmark_trajectories)
 from geodesic_shooting.core import ScalarFunction
 
 
@@ -17,7 +17,7 @@ if __name__ == "__main__":
 
     # perform the registration using landmark shooting algorithm
     gs = geodesic_shooting.LandmarkShooting(kwargs_kernel={'sigma': 0.1})
-    result = gs.register(input_landmarks, target_landmarks, optimization_method='newton',
+    result = gs.register(input_landmarks, target_landmarks,# optimization_method='newton',
                          sigma=0.1, return_all=True, landmarks_labeled=True)
     final_momenta = result['initial_momenta']
     registered_landmarks = result['registered_landmarks']
@@ -42,8 +42,7 @@ if __name__ == "__main__":
     nx = 70
     ny = 60
     spatial_shape = (nx, ny)
-    flow = gs.compute_time_evolution_of_diffeomorphisms(final_momenta, input_landmarks,
-                                                        spatial_shape=spatial_shape)
+    flow = gs.compute_diffeomorphism(final_momenta, input_landmarks, spatial_shape=spatial_shape)
     flow.plot("Flow")
 
     def set_landmarks_in_image(img, landmarks, sigma=1.):
