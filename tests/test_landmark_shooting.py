@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 import geodesic_shooting
 from geodesic_shooting.utils.kernels import GaussianKernel
@@ -28,8 +29,9 @@ def test_Hamiltonian_computation():
     assert np.isclose(gs.compute_Hamiltonian(momenta, landmarks), compute_Hamiltonian_explicitly(momenta, landmarks))
 
 
-def test_rhs_position_function():
-    gs = geodesic_shooting.LandmarkShooting(kernel=GaussianKernel, kwargs_kernel={'sigma': 1.},
+@pytest.mark.parametrize("sigma", [2. * (1 - x) for x in np.random.rand(10)])
+def test_rhs_position_function(sigma):
+    gs = geodesic_shooting.LandmarkShooting(kernel=GaussianKernel, kwargs_kernel={'sigma': sigma},
                                             dim=2, num_landmarks=2)
 
     landmarks = np.random.rand(2, 2)
@@ -45,9 +47,31 @@ def test_rhs_position_function():
     assert np.allclose(rhs, rhs_explicit)
 
     rhs_more_explicit = np.zeros(rhs.shape)
-    rhs_more_explicit[:2] = momenta[0] + np.exp(-np.linalg.norm(landmarks[0] - landmarks[1])**2) * momenta[1]
-    rhs_more_explicit[2:] = momenta[1] + np.exp(-np.linalg.norm(landmarks[0] - landmarks[1])**2) * momenta[0]
+    rhs_more_explicit[:2] = momenta[0] + np.exp(-sigma * np.linalg.norm(landmarks[0] - landmarks[1])**2) * momenta[1]
+    rhs_more_explicit[2:] = momenta[1] + np.exp(-sigma * np.linalg.norm(landmarks[0] - landmarks[1])**2) * momenta[0]
     assert np.allclose(rhs, rhs_more_explicit)
+
+
+@pytest.mark.parametrize("dim", [1, 2, 3, 4])
+@pytest.mark.parametrize("num_landmarks", [1, 2, 5, 10, 20])
+@pytest.mark.parametrize("sigma", [2. * (1 - x) for x in np.random.rand(3)])
+def test_rhs_position_function_with_inefficient_version(dim, num_landmarks, sigma):
+    gs = geodesic_shooting.LandmarkShooting(kernel=GaussianKernel, kwargs_kernel={'sigma': sigma},
+                                            dim=dim, num_landmarks=num_landmarks)
+
+    def working_inefficient_rhs_position_function(positions, momenta):
+        rhs = np.zeros((gs.num_landmarks, gs.dim))
+        for a, qa in enumerate(positions.reshape((gs.num_landmarks, gs.dim))):
+            for b, (pb, qb) in enumerate(zip(momenta.reshape((gs.num_landmarks, gs.dim)),
+                                             positions.reshape((gs.num_landmarks, gs.dim)))):
+                rhs[a] += gs.kernel(qa, qb) @ pb
+        return rhs.flatten()
+
+    landmarks = np.random.rand(num_landmarks, dim)
+    momenta = np.random.rand(num_landmarks, dim)
+    rhs = gs._rhs_position_function(landmarks.flatten(), momenta.flatten())
+    rhs_working_inefficient = working_inefficient_rhs_position_function(landmarks, momenta)
+    assert np.allclose(rhs, rhs_working_inefficient)
 
 
 def test_rhs_momenta_function():

@@ -344,22 +344,18 @@ class LandmarkShooting:
     def _rhs_momenta_function(self, momenta, positions):
         rhs = np.zeros((self.num_landmarks, self.dim))
 
-        assert momenta.shape == (self.num_landmarks, self.dim)
-        assert positions.shape == (self.num_landmarks, self.dim)
+        #assert momenta.shape == (self.num_landmarks, self.dim)
+        #assert positions.shape == (self.num_landmarks, self.dim)
 
-        for a, (pa, qa) in enumerate(zip(momenta, positions)):
+        for a, (pa, qa) in enumerate(zip(momenta.reshape((self.num_landmarks, self.dim)), positions.reshape((self.num_landmarks, self.dim)))):
             for i in range(self.dim):
-                for b, (pb, qb) in enumerate(zip(momenta, positions)):
+                for b, (pb, qb) in enumerate(zip(momenta.reshape((self.num_landmarks, self.dim)), positions.reshape((self.num_landmarks, self.dim)))):
                     rhs[a, i] -= pa @ self.kernel.derivative_1(qa, qb, i) @ pb
 
-        return rhs
+        return rhs.flatten()
 
     def _rhs_position_function(self, positions, momenta):
-        rhs = np.zeros((self.num_landmarks, self.dim))
-        for a, qa in enumerate(positions):
-            for b, (pb, qb) in enumerate(zip(momenta, positions)):
-                rhs[a] += self.kernel(qa, qb) @ pb
-        return rhs
+        return self.K(positions) @ momenta
 
     def integrate_forward_Hamiltonian(self, initial_momenta, initial_positions):
         """Performs forward integration of Hamiltonian equations to obtain time-dependent momenta
@@ -376,10 +372,10 @@ class LandmarkShooting:
         -------
         Time-dependent momenta and positions.
         """
-        momenta = np.zeros((self.time_steps, self.num_landmarks, self.dim))
-        positions = np.zeros((self.time_steps, self.num_landmarks, self.dim))
-        momenta[0] = initial_momenta
-        positions[0] = initial_positions
+        momenta = np.zeros((self.time_steps, self.size))
+        positions = np.zeros((self.time_steps, self.size))
+        momenta[0] = initial_momenta.flatten()
+        positions[0] = initial_positions.flatten()
 
         ti_momenta = self.time_integrator(self._rhs_momenta_function, self.dt)
 
@@ -389,7 +385,7 @@ class LandmarkShooting:
             momenta[t+1] = ti_momenta.step(momenta[t], additional_args={'positions': positions[t]})
             positions[t+1] = ti_position.step(positions[t], additional_args={'momenta': momenta[t]})
 
-        return momenta, positions
+        return momenta.reshape((self.time_steps, self.num_landmarks, self.dim)), positions.reshape((self.time_steps, self.num_landmarks, self.dim))
 
     def K(self, positions):
         """Computes matrix that contains (dim x dim)-blocks derived from the kernel.

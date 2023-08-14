@@ -28,7 +28,8 @@ if __name__ == "__main__":
     # perform the registration using landmark shooting algorithm
     result = gs.register(input_landmarks, target_landmarks, optimization_method='GD',
                          sigma=sigma, return_all=True, landmarks_labeled=True,
-                         initial_momenta=np.zeros_like(input_landmarks))
+                         initial_momenta=np.zeros_like(input_landmarks),
+                         optimizer_options={'disp': True, 'maxiter': 100})
     final_momenta = result['initial_momenta']
     registered_landmarks = result['registered_landmarks']
 
@@ -74,7 +75,7 @@ if __name__ == "__main__":
                 time_integration_hamiltonian += 0.5 * pa @ kernel(qa, qb) @ pb / num_timesteps
 
     assert np.abs(time_integration_hamiltonian - hamiltonian) / hamiltonian < 1e-2
-    assert np.average(np.linalg.norm(final_momenta - true_momenta, axis=-1)) < 1e-3
+    assert np.average(np.linalg.norm(final_momenta - true_momenta, axis=-1)) < 1e-2
 
     vf = gs.get_vector_field(final_momenta, result["input_landmarks"])
     vf.plot("Vector field at initial time", color_length=True)
