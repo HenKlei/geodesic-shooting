@@ -25,7 +25,7 @@ class RBFKernel:
             x = x.reshape((-1, dim))
         if y.ndim == 1:
             y = y.reshape((-1, dim))
-        num_elements_x = x.shape[ 0]
+        num_elements_x = x.shape[0]
         num_elements_y = y.shape[0]
 
         dist_mat = distance_matrix(x, y)
@@ -36,7 +36,7 @@ class RBFKernel:
         else:
             res = np.einsum('ij,kl->ijkl', res, np.eye(dim))
             assert res.shape == (num_elements_x, num_elements_y, dim, dim)
-            res = res.swapaxes(1, 2).reshape((num_elements_x * dim,num_elements_y * dim))
+            res = res.swapaxes(1, 2).reshape((num_elements_x * dim, num_elements_y * dim))
             return res
 
     def _apply_rbf(self, d):
@@ -81,6 +81,67 @@ class GaussianKernel(RBFKernel):
         assert x.shape == y.shape
         assert 0 <= i < x.shape[0]
         return -self.derivative_1(x, y, i)
+
+    def full_derivative_1(self, x, y):
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        dim = x.shape[0]
+        res = np.stack([self.derivative_1(x, y, i) for i in range(dim)], axis=-1)
+        assert res.shape == (dim, dim, dim)
+        return res
+
+    def full_derivative_2(self, x, y):
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        dim = x.shape[0]
+        res = np.stack([self.derivative_2(x, y, i) for i in range(dim)], axis=-1)
+        assert res.shape == (dim, dim, dim)
+        return res
+
+    def second_derivative_1_1(self, x, y, i, j):
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        assert 0 <= i < x.shape[0]
+        assert 0 <= j < x.shape[0]
+        dim = x.shape[0]
+        if i == j:
+            res = (4 * self.sigma**2 * (x[i]-y[i])**2 - 2 * self.sigma) * self(x, y)
+        else:
+            res = 4 * self.sigma**2 * (x[i]-y[i]) * (x[j]-y[j]) * self(x, y)
+        if not self.scalar:
+            assert res.shape == (dim, dim)
+        return res
+
+    def second_derivative_1(self, x, y, i):
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        assert 0 <= i < x.shape[0]
+        dim = x.shape[0]
+        res = np.stack([self.second_derivative_1_1(x, y, i, j) for j in range(dim)])
+        if not self.scalar:
+            assert res.shape == (dim, dim, dim)
+        return res
+
+    def second_derivative_1_2(self, x, y, i, j):
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        assert 0 <= i < x.shape[0]
+        assert 0 <= j < x.shape[0]
+        dim = x.shape[0]
+        res = -self.second_derivative_1_1(x, y, i, j)
+        if not self.scalar:
+            assert res.shape == (dim, dim)
+        return res
+
+    def second_derivative_2(self, x, y, i):
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        assert 0 <= i < x.shape[0]
+        dim = x.shape[0]
+        res = np.stack([self.second_derivative_1_2(x, y, i, j) for j in range(dim)])
+        if not self.scalar:
+            assert res.shape == (dim, dim, dim)
+        return res
 
 
 class RationalQuadraticKernel(RBFKernel):

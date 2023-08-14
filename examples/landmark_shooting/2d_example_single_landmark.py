@@ -12,13 +12,13 @@ from geodesic_shooting.core import ScalarFunction
 
 if __name__ == "__main__":
     # define landmark positions
-    input_landmarks = np.array([[5./7., 5./7.], [4./7., 4./7.], [1./7., 2./7.], [2./7., 5./7.]])
-    target_landmarks = np.array([[6./7., 4./7.], [5./7., 3./7.], [1./7., 1./7.], [2.5/7., 4./7.]])
+    input_landmarks = np.array([[0., 0.]])
+    target_landmarks = np.array([[1., 1.]])
 
     # perform the registration using landmark shooting algorithm
     gs = geodesic_shooting.LandmarkShooting(kwargs_kernel={'sigma': 1.})
-    result = gs.register(input_landmarks, target_landmarks,# optimization_method='GD',
-                         sigma=0.01, return_all=True, landmarks_labeled=True,
+    result = gs.register(input_landmarks, target_landmarks, optimization_method='GD',
+                         sigma=0.1, return_all=True, landmarks_labeled=True,
                          initial_momenta=np.zeros_like(input_landmarks))
     final_momenta = result['initial_momenta']
     registered_landmarks = result['registered_landmarks']
@@ -33,6 +33,7 @@ if __name__ == "__main__":
     plot_landmark_matchings(input_landmarks, target_landmarks, registered_landmarks)
 
     plot_initial_momenta_and_landmarks(final_momenta, registered_landmarks, kernel=kernel)
+    plt.show()
 
     time_evolution_momenta = result['time_evolution_momenta']
     time_evolution_positions = result['time_evolution_positions']

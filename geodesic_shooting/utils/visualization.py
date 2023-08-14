@@ -100,10 +100,11 @@ def plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
     -------
     The created plot.
     """
-    assert time_evolution_momenta.ndim == 2
+    assert time_evolution_momenta.ndim == 3
     assert time_evolution_momenta.shape == time_evolution_positions.shape
 
     dim = 2
+    assert time_evolution_momenta.shape[-1] == dim
 
     created_figure = False
     if not axis:
@@ -115,8 +116,8 @@ def plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
     axis.set_title(title)
 
     if show_vector_fields:
-        vector_field = construct_vector_field(time_evolution_momenta[0].reshape((-1, dim)),
-                                              time_evolution_positions[0].reshape((-1, dim)),
+        vector_field = construct_vector_field(time_evolution_momenta[0],
+                                              time_evolution_positions[0],
                                               kernel=kernel)
 
         xs = np.array([[x for x in np.linspace(0., 1., N)] for _ in np.linspace(0., 1., N)])
@@ -128,7 +129,7 @@ def plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
 
         axis.quiver(xs, ys, vector_field_x, vector_field_y, scale=arrow_scale, angles='xy', scale_units='xy')
 
-    colors = ([f'C{i}' for i in range(len(time_evolution_positions[0].reshape((-1, dim))))]
+    colors = ([f'C{i}' for i in range(len(time_evolution_positions[0]))]
               * len(time_evolution_positions))
 
     axis.scatter(time_evolution_positions.reshape((-1, dim))[:, 0], time_evolution_positions.reshape((-1, dim))[:, 1],
@@ -164,10 +165,11 @@ def animate_landmark_trajectories(time_evolution_momenta, time_evolution_positio
     -------
     The created plot.
     """
-    assert time_evolution_momenta.ndim == 2
+    assert time_evolution_momenta.ndim == 3
     assert time_evolution_momenta.shape == time_evolution_positions.shape
 
     dim = 2
+    assert time_evolution_momenta.shape[-1] == dim
 
     fig = plt.figure()
     axis = fig.add_subplot(1, 1, 1)
@@ -201,8 +203,8 @@ def animate_landmark_trajectories(time_evolution_momenta, time_evolution_positio
 
     def animate(i):
         axis.clear()
-        pos = time_evolution_positions[:i+1].reshape((i+1, -1, dim))
-        mom = time_evolution_momenta[:i+1].reshape((i+1, -1, dim))
+        pos = time_evolution_positions[:i+1]
+        mom = time_evolution_momenta[:i+1]
         plot_positions_and_velocity_field(mom, pos)
 
     ani = animation.FuncAnimation(fig, animate, frames=time_evolution_positions.shape[0], interval=100)

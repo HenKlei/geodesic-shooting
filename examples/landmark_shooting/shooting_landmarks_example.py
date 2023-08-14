@@ -31,6 +31,13 @@ if __name__ == "__main__":
                                show_vector_fields=False)
     plt.show()
 
+    landmarks = np.array([[0., 0.], [10., 5.]])
+    momenta = np.array([[5., 2.5], [-5., -2.5]])
+    time_evolution_momenta, time_evolution_positions = gs.integrate_forward_Hamiltonian(momenta, landmarks)
+    plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions, kernel=gs.kernel,
+                               show_vector_fields=False)
+    plt.show()
+
     landmarks = np.array([[0., 0.], [10., 10.]])
     momenta = np.array([[10., 0.], [0., -10.]])
     time_evolution_momenta, time_evolution_positions = gs.integrate_forward_Hamiltonian(momenta, landmarks)
