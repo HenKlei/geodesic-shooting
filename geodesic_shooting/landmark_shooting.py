@@ -344,13 +344,11 @@ class LandmarkShooting:
     def _rhs_momenta_function(self, momenta, positions):
         rhs = np.zeros((self.num_landmarks, self.dim))
 
-        #assert momenta.shape == (self.num_landmarks, self.dim)
-        #assert positions.shape == (self.num_landmarks, self.dim)
-
-        for a, (pa, qa) in enumerate(zip(momenta.reshape((self.num_landmarks, self.dim)), positions.reshape((self.num_landmarks, self.dim)))):
-            for i in range(self.dim):
-                for b, (pb, qb) in enumerate(zip(momenta.reshape((self.num_landmarks, self.dim)), positions.reshape((self.num_landmarks, self.dim)))):
-                    rhs[a, i] -= pa @ self.kernel.derivative_1(qa, qb, i) @ pb
+        for a, (pa, qa) in enumerate(zip(momenta.reshape((self.num_landmarks, self.dim)),
+                                         positions.reshape((self.num_landmarks, self.dim)))):
+            for b, (pb, qb) in enumerate(zip(momenta.reshape((self.num_landmarks, self.dim)),
+                                             positions.reshape((self.num_landmarks, self.dim)))):
+                rhs[a] -= np.einsum("ijk,i,j->k", self.kernel.full_derivative_1(qa, qb), pa, pb)
 
         return rhs.flatten()
 

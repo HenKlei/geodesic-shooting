@@ -128,6 +128,32 @@ def test_rhs_momenta_function():
     assert np.allclose(rhs, rhs_more_complex)
 
 
+@pytest.mark.parametrize("dim", [1, 2, 3, 4])
+@pytest.mark.parametrize("num_landmarks", [1, 2, 3, 5, 10, 20])
+@pytest.mark.parametrize("sigma", [2. * (1 - x) for x in np.random.rand(3)])
+# @pytest.mark.parametrize("dim", [2])
+# @pytest.mark.parametrize("num_landmarks", [3])
+# @pytest.mark.parametrize("sigma", [2. * (1 - x) for x in np.random.rand(1)])
+def test_rhs_momenta_function_with_inefficient_version(dim, num_landmarks, sigma):
+    gs = geodesic_shooting.LandmarkShooting(kernel=GaussianKernel, kwargs_kernel={'sigma': sigma},
+                                            dim=dim, num_landmarks=num_landmarks)
+    def working_inefficient_rhs_momenta_function(momenta, positions):
+        rhs = np.zeros((gs.num_landmarks, gs.dim))
+        for a, (pa, qa) in enumerate(
+                zip(momenta.reshape((gs.num_landmarks, gs.dim)), positions.reshape((gs.num_landmarks, gs.dim)))):
+            for i in range(gs.dim):
+                for b, (pb, qb) in enumerate(zip(momenta.reshape((gs.num_landmarks, gs.dim)),
+                                                 positions.reshape((gs.num_landmarks, gs.dim)))):
+                    rhs[a, i] -= pa @ gs.kernel.derivative_1(qa, qb, i) @ pb
+        return rhs.flatten()
+
+    landmarks = np.random.rand(num_landmarks, dim)
+    momenta = np.random.rand(num_landmarks, dim)
+
+    rhs = gs._rhs_momenta_function(landmarks.flatten(), momenta.flatten())
+    rhs_working_inefficient = working_inefficient_rhs_momenta_function(landmarks, momenta)
+    assert np.allclose(rhs, rhs_working_inefficient)
+
 def test_integrate_forward_Hamiltonian_single_step_explicit_Euler():
     gs = geodesic_shooting.LandmarkShooting(kernel=GaussianKernel, kwargs_kernel={'sigma': 1. / np.sqrt(2.)},
                                             dim=2, num_landmarks=2, time_integrator=ExplicitEuler, time_steps=2)
