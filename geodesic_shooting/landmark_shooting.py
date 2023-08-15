@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-import time
+from functools import partial
 import numpy as np
-
 import scipy.optimize as optimize
+import time
 
 from geodesic_shooting.core import VectorField, TimeDependentVectorField
 from geodesic_shooting.utils.kernels import GaussianKernel
@@ -62,6 +62,44 @@ class LandmarkShooting:
                 f"\tTime integrator: {self.time_integrator.__name__}\n"
                 f"\tTime steps: {self.time_steps}\n"
                 f"\tSampler options: {self.sampler_options}")
+
+    def energy_and_gradient(self, initial_momenta, initial_positions, target_landmarks, sigma,
+                            compute_matching_function, compute_gradient_matching_function,
+                            compute_grad=True, return_all_energies=False):
+        momenta_time_dependent, positions_time_dependent = self.integrate_forward_Hamiltonian(
+            initial_momenta, initial_positions)
+        positions = positions_time_dependent[-1]
+
+        energy_regularizer = self.compute_Hamiltonian(initial_momenta, initial_positions)
+        energy_intensity_unscaled = compute_matching_function(positions, target_landmarks)
+        energy_intensity = 1. / sigma ** 2 * energy_intensity_unscaled
+        energy = energy_regularizer + energy_intensity
+
+        if compute_grad:
+            d_positions_1, _ = self.integrate_forward_variational_Hamiltonian(momenta_time_dependent,
+                                                                              positions_time_dependent)
+
+            assert initial_momenta.shape == (self.num_landmarks, self.dim)
+            assert initial_positions.shape == (self.num_landmarks, self.dim)
+            grad = initial_momenta.flatten() @ self.kernel.apply_vectorized(initial_positions, initial_positions, self.dim) * initial_momenta.flatten()
+            grad = grad.reshape((self.num_landmarks, self.dim))
+
+            assert positions.shape == (self.num_landmarks, self.dim)
+            assert target_landmarks.shape == (self.num_landmarks, self.dim)
+            for c in range(self.num_landmarks):
+                for j in range(self.dim):
+                    for a, (qa1, target_qa1) in enumerate(zip(positions, target_landmarks)):
+                        for i in range(self.dim):
+                            grad[c, j] += compute_gradient_matching_function(qa1[i], target_qa1[i]) * d_positions_1[a, i, c, j] / sigma ** 2
+
+            if return_all_energies:
+                return energy, energy_regularizer, energy_intensity_unscaled, energy_intensity, grad
+            return energy, grad
+        else:
+            if return_all_energies:
+                return energy, energy_regularizer, energy_intensity_unscaled, energy_intensity
+            else:
+                return energy
 
     def register(self, input_landmarks, target_landmarks, landmarks_labeled=True,
                  kernel_dist=GaussianKernel, kwargs_kernel_dist={},
@@ -130,11 +168,11 @@ class LandmarkShooting:
         initial_positions = input_landmarks
 
         if landmarks_labeled:
-            def compute_matching_function(positions):
-                return np.linalg.norm(positions.flatten() - target_landmarks.flatten())**2
+            def compute_matching_function(positions, targets):
+                return np.linalg.norm(positions.flatten() - targets.flatten())**2
 
-            def compute_gradient_matching_function(positions):
-                return 2. * (positions - target_landmarks.flatten())
+            def compute_gradient_matching_function(positions, targets):
+                return 2. * (positions.flatten() - targets.flatten())
         else:
             kernel_dist = kernel_dist(**kwargs_kernel_dist, scalar=True)
 
@@ -164,52 +202,18 @@ class LandmarkShooting:
                             grad[i*self.dim+j] -= 2. * kernel_dist.derivative_1(p, t, j)
                 return grad
 
+        energy_and_gradient = partial(self.energy_and_gradient, initial_positions=initial_positions,
+                                      target_landmarks=target_landmarks, sigma=sigma,
+                                      compute_matching_function=compute_matching_function,
+                                      compute_gradient_matching_function=compute_gradient_matching_function,
+                                      compute_grad=True, return_all_energies=False)
+
         opt = {'input_landmarks': input_landmarks, 'target_landmarks': target_landmarks}
 
         start_time = time.perf_counter()
 
         def save_current_state(x):
             opt['x'] = x
-
-        def energy_and_gradient(initial_momenta, compute_grad=True, return_all_energies=False):
-            momenta_time_dependent, positions_time_dependent = self.integrate_forward_Hamiltonian(
-                initial_momenta, initial_positions)
-            positions = positions_time_dependent[-1]
-
-            energy_regularizer = self.compute_Hamiltonian(initial_momenta, initial_positions)
-            energy_intensity_unscaled = compute_matching_function(positions)
-            energy_intensity = 1. / sigma**2 * energy_intensity_unscaled
-            energy = energy_regularizer + energy_intensity
-
-            if compute_grad:
-                d_positions_1, _ = self.integrate_forward_variational_Hamiltonian(momenta_time_dependent,
-                                                                                  positions_time_dependent)
-
-                grad = np.zeros((self.num_landmarks, self.dim))
-                assert initial_momenta.shape == (self.num_landmarks, self.dim)
-                assert initial_positions.shape == (self.num_landmarks, self.dim)
-                for c, (pc, qc) in enumerate(zip(initial_momenta, initial_positions)):
-                    for j in range(self.dim):
-                        for a, (pa, qa) in enumerate(zip(initial_momenta, initial_positions)):
-                            for i in range(self.dim):
-                                grad[c, j] += self.kernel(qa, qc)[i, j] * pa[i] * pc[j]
-
-                assert positions.shape == (self.num_landmarks, self.dim)
-                assert target_landmarks.shape == (self.num_landmarks, self.dim)
-                for c in range(self.num_landmarks):
-                    for j in range(self.dim):
-                        for a, (qa1, target_qa1) in enumerate(zip(positions, target_landmarks)):
-                            for i in range(self.dim):
-                                grad[c, j] += 2. * (qa1[i] - target_qa1[i]) * d_positions_1[a, i, c, j] / sigma**2
-
-                if return_all_energies:
-                    return energy, energy_regularizer, energy_intensity_unscaled, energy_intensity, grad
-                return energy, grad
-            else:
-                if return_all_energies:
-                    return energy, energy_regularizer, energy_intensity_unscaled, energy_intensity
-                else:
-                    return energy
 
         if optimization_method == 'newton' and landmarks_labeled:
             # use Newton's method for minimizing energy function

@@ -43,13 +43,10 @@ if __name__ == "__main__":
     print(f"True momenta: {true_momenta}")
 
     # Check energy of true momenta
-    momenta_time_dependent, positions_time_dependent = gs.integrate_forward_Hamiltonian(
-        true_momenta, input_landmarks)
-    positions = positions_time_dependent[-1]
-    energy_regularizer = gs.compute_Hamiltonian(true_momenta, input_landmarks)
-    energy_intensity_unscaled = np.linalg.norm(positions.flatten() - target_landmarks.flatten())**2
-    energy_intensity = 1. / sigma ** 2 * energy_intensity_unscaled
-    energy = energy_regularizer + energy_intensity
+    energy, energy_regularizer, energy_intensity_unscaled, energy_intensity = gs.energy_and_gradient(
+        true_momenta, input_landmarks, target_landmarks, sigma,
+        lambda positions: np.linalg.norm(positions.flatten() - target_landmarks.flatten())**2,
+        compute_grad=False, return_all_energies=True)
     print("True momenta energies:")
     print(f"Energy regularizer: {energy_regularizer}")
     print(f"Energy intensity unscaled: {energy_intensity_unscaled}")

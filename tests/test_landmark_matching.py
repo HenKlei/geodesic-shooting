@@ -1,8 +1,8 @@
 import numpy as np
+import pytest
 
 import geodesic_shooting
 from geodesic_shooting.utils.kernels import GaussianKernel
-from geodesic_shooting.utils.time_integration import ExplicitEuler
 
 
 def test_kernel_gramian():
@@ -130,3 +130,48 @@ def test_landmark_matching_energies():
     assert np.abs(time_integration_hamiltonian - hamiltonian) / hamiltonian < 1e-2
 
     assert np.average(np.linalg.norm(final_momenta - true_momenta, axis=-1)) < 1e-10
+
+
+@pytest.mark.parametrize("dim", [1, 2, 3])
+@pytest.mark.parametrize("num_positions", [1, 2, 5])
+@pytest.mark.parametrize("sigma", [2. * (1 - x) for x in np.random.rand(3)])
+@pytest.mark.parametrize("sigma_matching", [1., 0.1])
+def test_gradient_computations_with_inefficient_version(dim, num_positions, sigma, sigma_matching):
+    gs = geodesic_shooting.LandmarkShooting(kernel=GaussianKernel, kwargs_kernel={'sigma': sigma},
+                                            dim=dim, num_landmarks=num_positions)
+
+    initial_positions = np.random.rand(num_positions, dim)
+    targets = np.random.rand(num_positions, dim)
+    momenta = np.random.rand(num_positions, dim)
+
+    def compute_matching_function(p, t):
+        return np.linalg.norm(p.flatten() - t.flatten()) ** 2
+
+    def compute_gradient_matching_function(p, t):
+        return 2. * (p.flatten() - t.flatten())
+
+    momenta_time_dependent, positions_time_dependent = gs.integrate_forward_Hamiltonian(momenta, initial_positions)
+    positions = positions_time_dependent[-1]
+    d_positions_1, _ = gs.integrate_forward_variational_Hamiltonian(momenta_time_dependent, positions_time_dependent)
+
+    grad_test = np.zeros((gs.num_landmarks, gs.dim))
+    assert momenta.shape == (gs.num_landmarks, gs.dim)
+    assert initial_positions.shape == (gs.num_landmarks, gs.dim)
+    for c, (pc, qc) in enumerate(zip(momenta, initial_positions)):
+        for j in range(gs.dim):
+            for a, (pa, qa) in enumerate(zip(momenta, initial_positions)):
+                for i in range(gs.dim):
+                    grad_test[c, j] += gs.kernel(qa, qc)[i, j] * pa[i] * pc[j]
+
+    assert positions.shape == (gs.num_landmarks, gs.dim)
+    assert targets.shape == (gs.num_landmarks, gs.dim)
+    for c in range(gs.num_landmarks):
+        for j in range(gs.dim):
+            for a, (qa1, target_qa1) in enumerate(zip(positions, targets)):
+                for i in range(gs.dim):
+                    grad_test[c, j] += compute_gradient_matching_function(qa1[i], target_qa1[i]) * d_positions_1[a, i, c, j] / sigma_matching ** 2
+
+    _, grad = gs.energy_and_gradient(momenta, initial_positions, targets, sigma_matching, compute_matching_function,
+                                     compute_gradient_matching_function, compute_grad=True, return_all_energies=False)
+
+    assert np.allclose(grad, grad_test)

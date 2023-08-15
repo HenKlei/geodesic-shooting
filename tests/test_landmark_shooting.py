@@ -131,9 +131,6 @@ def test_rhs_momenta_function():
 @pytest.mark.parametrize("dim", [1, 2, 3, 4])
 @pytest.mark.parametrize("num_landmarks", [1, 2, 3, 5, 10, 20])
 @pytest.mark.parametrize("sigma", [2. * (1 - x) for x in np.random.rand(3)])
-# @pytest.mark.parametrize("dim", [2])
-# @pytest.mark.parametrize("num_landmarks", [3])
-# @pytest.mark.parametrize("sigma", [2. * (1 - x) for x in np.random.rand(1)])
 def test_rhs_momenta_function_with_inefficient_version(dim, num_landmarks, sigma):
     gs = geodesic_shooting.LandmarkShooting(kernel=GaussianKernel, kwargs_kernel={'sigma': sigma},
                                             dim=dim, num_landmarks=num_landmarks)
