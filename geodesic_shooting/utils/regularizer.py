@@ -1,5 +1,5 @@
 import numpy as np
-import scipy
+import scipy.sparse as sps
 
 from geodesic_shooting.core import VectorField
 from geodesic_shooting.utils.helper_functions import tuple_product
@@ -58,13 +58,14 @@ class BiharmonicRegularizer:
             Shape of the input images.
         """
         self.logger.info("Initializing matrices for regularizer ...")
-        dim = len(shape)
-        small_helmholtz_matrix = self._helmholtz_matrix(shape)
-        assert small_helmholtz_matrix.shape == (tuple_product(shape), tuple_product(shape))
-        self.helmholtz_matrix = np.kron(np.eye(dim, dtype=int), small_helmholtz_matrix)
-        assert self.helmholtz_matrix.shape == (tuple_product(shape) * dim, tuple_product(shape) * dim)
-        self.cauchy_navier_matrix = np.kron(np.eye(dim, dtype=int), small_helmholtz_matrix.T @ small_helmholtz_matrix)
-        assert self.cauchy_navier_matrix.shape == (tuple_product(shape) * dim, tuple_product(shape) * dim)
+        prod = tuple_product(shape)
+        self.helmholtz_matrix = self._helmholtz_matrix(shape)
+        assert self.helmholtz_matrix.shape == (prod, prod)
+        self.cauchy_navier_matrix = self.helmholtz_matrix.T @ self.helmholtz_matrix
+        assert self.cauchy_navier_matrix.shape == (prod, prod)
+        with self.logger.block("Computing LU decomposition of Cauchy Navier matrix ..."):
+            self.lu_decomposed_cauchy_navier_matrix = sps.linalg.splu(self.cauchy_navier_matrix)
+        self.logger.info("Done.")
 
     def helmholtz(self, v):
         """Application of the Helmholtz operator `L` to a vector field.
@@ -98,8 +99,8 @@ class BiharmonicRegularizer:
 
             return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
         else:
-            res = self.helmholtz_matrix @ v.to_numpy().flatten(order='F')
-            res = res.reshape(v.full_shape, order='F')
+            res = [self.helmholtz_matrix @ v.to_numpy()[..., d].flatten(order='F') for d in range(v.dim)]
+            res = np.array(res).T.reshape(v.full_shape, order='F')
             return VectorField(spatial_shape=v.spatial_shape, data=res)
 
     def cauchy_navier(self, v):
@@ -136,8 +137,8 @@ class BiharmonicRegularizer:
 
             return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
         else:
-            res = self.cauchy_navier_matrix @ v.to_numpy().flatten(order='F')
-            res = res.reshape(v.full_shape, order='F')
+            res = [self.cauchy_navier_matrix @ v.to_numpy()[..., d].flatten(order='F') for d in range(v.dim)]
+            res = np.array(res).T.reshape(v.full_shape, order='F')
             return VectorField(spatial_shape=v.spatial_shape, data=res)
 
     def _helmholtz_matrix(self, input_shape):
@@ -150,29 +151,28 @@ class BiharmonicRegularizer:
             assert 0 <= dim <= len_input_shape - 1
             assert len_input_shape == 1 or 0 <= i <= len_input_shape - 2
 
-            main_diagonal = -2. * np.ones(input_shape[dim])
-            first_diagonal = np.ones(input_shape[dim]-1)
-            laplacian = (np.diag(main_diagonal, 0) + np.diag(first_diagonal, 1)
-                         + np.diag(first_diagonal, -1)) * (input_shape[dim] - 1.)**2
+            main_diagonal = -2. * np.ones(input_shape[dim]) * (input_shape[dim] - 1.)**2
+            first_diagonal = np.ones(input_shape[dim]-1) * (input_shape[dim] - 1.)**2
+            laplacian = sps.diags([main_diagonal, first_diagonal, first_diagonal], [0, 1, -1])
 
             if len_input_shape == 1:
                 return laplacian
             if i == len_input_shape - 2:
                 if i == dim:
-                    return np.kron(laplacian, np.eye(input_shape[i+1]))
+                    return sps.kron(laplacian, sps.eye(input_shape[i+1]))
                 if dim == len_input_shape - 1:
-                    return np.kron(np.eye(input_shape[i]), laplacian)
-                return np.kron(np.eye(input_shape[i]), np.eye(input_shape[i+1]))
+                    return sps.kron(sps.eye(input_shape[i]), laplacian)
+                return sps.kron(sps.eye(input_shape[i]), sps.eye(input_shape[i+1]))
             if i == dim:
-                return np.kron(laplacian, recursive_kronecker_product(dim, i+1))
-            return np.kron(np.eye(input_shape[i]),
-                           recursive_kronecker_product(dim, i+1))
+                return sps.kron(laplacian, recursive_kronecker_product(dim, i+1))
+            return sps.kron(sps.eye(input_shape[i]),
+                            recursive_kronecker_product(dim, i+1))
 
         size = tuple_product(input_shape)
         mat = np.zeros((size, size))
         for dimension in range(len_input_shape):
             mat += recursive_kronecker_product(dimension)
-        return np.linalg.matrix_power((- self.alpha * mat + self.gamma * np.eye(size)), self.exponent)
+        return (- self.alpha * mat + self.gamma * sps.eye(size)) ** self.exponent
 
     def cauchy_navier_inverse(self, v):
         """Application of the operator `K=(L^*L)^{-1}`, with the Helmholtz operator `L`.
@@ -206,9 +206,12 @@ class BiharmonicRegularizer:
 
             return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
         else:
-            res, info = scipy.sparse.linalg.cg(self.cauchy_navier_matrix, v.to_numpy().flatten(order='F'))
-            assert info == 0
-            res = res.reshape(v.full_shape, order='F')
+            res_complete = []
+            prod = tuple_product(v.spatial_shape)
+            for d in range(v.dim):
+                res = self.lu_decomposed_cauchy_navier_matrix.solve(v.to_numpy().flatten(order='F')[d*prod:(d+1)*prod])
+                res_complete.append(res)
+            res = np.array(res_complete).T.reshape(v.full_shape, order='F')
             return VectorField(spatial_shape=v.spatial_shape, data=res)
 
     def compute_helper_operator(self, dim, spatial_shape):
