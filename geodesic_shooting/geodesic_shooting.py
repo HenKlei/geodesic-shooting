@@ -16,7 +16,7 @@ class GeodesicShooting:
     Geodesic Shooting for Computational Anatomy.
     Miller, Trouvé, Younes, 2006
     """
-    def __init__(self, alpha=0.1, exponent=1, gamma=1., time_integrator=RK4, time_steps=30,
+    def __init__(self, alpha=0.1, exponent=1, gamma=1., time_integrator=RK4, time_steps=30, fourier=True,
                  sampler_options={'order': 1, 'mode': 'edge'}, log_level='INFO'):
         """Constructor.
 
@@ -35,7 +35,7 @@ class GeodesicShooting:
         log_level
             Verbosity of the logger.
         """
-        self.regularizer = BiharmonicRegularizer(alpha, exponent, gamma)
+        self.regularizer = BiharmonicRegularizer(alpha, exponent, gamma, fourier=fourier)
 
         self.time_integrator = time_integrator
         self.time_steps = time_steps

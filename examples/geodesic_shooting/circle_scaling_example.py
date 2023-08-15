@@ -11,7 +11,8 @@ if __name__ == "__main__":
     target = make_circle((64, 64), np.array([32, 32]), 20)
 
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=0.01, exponent=1)
+    gs = geodesic_shooting.GeodesicShooting(alpha=0.01, exponent=1, fourier=False)
+    gs.regularizer.init_matrices(target.spatial_shape)
     result = gs.register(template, target, sigma=0.01, return_all=True, optimizer_options={'disp': True, 'maxiter': 20})
 
     plot_registration_results(result)
