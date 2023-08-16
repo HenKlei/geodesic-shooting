@@ -119,7 +119,7 @@ class GeodesicShooting:
         def compute_grad_energy(image):
             grad_diff = image.grad * (image - target)[..., np.newaxis]
             grad_diff[inverse_mask] = 0.
-            return VectorField(data=2. * self.regularizer.cauchy_navier_inverse(grad_diff))
+            return 2. * self.regularizer.cauchy_navier_inverse(grad_diff)
 
         # set up variables
         self.shape = template.spatial_shape
