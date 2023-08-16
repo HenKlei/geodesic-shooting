@@ -59,7 +59,7 @@ class GeodesicShooting:
                 f"\tTime steps: {self.time_steps}\n"
                 f"\tSampler options: {self.sampler_options}")
 
-    def register(self, template, target, sigma=0.1, optimization_method='L-BFGS-B', optimizer_options={'disp': True},
+    def register(self, template, target, sigma=0.1, optimization_method='GD', optimizer_options={'disp': True},
                  initial_vector_field=None, restriction=np.s_[...], return_all=False, log_summary=True):
         """Performs actual registration according to LDDMM algorithm with time-varying vector
            fields that are chosen via geodesics.

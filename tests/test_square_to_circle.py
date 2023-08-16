@@ -17,4 +17,4 @@ def test_square_to_circle():
     result = gs.register(template, target, sigma=0.01, return_all=True, restriction=restriction)
 
     norm_difference = (target - result['transformed_input']).get_norm(restriction=restriction)
-    assert norm_difference / target.get_norm(restriction=restriction) < 1e-1
+    assert norm_difference / target.get_norm(restriction=restriction) < 1e-2
