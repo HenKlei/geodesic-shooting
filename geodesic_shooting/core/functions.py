@@ -97,7 +97,8 @@ class ScalarFunction(BaseFunction):
 
         if created_figure:
             if colorbar:
-                fig.colorbar(vals, ax=axis)
+                if not isinstance(vals, list):
+                    fig.colorbar(vals, ax=axis)
             return fig, axis, vals
         return axis, vals
 

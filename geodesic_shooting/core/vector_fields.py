@@ -164,11 +164,12 @@ class VectorField(BaseFunction):
             if vmin and vmax:
                 clim = (vmin, vmax)
             if self.dim == 1:
+                print("Colored quiver plot in 1d not available!")
                 vals = axis.quiver(identity_grid[::interval, 0] / (self.spatial_shape[0] - 1),
                                    np.zeros(self.spatial_shape),
                                    self[::interval, 0],
                                    np.zeros(self.spatial_shape),
-                                   colors=colors, scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder,
+                                   scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder,
                                    clim=clim)
             elif self.dim == 2:
                 vals = axis.quiver(identity_grid[::interval, ::interval, 0] / (self.spatial_shape[0] - 1),
