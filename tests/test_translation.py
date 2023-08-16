@@ -7,7 +7,7 @@ from geodesic_shooting.utils.create_example_images import make_circle, make_squa
 def test_translation():
     # create images
     template = (make_circle((64, 64), np.array([25, 35]), 15) * 0.2
-              + make_circle((64, 64), np.array([25, 35]), 12) * 0.8)
+                + make_circle((64, 64), np.array([25, 35]), 12) * 0.8)
     target = (make_circle((64, 64), np.array([35, 25]), 15) * 0.2
               + make_circle((64, 64), np.array([35, 25]), 12) * 0.8)
 
