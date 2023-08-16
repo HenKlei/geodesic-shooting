@@ -16,8 +16,9 @@ class GeodesicShooting:
     Geodesic Shooting for Computational Anatomy.
     Miller, Trouvé, Younes, 2006
     """
-    def __init__(self, alpha=0.1, exponent=1, gamma=1., time_integrator=RK4, time_steps=30, fourier=True,
-                 sampler_options={'order': 1, 'mode': 'edge'}, log_level='INFO'):
+    def __init__(self, alpha=0.1, exponent=1, gamma=1., time_integrator=RK4, time_steps=30,
+                 fourier=False, spatial_shape=None, sampler_options={'order': 1, 'mode': 'edge'},
+                 log_level='INFO'):
         """Constructor.
 
         Parameters
@@ -35,7 +36,7 @@ class GeodesicShooting:
         log_level
             Verbosity of the logger.
         """
-        self.regularizer = BiharmonicRegularizer(alpha, exponent, gamma, fourier=fourier)
+        self.regularizer = BiharmonicRegularizer(alpha, exponent, gamma, fourier=fourier, spatial_shape=spatial_shape)
 
         self.time_integrator = time_integrator
         self.time_steps = time_steps
@@ -97,6 +98,8 @@ class GeodesicShooting:
         assert isinstance(template, ScalarFunction)
         assert isinstance(target, ScalarFunction)
         assert template.full_shape == target.full_shape
+
+        self.regularizer.init_matrices(template.spatial_shape)
 
         inverse_mask = np.ones(template.spatial_shape, bool)
         inverse_mask[restriction] = 0

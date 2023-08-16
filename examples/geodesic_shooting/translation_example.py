@@ -7,14 +7,14 @@ from geodesic_shooting.utils.summary import plot_registration_results, save_plot
 
 if __name__ == "__main__":
     # create images
-    template = (make_circle((64, 64), np.array([25, 40]), 18) * 0.2
-              + make_circle((64, 64), np.array([25, 40]), 15) * 0.8)
-    target = (make_circle((64, 64), np.array([40, 25]), 18) * 0.2
-              + make_circle((64, 64), np.array([40, 25]), 15) * 0.8)
+    template = (make_circle((64, 64), np.array([25, 35]), 15) * 0.2
+              + make_circle((64, 64), np.array([25, 35]), 12) * 0.8)
+    target = (make_circle((64, 64), np.array([35, 25]), 15) * 0.2
+              + make_circle((64, 64), np.array([35, 25]), 12) * 0.8)
 
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=1., exponent=2)
-    result = gs.register(template, target, sigma=0.1, return_all=True)
+    gs = geodesic_shooting.GeodesicShooting(alpha=0.01, exponent=2, gamma=1.)
+    result = gs.register(template, target, sigma=0.01, return_all=True, optimization_method='GD')
 
     result['initial_vector_field'].save_tikz('initial_vector_field_translation.tex',
                                              title="Initial vector field translation",
