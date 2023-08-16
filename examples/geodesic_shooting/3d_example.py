@@ -15,7 +15,7 @@ if __name__ == "__main__":
     target = ScalarFunction(data=target)
 
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=5., exponent=2)
+    gs = geodesic_shooting.GeodesicShooting(alpha=0.1, exponent=1)
     result = gs.register(template, target, sigma=0.01, return_all=True)
 
     plot_registration_results(result)

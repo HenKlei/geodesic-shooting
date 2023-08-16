@@ -61,7 +61,8 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, figs
     plt.title("Singular values of time-evolution of the vector field")
     plt.show()
 
-    results['initial_vector_field'].plot("Initial vector field", interval=interval, scale=scale, figsize=figsize)
+    results['initial_vector_field'].plot("Initial vector field", interval=interval, scale=scale, color_length=True,
+                                         figsize=figsize)
     plt.show()
 
     results['initial_vector_field'].get_magnitude().plot("Magnitude of initial vector field", figsize=figsize)
@@ -70,7 +71,10 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, figs
     results['initial_vector_field'].get_angle().plot("Angle of initial vector field", figsize=figsize)
     plt.show()
 
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=figsize)
+    if results['input'].dim == 3:
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=figsize, subplot_kw = {'projection': '3d'})
+    else:
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=figsize)
     ax1, vals1 = results['initial_vector_field'].plot("Initial vector field", axis=ax1, interval=interval,
                                                       scale=scale, color_length=True, figsize=figsize)
     if not isinstance(vals1, list):
