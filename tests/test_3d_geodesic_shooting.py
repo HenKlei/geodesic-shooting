@@ -2,7 +2,6 @@ import numpy as np
 
 import geodesic_shooting
 from geodesic_shooting.core import ScalarFunction
-from geodesic_shooting.utils.summary import plot_registration_results
 
 
 def test_3d_geodesic_shooting():

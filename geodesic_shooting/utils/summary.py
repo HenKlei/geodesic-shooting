@@ -74,7 +74,7 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, figs
         plt.show()
 
     if dim == 3:
-        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=figsize, subplot_kw = {'projection': '3d'})
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=figsize, subplot_kw={'projection': '3d'})
     else:
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=figsize)
     ax1, vals1 = results['initial_vector_field'].plot("Initial vector field", axis=ax1, interval=interval,
