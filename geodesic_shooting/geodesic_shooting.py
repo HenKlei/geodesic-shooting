@@ -27,10 +27,16 @@ class GeodesicShooting:
             Parameter for biharmonic regularizer.
         exponent
             Parameter for biharmonic regularizer.
+        gamma
+            Parameter for biharmonic regularizer.
         time_integrator
             Method to use for time integration.
         time_steps
             Number of time steps performed during forward and backward integration.
+        fourier
+            Parameter for biharmonic regularizer.
+        spatial_shape
+            Parameter for biharmonic regularizer.
         sampler_options
             Additional options to pass to the sampler.
         log_level

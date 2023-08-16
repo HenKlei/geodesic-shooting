@@ -22,13 +22,19 @@ class BiharmonicRegularizer:
         alpha
             Smoothness parameter that determines how strong the smoothing effect should be.
         exponent
+            Smoothness parameter that determines how strong the smoothing effect should be.
         gamma
+            Smoothness parameter that determines how strong the smoothing effect should be.
         fourier
             Determines whether to apply the regularizer in Fourier domain.
             If the regularizer is applied in Fourier domain, periodic boundary conditions
             are implicitly used. Otherwise, finite differences with homogeneous Dirichlet
             boundary conditions are applied.
+        spatial_shape
+            If `fourier` is False and `spatial_shape` provided, the matrices for the finite
+            difference scheme are automatically initialized.
         log_level
+            Verbosity of the logger.
         """
         assert alpha >= 0
         assert exponent > 0
@@ -56,7 +62,7 @@ class BiharmonicRegularizer:
         return f"{self.__class__.__name__}: alpha={self.alpha}, exponent={self.exponent}"
 
     def init_matrices(self, shape):
-        """Initializes the Cauchy-Navier operator matrix and inverse matrices.
+        """Initializes the Cauchy-Navier operator matrix and the LU decomposition of the matrix.
 
         Parameters
         ----------
