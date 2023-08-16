@@ -26,21 +26,17 @@ def test_regularizer_matrices(alpha, exponent, gamma, dim, size_per_dimension):
     regularizer = BiharmonicRegularizer(alpha=alpha, exponent=exponent, gamma=gamma, fourier=False)
     regularizer.init_matrices(tuple([size_per_dimension] * dim))
 
-    assert np.allclose(regularizer.helmholtz_matrix, regularizer.helmholtz_matrix.T)
-    assert regularizer.helmholtz_matrix.shape == (size_per_dimension**dim * dim, size_per_dimension**dim * dim)
+    assert np.allclose(regularizer.helmholtz_matrix.toarray(), regularizer.helmholtz_matrix.T.toarray())
+    assert regularizer.helmholtz_matrix.shape == (size_per_dimension**dim, size_per_dimension**dim)
     if dim == 1:
         assert np.isclose(regularizer.helmholtz_matrix[0, 0], gamma + alpha * 2. * (size_per_dimension - 1) ** 2)
         assert np.isclose(regularizer.helmholtz_matrix[0, 1], -alpha * (size_per_dimension - 1) ** 2)
         assert np.isclose(regularizer.helmholtz_matrix[1, 0], -alpha * (size_per_dimension - 1) ** 2)
-        assert np.allclose(regularizer.helmholtz_matrix,
+        assert np.allclose(regularizer.helmholtz_matrix.toarray(),
                            np.diag((gamma + alpha * 2. * (size_per_dimension - 1) ** 2) * np.ones(size_per_dimension))
                            + np.diag(-alpha * (size_per_dimension - 1) ** 2 * np.ones(size_per_dimension - 1), 1)
                            + np.diag(-alpha * (size_per_dimension - 1) ** 2 * np.ones(size_per_dimension - 1), -1))
     elif dim == 2:
-        assert np.allclose(regularizer.helmholtz_matrix[:size_per_dimension**2, :size_per_dimension**2],
-                           regularizer.helmholtz_matrix[size_per_dimension**2:, size_per_dimension**2:])
-        assert np.allclose(regularizer.helmholtz_matrix[:size_per_dimension**2, size_per_dimension**2:],
-                           np.zeros((size_per_dimension**2, size_per_dimension**2)))
-        assert np.allclose(regularizer.helmholtz_matrix[size_per_dimension**2:, :size_per_dimension**2],
-                           np.zeros((size_per_dimension**2, size_per_dimension**2)))
         assert np.isclose(regularizer.helmholtz_matrix[0, 0], gamma * 1 + alpha * 4. * (size_per_dimension - 1) ** 2)
+        assert np.isclose(regularizer.helmholtz_matrix[0, 1], -alpha * (size_per_dimension - 1) ** 2)
+        assert np.isclose(regularizer.helmholtz_matrix[1, 0], -alpha * (size_per_dimension - 1) ** 2)
