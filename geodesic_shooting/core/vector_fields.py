@@ -59,7 +59,7 @@ class VectorField(BaseFunction):
         -------
         The angle as a `ScalarFunction`.
         """
-        return ScalarFunction(data=np.arctan(self.copy().to_numpy()[..., 1], self.copy().to_numpy()[..., 0]))
+        return ScalarFunction(data=np.arctan2(self.copy().to_numpy()[..., 1], self.copy().to_numpy()[..., 0]))
 
     def get_component_as_function(self, component=0):
         """Provides the specified component of the `VectorField` as a `ScalarFunction`.
@@ -165,22 +165,27 @@ class VectorField(BaseFunction):
                 clim = (vmin, vmax)
             if self.dim == 1:
                 vals = axis.quiver(identity_grid[::interval, 0] / (self.spatial_shape[0] - 1),
-                                   np.zeros(self.spatial_shape), self[::interval, 0], np.zeros(self.spatial_shape),
+                                   np.zeros(self.spatial_shape),
+                                   self[::interval, 0],
+                                   np.zeros(self.spatial_shape),
                                    colors, scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder,
                                    clim=clim)
             elif self.dim == 2:
                 vals = axis.quiver(identity_grid[::interval, ::interval, 0] / (self.spatial_shape[0] - 1),
                                    identity_grid[::interval, ::interval, 1] / (self.spatial_shape[1] - 1),
-                                   self[::interval, ::interval, 0], self[::interval, ::interval, 1], colors,
-                                   scale_units='xy', units='xy', angles='xy', scale=scale, zorder=zorder, clim=clim)
+                                   self[::interval, ::interval, 0],
+                                   self[::interval, ::interval, 1],
+                                   colors, scale_units='xy', units='xy', angles='xy', scale=scale,
+                                   zorder=zorder, clim=clim)
             elif self.dim == 3:
+                print("Colored quiver plot in 3d not available!")
                 vals = axis.quiver(identity_grid[::interval, ::interval, ::interval, 0] / (self.spatial_shape[0] - 1),
                                    identity_grid[::interval, ::interval, ::interval, 1] / (self.spatial_shape[1] - 1),
                                    identity_grid[::interval, ::interval, ::interval, 2] / (self.spatial_shape[2] - 1),
                                    self[::interval, ::interval, ::interval, 0],
                                    self[::interval, ::interval, ::interval, 1],
                                    self[::interval, ::interval, ::interval, 2],
-                                   colors=colors, zorder=zorder, clim=clim)
+                                   zorder=zorder)
             if colorbar and created_figure:
                 fig.colorbar(vals, ax=axis)
         else:

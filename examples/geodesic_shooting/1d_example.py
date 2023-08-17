@@ -12,7 +12,7 @@ if __name__ == "__main__":
     target[2*N//5:3*N//5] = 1
 
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=4., exponent=2)
+    gs = geodesic_shooting.GeodesicShooting(alpha=0.01, exponent=1)
     result = gs.register(template, target, sigma=0.01, return_all=True)
 
     plot_registration_results(result)

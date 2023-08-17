@@ -24,8 +24,9 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, figs
         Determines whether to also visualize the boundary of the domain restriction.
     """
     diffeomorphism = results['flow']
+    dim = results['input'].dim
 
-    if results['input'].dim == 3:
+    if dim == 3:
         fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, subplot_kw={'projection': '3d'})
     else:
         fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
@@ -61,16 +62,21 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, figs
     plt.title("Singular values of time-evolution of the vector field")
     plt.show()
 
-    results['initial_vector_field'].plot("Initial vector field", interval=interval, scale=scale, figsize=figsize)
+    results['initial_vector_field'].plot("Initial vector field", interval=interval, scale=scale, color_length=True,
+                                         figsize=figsize)
     plt.show()
 
     results['initial_vector_field'].get_magnitude().plot("Magnitude of initial vector field", figsize=figsize)
     plt.show()
 
-    results['initial_vector_field'].get_angle().plot("Angle of initial vector field", figsize=figsize)
-    plt.show()
+    if dim > 1:
+        results['initial_vector_field'].get_angle().plot("Angle of initial vector field", figsize=figsize)
+        plt.show()
 
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=figsize)
+    if dim == 3:
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=figsize, subplot_kw={'projection': '3d'})
+    else:
+        fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=figsize)
     ax1, vals1 = results['initial_vector_field'].plot("Initial vector field", axis=ax1, interval=interval,
                                                       scale=scale, color_length=True, figsize=figsize)
     if not isinstance(vals1, list):
@@ -79,10 +85,11 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, figs
                                                                       axis=ax2, figsize=figsize)
     if not isinstance(vals2, list):
         fig.colorbar(vals2, ax=ax2, fraction=0.046, pad=0.04)
-    ax3, vals3 = results['initial_vector_field'].get_angle().plot("Angle of initial vector field",
-                                                                  axis=ax3, figsize=figsize)
-    if not isinstance(vals3, list):
-        fig.colorbar(vals3, ax=ax3, fraction=0.046, pad=0.04)
+    if dim > 1:
+        ax3, vals3 = results['initial_vector_field'].get_angle().plot("Angle of initial vector field",
+                                                                      axis=ax3, figsize=figsize)
+        if not isinstance(vals3, list):
+            fig.colorbar(vals3, ax=ax3, fraction=0.046, pad=0.04)
     plt.show()
 
     if results['initial_vector_field'].dim == 2:

@@ -11,15 +11,15 @@ def test_grad():
     f1 = ScalarFunction(shape)
     f1[..., 2] = 1
     derivative = VectorField(shape)
-    derivative[:, 1, 1] = 0.5 / shape[1]
-    derivative[:, 3, 1] = -0.5 / shape[1]
+    derivative[:, 1, 1] = 0.5 * shape[1]
+    derivative[:, 3, 1] = -0.5 * shape[1]
     assert finite_difference(f1) == derivative
 
     f2 = ScalarFunction(shape)
     f2[2, ...] = 1
     derivative = VectorField(shape)
-    derivative[1, :, 0] = 0.5 / shape[0]
-    derivative[3, :, 0] = -0.5 / shape[0]
+    derivative[1, :, 0] = 0.5 * shape[0]
+    derivative[3, :, 0] = -0.5 * shape[0]
     assert finite_difference(f2) == derivative
 
     v = VectorField(shape)

@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.sparse as sps
 
 from geodesic_shooting.core import VectorField
 from geodesic_shooting.utils.helper_functions import tuple_product
@@ -11,7 +12,9 @@ class BiharmonicRegularizer:
     This class implements a regularizer for vector fields to make them smooth,
     such that the corresponding flows define diffeomorphisms.
     """
-    def __init__(self, alpha=0.1, exponent=1, gamma=1., log_level='INFO'):
+    format = 'csc'
+
+    def __init__(self, alpha=0.1, exponent=1, gamma=1., fourier=True, spatial_shape=None, log_level='INFO'):
         """Constructor.
 
         Parameters
@@ -19,11 +22,23 @@ class BiharmonicRegularizer:
         alpha
             Smoothness parameter that determines how strong the smoothing effect should be.
         exponent
-            Penalty weight that ensures that the operator is non-singular.
+            Smoothness parameter that determines how strong the smoothing effect should be.
+        gamma
+            Smoothness parameter that determines how strong the smoothing effect should be.
+        fourier
+            Determines whether to apply the regularizer in Fourier domain.
+            If the regularizer is applied in Fourier domain, periodic boundary conditions
+            are implicitly used. Otherwise, finite differences with homogeneous Dirichlet
+            boundary conditions are applied.
+        spatial_shape
+            If `fourier` is False and `spatial_shape` provided, the matrices for the finite
+            difference scheme are automatically initialized.
+        log_level
+            Verbosity of the logger.
         """
         assert alpha >= 0
         assert exponent > 0
-        assert gamma > 0
+        assert gamma >= 0
         assert isinstance(exponent, int)
 
         self.alpha = alpha
@@ -32,30 +47,43 @@ class BiharmonicRegularizer:
 
         self.helper_operator = None
 
+        self.helmholtz_matrix = None
         self.cauchy_navier_matrix = None
-        self.cauchy_navier_inverse_matrix = None
 
-        self.logger = getLogger('reduced_geodesic_shooting', level=log_level)
+        self.logger = getLogger('regularizer', level=log_level)
+
+        self.matrices_initialized = False
+
+        self.fourier = fourier
+        if not fourier and spatial_shape is not None:
+            self.init_matrices(spatial_shape)
 
     def __str__(self):
-        return f"{self.__class__.__name__}: alpha={self.alpha}, exponent={self.exponent}"
+        return f"{self.__class__.__name__}: alpha={self.alpha}, exponent={self.exponent}, gamma={self.gamma}"
 
     def init_matrices(self, shape):
-        """Initializes the Cauchy-Navier operator matrix and inverse matrices.
-        It is very time-consuming to compute the inverse, but solving many linear
-        systems of equations in each iteration is costly as well.
+        """Initializes the Cauchy-Navier operator matrix and the LU decomposition of the matrix.
+
         Parameters
         ----------
         shape
             Shape of the input images.
         """
-        dim = len(shape)
-        self.cauchy_navier_matrix = np.kron(np.eye(dim, dtype=int),
-                                            self._cauchy_navier_matrix(shape))
-        self.logger.warning("Computing inverse of Cauchy-Navier operator matrix ...")
-        inv_matrix = np.linalg.inv(self._cauchy_navier_matrix(shape))
-        self.cauchy_navier_inverse_matrix = np.kron(np.eye(dim, dtype=int), inv_matrix)
-        self.logger.info("Finished initialization of regularization matrices ...")
+        if not self.fourier and not self.matrices_initialized:
+            self.logger.info("Initializing matrices for regularizer ...")
+            prod = tuple_product(shape)
+            self.helmholtz_matrix = self._helmholtz_matrix(shape)
+            assert self.helmholtz_matrix.shape == (prod, prod)
+            self.cauchy_navier_matrix = self.helmholtz_matrix.transpose().tocsc() @ self.helmholtz_matrix
+            assert self.cauchy_navier_matrix.shape == (prod, prod)
+            with self.logger.block("Computing LU decomposition of Cauchy Navier matrix ..."):
+                self.lu_decomposed_cauchy_navier_matrix = sps.linalg.splu(self.cauchy_navier_matrix)
+                self.logger.info("Done.")
+            self.matrices_initialized = True
+        elif self.fourier:
+            self.logger.info("Matrices not initialized since working in Fourier space!")
+        elif self.matrices_initialized:
+            self.logger.info("Matrices already initialized!")
 
     def helmholtz(self, v):
         """Application of the Helmholtz operator `L` to a vector field.
@@ -73,20 +101,25 @@ class BiharmonicRegularizer:
         `VectorField` of the same shape as the input.
         """
         assert isinstance(v, VectorField)
-        # check if helper operator is already defined
-        if self.helper_operator is None or self.helper_operator.shape != v.spatial_shape:
-            self.helper_operator = self.compute_helper_operator(v.dim, v.spatial_shape)
+        if self.fourier:
+            # check if helper operator is already defined
+            if self.helper_operator is None or self.helper_operator.shape != v.spatial_shape:
+                self.helper_operator = self.compute_helper_operator(v.dim, v.spatial_shape)
 
-        # transform input to Fourier space
-        function_fourier = self.fftn(v.to_numpy())
+            # transform input to Fourier space
+            function_fourier = self.fftn(v.to_numpy())
 
-        # perform operation in Fourier space
-        result_fourier = function_fourier * self.helper_operator
+            # perform operation in Fourier space
+            result_fourier = function_fourier * self.helper_operator
 
-        # transform back
-        result_inverse_fourier = self.ifftn(result_fourier)
+            # transform back
+            result_inverse_fourier = self.ifftn(result_fourier)
 
-        return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
+            return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
+        else:
+            res = [self.helmholtz_matrix @ v.to_numpy()[..., d].flatten(order='F') for d in range(v.dim)]
+            res = np.array(res).T.reshape(v.full_shape, order='F')
+            return VectorField(spatial_shape=v.spatial_shape, data=res)
 
     def cauchy_navier(self, v):
         """Application of the Cauchy-Navier type operator `L^*L` to a vector field.
@@ -106,20 +139,25 @@ class BiharmonicRegularizer:
         `VectorField` of the same shape as the input.
         """
         assert isinstance(v, VectorField)
-        # check if helper operator is already defined
-        if self.helper_operator is None or self.helper_operator.shape != v.spatial_shape:
-            self.helper_operator = self.compute_helper_operator(v.dim, v.spatial_shape)
+        if self.fourier:
+            # check if helper operator is already defined
+            if self.helper_operator is None or self.helper_operator.shape != v.spatial_shape:
+                self.helper_operator = self.compute_helper_operator(v.dim, v.spatial_shape)
 
-        # transform input to Fourier space
-        function_fourier = self.fftn(v.to_numpy())
+            # transform input to Fourier space
+            function_fourier = self.fftn(v.to_numpy())
 
-        # perform operation in Fourier space
-        result_fourier = function_fourier * self.helper_operator**2
+            # perform operation in Fourier space
+            result_fourier = function_fourier * self.helper_operator**2
 
-        # transform back
-        result_inverse_fourier = self.ifftn(result_fourier)
+            # transform back
+            result_inverse_fourier = self.ifftn(result_fourier)
 
-        return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
+            return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
+        else:
+            res = [self.cauchy_navier_matrix @ v.to_numpy()[..., d].flatten(order='F') for d in range(v.dim)]
+            res = np.array(res).T.reshape(v.full_shape, order='F')
+            return VectorField(spatial_shape=v.spatial_shape, data=res)
 
     def _helmholtz_matrix(self, input_shape):
         assert isinstance(input_shape, tuple)
@@ -131,32 +169,34 @@ class BiharmonicRegularizer:
             assert 0 <= dim <= len_input_shape - 1
             assert len_input_shape == 1 or 0 <= i <= len_input_shape - 2
 
-            main_diagonal = -2. * np.ones(input_shape[dim])
-            first_diagonal = np.ones(input_shape[dim]-1)
-            laplacian = (np.diag(main_diagonal, 0) + np.diag(first_diagonal, 1)
-                         + np.diag(first_diagonal, -1)) * (input_shape[dim] - 1.)**2
+            main_diagonal = -2. * np.ones(input_shape[dim]) * (input_shape[dim] - 1.)**2
+            first_diagonal = np.ones(input_shape[dim]-1) * (input_shape[dim] - 1.)**2
+            laplacian = sps.diags([main_diagonal, first_diagonal, first_diagonal], [0, 1, -1],
+                                  format=self.format)
 
             if len_input_shape == 1:
                 return laplacian
             if i == len_input_shape - 2:
                 if i == dim:
-                    return np.kron(laplacian, np.eye(input_shape[i+1]))
+                    return sps.kron(laplacian, sps.eye(input_shape[i+1]),
+                                    format=self.format)
                 if dim == len_input_shape - 1:
-                    return np.kron(np.eye(input_shape[i]), laplacian)
-                return np.kron(np.eye(input_shape[i]), np.eye(input_shape[i+1]))
+                    return sps.kron(sps.eye(input_shape[i]), laplacian,
+                                    format=self.format)
+                return sps.kron(sps.eye(input_shape[i]), sps.eye(input_shape[i+1]),
+                                format=self.format)
             if i == dim:
-                return np.kron(laplacian, recursive_kronecker_product(dim, i+1))
-            return np.kron(np.eye(input_shape[i]),
-                           recursive_kronecker_product(dim, i+1))
+                return sps.kron(laplacian, recursive_kronecker_product(dim, i+1),
+                                format=self.format)
+            return sps.kron(sps.eye(input_shape[i]),
+                            recursive_kronecker_product(dim, i+1),
+                            format=self.format)
 
         size = tuple_product(input_shape)
-        mat = np.zeros((size, size))
+        mat = sps.csc_matrix((size, size))
         for dimension in range(len_input_shape):
             mat += recursive_kronecker_product(dimension)
-        return np.linalg.matrix_power((- self.alpha * mat + self.gamma * np.eye(size)), self.exponent)
-
-    def _cauchy_navier_matrix(self, input_shape):
-        return np.linalg.matrix_power(self._helmholtz_matrix(input_shape), 2)
+        return (- self.alpha * mat + self.gamma * sps.eye(size, format=self.format)) ** self.exponent
 
     def cauchy_navier_inverse(self, v):
         """Application of the operator `K=(L^*L)^{-1}`, with the Helmholtz operator `L`.
@@ -174,20 +214,29 @@ class BiharmonicRegularizer:
         `VectorField` of the same shape as the input.
         """
         assert isinstance(v, VectorField)
-        # check if helper operator is already defined
-        if self.helper_operator is None or self.helper_operator.shape != v.spatial_shape:
-            self.helper_operator = self.compute_helper_operator(v.dim, v.spatial_shape)
+        if self.fourier:
+            # check if helper operator is already defined
+            if self.helper_operator is None or self.helper_operator.shape != v.spatial_shape:
+                self.helper_operator = self.compute_helper_operator(v.dim, v.spatial_shape)
 
-        # transform input to Fourier space
-        function_fourier = self.fftn(v.to_numpy())
+            # transform input to Fourier space
+            function_fourier = self.fftn(v.to_numpy())
 
-        # perform operation in Fourier space
-        result_fourier = function_fourier / (self.helper_operator**2)
+            # perform operation in Fourier space
+            result_fourier = function_fourier / (self.helper_operator**2)
 
-        # transform back
-        result_inverse_fourier = self.ifftn(result_fourier)
+            # transform back
+            result_inverse_fourier = self.ifftn(result_fourier)
 
-        return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
+            return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
+        else:
+            res_complete = []
+            prod = tuple_product(v.spatial_shape)
+            for d in range(v.dim):
+                res = self.lu_decomposed_cauchy_navier_matrix.solve(v.to_numpy().flatten(order='F')[d*prod:(d+1)*prod])
+                res_complete.append(res)
+            res = np.array(res_complete).T.reshape(v.full_shape, order='F')
+            return VectorField(spatial_shape=v.spatial_shape, data=res)
 
     def compute_helper_operator(self, dim, spatial_shape):
         """Computes the helper operator for the Cauchy-Navier type operator.

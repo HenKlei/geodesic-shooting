@@ -2,10 +2,9 @@ import numpy as np
 
 import geodesic_shooting
 from geodesic_shooting.core import ScalarFunction
-from geodesic_shooting.utils.summary import plot_registration_results
 
 
-if __name__ == "__main__":
+def test_3d_geodesic_shooting():
     shape = (10, 10, 10)
     template = np.zeros(shape)
     target = np.zeros(shape)
@@ -16,6 +15,6 @@ if __name__ == "__main__":
 
     # perform the registration
     gs = geodesic_shooting.GeodesicShooting(alpha=0.1, exponent=1)
-    result = gs.register(template, target, sigma=0.01, return_all=True, optimization_method='GD')
+    result = gs.register(template, target, sigma=0.01, return_all=True)
 
-    plot_registration_results(result)
+    assert (target - result['transformed_input']).norm / target.norm < 1e-2

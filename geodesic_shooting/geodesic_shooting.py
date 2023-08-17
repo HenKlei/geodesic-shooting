@@ -17,7 +17,8 @@ class GeodesicShooting:
     Miller, Trouvé, Younes, 2006
     """
     def __init__(self, alpha=0.1, exponent=1, gamma=1., time_integrator=RK4, time_steps=30,
-                 sampler_options={'order': 1, 'mode': 'edge'}, log_level='INFO'):
+                 fourier=False, spatial_shape=None, sampler_options={'order': 1, 'mode': 'edge'},
+                 log_level='INFO'):
         """Constructor.
 
         Parameters
@@ -26,16 +27,22 @@ class GeodesicShooting:
             Parameter for biharmonic regularizer.
         exponent
             Parameter for biharmonic regularizer.
+        gamma
+            Parameter for biharmonic regularizer.
         time_integrator
             Method to use for time integration.
         time_steps
             Number of time steps performed during forward and backward integration.
+        fourier
+            Parameter for biharmonic regularizer.
+        spatial_shape
+            Parameter for biharmonic regularizer.
         sampler_options
             Additional options to pass to the sampler.
         log_level
             Verbosity of the logger.
         """
-        self.regularizer = BiharmonicRegularizer(alpha, exponent, gamma)
+        self.regularizer = BiharmonicRegularizer(alpha, exponent, gamma, fourier=fourier, spatial_shape=spatial_shape)
 
         self.time_integrator = time_integrator
         self.time_steps = time_steps
@@ -52,7 +59,7 @@ class GeodesicShooting:
                 f"\tTime steps: {self.time_steps}\n"
                 f"\tSampler options: {self.sampler_options}")
 
-    def register(self, template, target, sigma=0.1, optimization_method='L-BFGS-B', optimizer_options={'disp': True},
+    def register(self, template, target, sigma=0.01, optimization_method='GD', optimizer_options={'disp': True},
                  initial_vector_field=None, restriction=np.s_[...], return_all=False, log_summary=True):
         """Performs actual registration according to LDDMM algorithm with time-varying vector
            fields that are chosen via geodesics.
@@ -98,19 +105,21 @@ class GeodesicShooting:
         assert isinstance(target, ScalarFunction)
         assert template.full_shape == target.full_shape
 
+        self.regularizer.init_matrices(template.spatial_shape)
+
         inverse_mask = np.ones(template.spatial_shape, bool)
         inverse_mask[restriction] = 0
 
         # function to compute the L2-error between a given image and the target
         def compute_energy(image):
-            return (image-target).get_norm(restriction=restriction)**2
+            return (image - target).get_norm(restriction=restriction)**2
 
         # function to compute the gradient of the overall energy function
         # with respect to the final vector field
         def compute_grad_energy(image):
             grad_diff = image.grad * (image - target)[..., np.newaxis]
             grad_diff[inverse_mask] = 0.
-            return VectorField(data=2. * self.regularizer.cauchy_navier_inverse(grad_diff))
+            return 2. * self.regularizer.cauchy_navier_inverse(grad_diff)
 
         # set up variables
         self.shape = template.spatial_shape
@@ -126,6 +135,7 @@ class GeodesicShooting:
         assert initial_vector_field.full_shape == (*self.shape, self.dim)
 
         opt = {'input': template, 'target': target}
+        target_norm = target.get_norm(restriction=restriction)
 
         start_time = time.perf_counter()
 
@@ -156,12 +166,13 @@ class GeodesicShooting:
                 # to the initial vector field
                 gradient_initial_vector = self.integrate_backward_adjoint_Jacobi_field(gradient_l2_energy,
                                                                                        vector_fields)
+                gradient_initial_vector = gradient_initial_vector.to_numpy().flatten()
 
                 if return_all_energies:
                     return energy, energy_regularizer, energy_intensity_unscaled, energy_intensity, \
-                            gradient_initial_vector.to_numpy().flatten()
+                            gradient_initial_vector
                 else:
-                    return energy, gradient_initial_vector.to_numpy().flatten()
+                    return energy, gradient_initial_vector
             else:
                 if return_all_energies:
                     return energy, energy_regularizer, energy_intensity_unscaled, energy_intensity
@@ -172,9 +183,9 @@ class GeodesicShooting:
             opt['x'] = x
 
         # use scipy optimizer for minimizing energy function
-        with self.logger.block("Perform image matching via geodesic shooting ..."):
+        with self.logger.block('Perform image matching via geodesic shooting ...'):
             if optimization_method == 'GD':
-                def gradient_descent(func, x0, grad_norm_tol=1e-5, rel_func_update_tol=1e-8, maxiter=1000,
+                def gradient_descent(func, x0, grad_norm_tol=1e-5, rel_func_update_tol=1e-6, maxiter=1000,
                                      maxiter_armijo=20, alpha0=1., rho=0.5, c1=1e-4, disp=True, callback=None):
                     assert grad_norm_tol > 0 and rel_func_update_tol > 0
                     assert isinstance(maxiter, int) and maxiter > 0
@@ -188,6 +199,9 @@ class GeodesicShooting:
                             alpha *= rho
                             func_x_update = func(x + alpha * d, compute_grad=False)
                             k += 1
+                        if not func_x_update <= func_x + c1 * alpha * d_dot_grad:
+                            alpha = 0.
+                            self.logger.warning('No step size that fulfills the decrease condition was found!')
                         return alpha
 
                     message = ''
@@ -195,13 +209,16 @@ class GeodesicShooting:
                         x = x0
                         if callback is not None:
                             callback(np.copy(x))
-                        func_x, grad_x = func(x)
+                        func_x, _, energy_intensity_unscaled, _, grad_x = func(x, compute_grad=True,
+                                                                               return_all_energies=True)
                         old_func_x = func_x
                         rel_func_update = rel_func_update_tol + 1
                         norm_grad_x = np.linalg.norm(grad_x)
                         i = 0
                         if disp:
-                            self.logger.info(f'iter: {i:5d}\tf= {func_x:.5e}\t|grad|= {norm_grad_x:.5e}')
+                            self.logger.info(f'iter: {i:5d}\tf= {func_x:.5e}\t|grad|= {norm_grad_x:.5e}\t'
+                                             f'rel.func.upd.= {rel_func_update:.5e}\t'
+                                             f'rel.diff.= {(np.sqrt(energy_intensity_unscaled) / target_norm):.5e}')
                         try:
                             while True:
                                 if callback is not None:
@@ -216,10 +233,14 @@ class GeodesicShooting:
                                     message = 'maximum number of iterations reached'
                                     break
 
-                                d = -grad_x
+                                if norm_grad_x > 1:
+                                    d = -grad_x / norm_grad_x
+                                else:
+                                    d = -grad_x
                                 alpha = line_search(x, func_x, grad_x, d)
                                 x = x + alpha * d
-                                func_x, grad_x = func(x)
+                                func_x, _, energy_intensity_unscaled, _, grad_x = func(x, compute_grad=True,
+                                                                                       return_all_energies=True)
                                 if not np.isclose(old_func_x, 0.):
                                     rel_func_update = abs((func_x - old_func_x) / old_func_x)
                                 else:
@@ -228,7 +249,9 @@ class GeodesicShooting:
                                 norm_grad_x = np.linalg.norm(grad_x)
                                 i += 1
                                 if disp:
-                                    self.logger.info(f'iter: {i:5d}\tf= {func_x:.5e}\t|grad|= {norm_grad_x:.5e}')
+                                    self.logger.info(f'iter: {i:5d}\tf= {func_x:.5e}\t|grad|= {norm_grad_x:.5e}\t'
+                                                     f'rel.func.upd.= {rel_func_update:.5e}\trel.diff.= '
+                                                     f'{(np.sqrt(energy_intensity_unscaled) / target_norm):.5e}')
                         except KeyboardInterrupt:
                             message = 'optimization stopped due to keyboard interrupt'
                             self.logger.warning('Optimization interrupted ...')
@@ -274,7 +297,8 @@ class GeodesicShooting:
         if opt['initial_vector_field'] is not None:
             # compute the length of the path on the manifold;
             # this step only requires the initial vector due to conservation of momentum
-            length = self.regularizer.cauchy_navier(opt['initial_vector_field']).get_norm(restriction=restriction)
+            length = opt['initial_vector_field'].get_norm(product_operator=self.regularizer.cauchy_navier,
+                                                          restriction=restriction)**2
         else:
             length = 0.0
 
@@ -303,7 +327,8 @@ class GeodesicShooting:
         self.logger.info("")
         self.logger.info("Registration summary")
         self.logger.info("====================")
-        self.logger.info(f"Registration finished after {results['iterations']} iterations.")
+        self.logger.info(f"Registration finished after {results['iterations']} iteration"
+                         f"{'' if results['iterations'] == 1 else 's'}.")
         self.logger.info(f"Registration took {results['time']} seconds.")
         self.logger.info(f"Reason for the registration algorithm to stop: {results['reason_registration_ended']}.")
         norm_difference = (results['target'] - results['transformed_input']).get_norm(restriction=restriction)
