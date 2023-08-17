@@ -13,7 +13,7 @@ if __name__ == "__main__":
               + make_circle((64, 64), np.array([35, 25]), 12) * 0.8)
 
     # perform the registration
-    gs = geodesic_shooting.GeodesicShooting(alpha=0.01, exponent=2)
+    gs = geodesic_shooting.GeodesicShooting(alpha=0.1, exponent=1, gamma=1.)
     result = gs.register(template, target, sigma=0.01, return_all=True)
 
     result['initial_vector_field'].save_tikz('initial_vector_field_translation.tex',

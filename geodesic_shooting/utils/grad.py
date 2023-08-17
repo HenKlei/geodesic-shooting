@@ -33,7 +33,7 @@ def finite_difference(f):
         indices = list(range(dim))
         indices[0] = d
         indices[d] = 0
-        window_d = np.transpose(window / shape[d], axes=indices)
+        window_d = np.transpose(window, axes=indices) * shape[d]
         return correlate(u, window_d)
 
     derivatives = []
