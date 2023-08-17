@@ -324,7 +324,8 @@ class GeodesicShooting:
         self.logger.info("")
         self.logger.info("Registration summary")
         self.logger.info("====================")
-        self.logger.info(f"Registration finished after {results['iterations']} iteration{'' if results['iterations'] == 1 else 's'}.")
+        self.logger.info(f"Registration finished after {results['iterations']} iteration"
+                         f"{'' if results['iterations'] == 1 else 's'}.")
         self.logger.info(f"Registration took {results['time']} seconds.")
         self.logger.info(f"Reason for the registration algorithm to stop: {results['reason_registration_ended']}.")
         norm_difference = (results['target'] - results['transformed_input']).get_norm(restriction=restriction)
