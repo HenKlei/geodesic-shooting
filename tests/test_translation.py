@@ -12,7 +12,7 @@ def test_translation():
               + make_circle((64, 64), np.array([35, 25]), 12) * 0.8)
 
     # perform the registration with the geodesic shooting algorithm
-    gs = geodesic_shooting.GeodesicShooting(alpha=0.01, exponent=2)
+    gs = geodesic_shooting.GeodesicShooting(alpha=0.1, exponent=1)
     result = gs.register(template, target, sigma=0.01, return_all=True)
 
     assert (target - result['transformed_input']).norm / target.norm < 1e-1

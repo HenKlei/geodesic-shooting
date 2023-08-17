@@ -183,7 +183,7 @@ class GeodesicShooting:
             opt['x'] = x
 
         # use scipy optimizer for minimizing energy function
-        with self.logger.block("Perform image matching via geodesic shooting ..."):
+        with self.logger.block('Perform image matching via geodesic shooting ...'):
             if optimization_method == 'GD':
                 def gradient_descent(func, x0, grad_norm_tol=1e-5, rel_func_update_tol=1e-6, maxiter=1000,
                                      maxiter_armijo=20, alpha0=1., rho=0.5, c1=1e-4, disp=True, callback=None):
@@ -199,6 +199,9 @@ class GeodesicShooting:
                             alpha *= rho
                             func_x_update = func(x + alpha * d, compute_grad=False)
                             k += 1
+                        if not func_x_update <= func_x + c1 * alpha * d_dot_grad:
+                            alpha = 0.
+                            self.logger.warning('No step size that fulfills the decrease condition was found!')
                         return alpha
 
                     message = ''

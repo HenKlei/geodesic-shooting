@@ -8,8 +8,8 @@ def test_3d_geodesic_shooting():
     shape = (10, 10, 10)
     template = np.zeros(shape)
     target = np.zeros(shape)
-    template[shape[0]//5:2*shape[0]//5, shape[1]//5:2*shape[1]//5, shape[2]//5:2*shape[2]//5] = 1
-    target[shape[0]//5:3*shape[0]//5, shape[1]//5:2*shape[1]//5, shape[2]//5:3*shape[2]//5] = 1
+    template[2*shape[0]//5:3*shape[0]//5, 2*shape[1]//5:3*shape[1]//5, 2*shape[2]//5:3*shape[2]//5] = 1
+    target[2*shape[0]//5:3*shape[0]//5, 3*shape[1]//5:4*shape[1]//5, 2*shape[2]//5:3*shape[2]//5] = 1
     template = ScalarFunction(data=template)
     target = ScalarFunction(data=target)
 
