@@ -21,7 +21,7 @@ class ReducedGeodesicShooting:
     Data-driven Model Order Reduction For Diffeomorphic Image Registration.
     Wang, Xing, Kirby, Zhang, 2019
     """
-    def __init__(self, rb_vector_fields=None, alpha=6., exponent=2., time_integrator=RK4, time_steps=30,
+    def __init__(self, rb_vector_fields=None, alpha=0.1, exponent=1, gamma=1., time_integrator=RK4, time_steps=30,
                  sampler_options={'order': 1, 'mode': 'edge'}, precomputed_quantities={},
                  assemble_forward_matrices=True, assemble_backward_matrices=True, log_level='INFO'):
         """Constructor.
@@ -45,9 +45,9 @@ class ReducedGeodesicShooting:
             Dictionary of precomputed matrices, if available. The matrices have to fit to the
             reduced basis of vector fields.
         assemble_forward_matrices
-            Determines whether or not the reduced matrices for the forward pass are assembled.
+            Determines whether the reduced matrices for the forward pass are assembled.
         assemble_backward_matrices
-            Determines whether or not the reduced matrices for the backward pass are assembled.
+            Determines whether the reduced matrices for the backward pass are assembled.
         log_level
             Verbosity of the logger.
         """
@@ -61,7 +61,10 @@ class ReducedGeodesicShooting:
         self.rb_size = len(self.rb_vector_fields)
         assert self.rb_size > 0
 
-        self.regularizer = BiharmonicRegularizer(alpha, exponent)
+        spatial_shape = self.rb_vector_fields[0].spatial_shape
+        assert spatial_shape is not None
+        self.regularizer = BiharmonicRegularizer(alpha, exponent, gamma, fourier=False, spatial_shape=spatial_shape)
+        assert self.regularizer.matrices_initialized
 
         self.time_integrator = time_integrator
         self.time_steps = time_steps
@@ -90,10 +93,15 @@ class ReducedGeodesicShooting:
                 L = self.regularizer.cauchy_navier_matrix
                 assert L.shape == (self.dim * self.size, self.dim * self.size)
                 K = self.regularizer.cauchy_navier_inverse_matrix
+                # No need to compute K explicitly!
+                # It can be replaced by solving for each vector in the reduced basis a linear system!
                 assert K.shape == (self.dim * self.size, self.dim * self.size)
 
                 U = np.array([v.flatten() for v in self.rb_vector_fields]).T
                 assert U.shape == (self.dim * self.size, self.rb_size)
+
+                # To check if every matrix is constructed correctly, try to implement the full
+                # geodesic shooting algorithm (without reduction) in a matrix-based fashion!
 
                 UTK = U.T.dot(K)
                 DL = D.dot(L)
@@ -208,10 +216,10 @@ class ReducedGeodesicShooting:
             Used as initial guess for the initial vector field (will be 0 if None is passed).
             If the norm of the gradient drops below this threshold, the registration is stopped.
         return_all
-            Determines whether or not to return all information or only the initial vector field
+            Determines whether to return all information or only the initial vector field
             that led to the best registration result.
         log_summary
-            Determines whether or not to print a summary of the registration results to the
+            Determines whether to print a summary of the registration results to the
             console.
 
         Returns
@@ -235,9 +243,8 @@ class ReducedGeodesicShooting:
             return np.sum((image - target).to_numpy()**2)
 
         def compute_grad_energy(image):
-            """ Not 100% sure whether this is correct... """
-            return self.regularizer.cauchy_navier_inverse_matrix.dot(
-                    (image.grad * (image - target)[..., np.newaxis]).flatten())
+            grad_diff = image.grad * (image - target)[..., np.newaxis]
+            return 2. * self.regularizer.cauchy_navier_inverse(grad_diff)
 
         # set up variables
         assert self.shape == template.spatial_shape
