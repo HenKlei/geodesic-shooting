@@ -1,18 +1,51 @@
 import numpy as np
 
+from scipy.spatial import distance_matrix
 
-class Kernel:
+
+class RBFKernel:
     """Base class for kernels."""
+    def __init__(self, scalar):
+        self.scalar = scalar
+
     def __str__(self):
         return f"{self.__class__.__name__}"
 
     def __call__(self, x, y):
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        res = self._apply_rbf(np.linalg.norm(x - y))
+        if self.scalar:
+            return res
+        else:
+            return res * np.eye(x.shape[0])
+
+    def apply_vectorized(self, x, y, dim):
+        if x.ndim == 1:
+            x = x.reshape((-1, dim))
+        if y.ndim == 1:
+            y = y.reshape((-1, dim))
+        num_elements_x = x.shape[0]
+        num_elements_y = y.shape[0]
+
+        dist_mat = distance_matrix(x, y)
+        res = self._apply_rbf(dist_mat)
+        assert res.shape == (num_elements_x, num_elements_y)
+        if self.scalar:
+            return res
+        else:
+            res = np.einsum('ij,kl->ijkl', res, np.eye(dim))
+            assert res.shape == (num_elements_x, num_elements_y, dim, dim)
+            res = res.swapaxes(1, 2).reshape((num_elements_x * dim, num_elements_y * dim))
+            return res
+
+    def _apply_rbf(self, d):
         raise NotImplementedError
 
 
-class GaussianKernel(Kernel):
+class GaussianKernel(RBFKernel):
     """Class that implements a Gaussian (matrix-valued, diagonal) kernel."""
-    def __init__(self, scalar=False, sigma=1./np.sqrt(2.)):
+    def __init__(self, scalar=False, sigma=1.):
         """Constructor.
 
         Parameters
@@ -23,33 +56,24 @@ class GaussianKernel(Kernel):
         sigma
             Scaling parameter for the Gaussian bell curve.
         """
-        super().__init__()
+        super().__init__(scalar)
+
         assert sigma > 0
-        self.scalar = scalar
         self.sigma = sigma
 
     def __str__(self):
         return f"{self.__class__.__name__}: sigma={self.sigma}"
 
-    def __call__(self, x, y):
-        assert x.ndim == 1
-        assert x.shape == y.shape
-        res = np.exp(-np.linalg.norm(x-y)**2 / (2. * self.sigma**2))
-        if self.scalar:
-            return res
-        else:
-            return res * np.eye(x.shape[0])
+    def _apply_rbf(self, d):
+        return np.exp(-self.sigma * d ** 2)
 
     def derivative_1(self, x, y, i):
         """Derivative of kernel with respect to i-th component of x."""
         assert x.ndim == 1
         assert x.shape == y.shape
         assert 0 <= i < x.shape[0]
-        res = (y[i] - x[i]) / self.sigma**2
-        if self.scalar:
-            return res * self(x, y)
-        else:
-            return res * self(x, y)[0][0]
+        res = 2. * (y[i] - x[i]) * self.sigma
+        return res * self(x, y)
 
     def derivative_2(self, x, y, i):
         """Derivative of kernel with respect to i-th component of y."""
@@ -58,8 +82,69 @@ class GaussianKernel(Kernel):
         assert 0 <= i < x.shape[0]
         return -self.derivative_1(x, y, i)
 
+    def full_derivative_1(self, x, y):
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        dim = x.shape[0]
+        res = np.stack([self.derivative_1(x, y, i) for i in range(dim)], axis=-1)
+        assert res.shape == (dim, dim, dim)
+        return res
 
-class RationalQuadraticKernel(Kernel):
+    def full_derivative_2(self, x, y):
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        dim = x.shape[0]
+        res = np.stack([self.derivative_2(x, y, i) for i in range(dim)], axis=-1)
+        assert res.shape == (dim, dim, dim)
+        return res
+
+    def second_derivative_1_1(self, x, y, i, j):
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        assert 0 <= i < x.shape[0]
+        assert 0 <= j < x.shape[0]
+        dim = x.shape[0]
+        if i == j:
+            res = (4 * self.sigma**2 * (x[i]-y[i])**2 - 2 * self.sigma) * self(x, y)
+        else:
+            res = 4 * self.sigma**2 * (x[i]-y[i]) * (x[j]-y[j]) * self(x, y)
+        if not self.scalar:
+            assert res.shape == (dim, dim)
+        return res
+
+    def second_derivative_1(self, x, y, i):
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        assert 0 <= i < x.shape[0]
+        dim = x.shape[0]
+        res = np.stack([self.second_derivative_1_1(x, y, i, j) for j in range(dim)])
+        if not self.scalar:
+            assert res.shape == (dim, dim, dim)
+        return res
+
+    def second_derivative_1_2(self, x, y, i, j):
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        assert 0 <= i < x.shape[0]
+        assert 0 <= j < x.shape[0]
+        dim = x.shape[0]
+        res = -self.second_derivative_1_1(x, y, i, j)
+        if not self.scalar:
+            assert res.shape == (dim, dim)
+        return res
+
+    def second_derivative_2(self, x, y, i):
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        assert 0 <= i < x.shape[0]
+        dim = x.shape[0]
+        res = np.stack([self.second_derivative_1_2(x, y, i, j) for j in range(dim)])
+        if not self.scalar:
+            assert res.shape == (dim, dim, dim)
+        return res
+
+
+class RationalQuadraticKernel(RBFKernel):
     """Class that implements a rational quadratic (matrix-valued, diagonal) kernel."""
     def __init__(self, scalar=False, sigma=1./np.sqrt(2.), alpha=1):
         """Constructor.
@@ -74,24 +159,18 @@ class RationalQuadraticKernel(Kernel):
         alpha
             Exponent of the denominator.
         """
-        super().__init__()
+        super().__init__(scalar)
+
         assert sigma > 0
         assert alpha > 0
-        self.scalar = scalar
         self.sigma = sigma
         self.alpha = alpha
 
     def __str__(self):
         return f"{self.__class__.__name__}: sigma={self.sigma}, alpha={self.alpha}"
 
-    def __call__(self, x, y):
-        assert x.ndim == 1
-        assert x.shape == y.shape
-        res = 1. / ((1. + np.linalg.norm(x-y)**2 / (self.sigma**2))**self.alpha)
-        if self.scalar:
-            return res
-        else:
-            return res * np.eye(x.shape[0])
+    def _apply_rbf(self, d):
+        return 1. / ((1. + d**2 / (self.sigma**2))**self.alpha)
 
     def derivative_1(self, x, y, i):
         """Derivative of kernel with respect to i-th component of x."""
@@ -99,7 +178,8 @@ class RationalQuadraticKernel(Kernel):
         assert x.shape == y.shape
         assert 0 <= i < x.shape[0]
         return 2. * self.alpha * (y[i] - x[i]) / (self.sigma**2
-                                                  * ((1. + np.linalg.norm(x-y)**2 / (self.sigma**2))**(self.alpha + 1)))
+                                                  * ((1. + np.linalg.norm(x-y)**2
+                                                      / (self.sigma**2))**(self.alpha + 1)))
 
     def derivative_2(self, x, y, i):
         """Derivative of kernel with respect to i-th component of y."""

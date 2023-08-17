@@ -24,6 +24,7 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, figs
         Determines whether to also visualize the boundary of the domain restriction.
     """
     diffeomorphism = results['flow']
+    restriction = results['restriction']
 
     if results['input'].dim == 3:
         fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4, subplot_kw={'projection': '3d'})
@@ -31,22 +32,22 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, figs
         fig, (ax1, ax2, ax3, ax4) = plt.subplots(1, 4)
     ax1, vals1 = results['input'].plot("Input", axis=ax1, figsize=figsize,
                                        show_restriction_boundary=show_restriction_boundary,
-                                       restriction=results['restriction'])
+                                       restriction=restriction)
     if not isinstance(vals1, list):
         fig.colorbar(vals1, ax=ax1, fraction=0.046, pad=0.04)
     ax2, vals2 = results['target'].plot("Target", axis=ax2, figsize=figsize,
                                         show_restriction_boundary=show_restriction_boundary,
-                                        restriction=results['restriction'])
+                                        restriction=restriction)
     if not isinstance(vals2, list):
         fig.colorbar(vals2, ax=ax2, fraction=0.046, pad=0.04)
     ax3, vals3 = results['transformed_input'].plot("Result", axis=ax3, figsize=figsize,
                                                    show_restriction_boundary=show_restriction_boundary,
-                                                   restriction=results['restriction'])
+                                                   restriction=restriction)
     if not isinstance(vals3, list):
         fig.colorbar(vals3, ax=ax3, fraction=0.046, pad=0.04)
     diff = results['target'] - results['transformed_input']
     ax4, vals4 = diff.plot("Difference of target and result", axis=ax4, figsize=figsize,
-                           show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
+                           show_restriction_boundary=show_restriction_boundary, restriction=restriction)
     if not isinstance(vals4, list):
         fig.colorbar(vals4, ax=ax4, fraction=0.046, pad=0.04)
     plt.show()
@@ -129,7 +130,7 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, figs
                                                                  "Animation of the transformation of the input",
                                                                  interval=interval, figsize=figsize,
                                                                  show_restriction_boundary=show_restriction_boundary,
-                                                                 restriction=results['restriction'])
+                                                                 restriction=restriction)
         plt.show()
 
         diffeomorphism.set_inverse(results['vector_fields'].integrate_backward())
@@ -139,23 +140,23 @@ def plot_registration_results(results, interval=1, frequency=1, scale=None, figs
         inverse_transformed_registration_result = results['transformed_input'].push_forward(diffeomorphism.inverse)
         inverse_transformed_registration_result.plot("Inverse transformed registration result", figsize=figsize,
                                                      show_restriction_boundary=show_restriction_boundary,
-                                                     restriction=results['restriction'])
+                                                     restriction=restriction)
         plt.show()
 
         diff = results['input'] - inverse_transformed_registration_result
         diff.plot("Difference between input and inverse transformed registration result", figsize=figsize,
-                  show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
+                  show_restriction_boundary=show_restriction_boundary, restriction=restriction)
         plt.show()
 
         inverse_transformed_target = results['target'].push_forward(diffeomorphism.inverse)
         inverse_transformed_target.plot("Inverse transformed target", figsize=figsize,
                                         show_restriction_boundary=show_restriction_boundary,
-                                        restriction=results['restriction'])
+                                        restriction=restriction)
         plt.show()
 
         diff = results['input'] - inverse_transformed_target
         diff.plot("Difference between input and inverse transformed target", figsize=figsize,
-                  show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
+                  show_restriction_boundary=show_restriction_boundary, restriction=restriction)
         plt.show()
 
 
@@ -183,16 +184,18 @@ def save_plots_registration_results(results, filepath='results/', postfix='', in
     if not os.path.exists(filepath):
         os.makedirs(filepath)
 
+    restriction = results['restriction']
+
     results['input'].save(filepath + 'input.png', title='Input' + postfix, figsize=figsize,
-                          show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
+                          show_restriction_boundary=show_restriction_boundary, restriction=restriction)
     results['target'].save(filepath + 'target.png', title='Target' + postfix, figsize=figsize,
-                           show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
+                           show_restriction_boundary=show_restriction_boundary, restriction=restriction)
     results['transformed_input'].save(filepath + 'transformed_input.png', title='Result' + postfix, figsize=figsize,
                                       show_restriction_boundary=show_restriction_boundary,
-                                      restriction=results['restriction'])
+                                      restriction=restriction)
     diff = results['target'] - results['transformed_input']
     diff.save(filepath + 'difference.png', title='Difference of target and result' + postfix, figsize=figsize,
-              show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
+              show_restriction_boundary=show_restriction_boundary, restriction=restriction)
     results['initial_vector_field'].save(filepath + 'initial_vector_field.png', plot_type='default',
                                          plot_args={'title': 'Initial vector field' + postfix, 'interval': interval,
                                                     'color_length': True, 'scale': None, 'figsize': figsize})
@@ -221,20 +224,20 @@ def save_plots_registration_results(results, filepath='results/', postfix='', in
     inverse_transformed_registration_result.save(filepath + 'inverse_transformed_registration_result.png',
                                                  title='Inverse transformed registration result' + postfix,
                                                  figsize=figsize, show_restriction_boundary=show_restriction_boundary,
-                                                 restriction=results['restriction'])
+                                                 restriction=restriction)
     diff = results['input'] - inverse_transformed_registration_result
     diff.save(filepath + 'diff_input_inverse_transformed_registration_result.png',
               title='Difference between input and inverse transformed registration result' + postfix,
-              figsize=figsize, show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
+              figsize=figsize, show_restriction_boundary=show_restriction_boundary, restriction=restriction)
     inverse_transformed_target = results['target'].push_forward(diffeomorphism.inverse)
     inverse_transformed_target.save(filepath + 'inverse_transformed_target.png',
                                     title='Inverse transformed target' + postfix, figsize=figsize,
                                     show_restriction_boundary=show_restriction_boundary,
-                                    restriction=results['restriction'])
+                                    restriction=restriction)
     diff = results['input'] - inverse_transformed_target
     diff.save(filepath + 'diff_input_inverse_transformed_target.png',
               title='Difference between input and inverse transformed target' + postfix, figsize=figsize,
-              show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
+              show_restriction_boundary=show_restriction_boundary, restriction=restriction)
 
     time_dependent_diffeomorphism = results['vector_fields'].integrate(get_time_dependent_diffeomorphism=True)
     assert time_dependent_diffeomorphism[-1] == diffeomorphism
@@ -254,7 +257,7 @@ def save_plots_registration_results(results, filepath='results/', postfix='', in
                                                                    + postfix,
                                                                    figsize=figsize, interval=interval,
                                                                    show_restriction_boundary=show_restriction_boundary,
-                                                                   restriction=results['restriction'])
+                                                                   restriction=restriction)
         try:
             ani.save(filepath + 'animation_transformation_input.gif', writer='imagemagick',
                      fps=max(1, len(time_dependent_diffeomorphism) // 10))

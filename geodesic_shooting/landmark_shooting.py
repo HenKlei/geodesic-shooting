@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
-import time
+from functools import partial
 import numpy as np
-
 import scipy.optimize as optimize
+import time
 
 from geodesic_shooting.core import VectorField, TimeDependentVectorField
 from geodesic_shooting.utils.kernels import GaussianKernel
 from geodesic_shooting.utils.logger import getLogger
-from geodesic_shooting.utils import sampler
-from geodesic_shooting.utils import grid
+from geodesic_shooting.utils.optimizers import gradient_descent
 from geodesic_shooting.utils.time_integration import RK4
 
 
@@ -20,7 +19,7 @@ class LandmarkShooting:
     Allassonnière, Trouvé, Younes, 2005
     """
     def __init__(self, kernel=GaussianKernel, kwargs_kernel={}, dim=2, num_landmarks=1,
-                 time_integrator=RK4, time_steps=30, sampler_options={'order': 1, 'mode': 'edge'},
+                 time_integrator=RK4, time_steps=100, sampler_options={'order': 1, 'mode': 'edge'},
                  log_level='INFO'):
         """Constructor.
 
@@ -45,9 +44,10 @@ class LandmarkShooting:
         """
         self.time_integrator = time_integrator
         self.time_steps = time_steps
-        self.dt = 1. / self.time_steps
+        self.dt = 1. / (self.time_steps - 1.)
 
         self.dim = dim
+        self.num_landmarks = num_landmarks
         self.size = dim * num_landmarks
 
         self.kernel = kernel(**kwargs_kernel)
@@ -63,9 +63,47 @@ class LandmarkShooting:
                 f"\tTime steps: {self.time_steps}\n"
                 f"\tSampler options: {self.sampler_options}")
 
+    def energy_and_gradient(self, initial_momenta, initial_positions, target_landmarks, sigma,
+                            compute_matching_function, compute_gradient_matching_function,
+                            compute_grad=True, return_all_energies=False):
+        momenta_time_dependent, positions_time_dependent = self.integrate_forward_Hamiltonian(
+            initial_momenta, initial_positions)
+        positions = positions_time_dependent[-1]
+
+        energy_regularizer = self.compute_Hamiltonian(initial_momenta, initial_positions)
+        energy_intensity_unscaled = compute_matching_function(positions, target_landmarks)
+        energy_intensity = 1. / sigma ** 2 * energy_intensity_unscaled
+        energy = energy_regularizer + energy_intensity
+
+        if compute_grad:
+            d_positions_1, _ = self.integrate_forward_variational_Hamiltonian(momenta_time_dependent,
+                                                                              positions_time_dependent)
+
+            assert initial_momenta.shape == (self.num_landmarks, self.dim)
+            assert initial_positions.shape == (self.num_landmarks, self.dim)
+            grad = initial_momenta.flatten() @ self.kernel.apply_vectorized(initial_positions, initial_positions, self.dim) * initial_momenta.flatten()
+            grad = grad.reshape((self.num_landmarks, self.dim))
+
+            assert positions.shape == (self.num_landmarks, self.dim)
+            assert target_landmarks.shape == (self.num_landmarks, self.dim)
+            for c in range(self.num_landmarks):
+                for j in range(self.dim):
+                    for a, (qa1, target_qa1) in enumerate(zip(positions, target_landmarks)):
+                        for i in range(self.dim):
+                            grad[c, j] += compute_gradient_matching_function(qa1[i], target_qa1[i]) * d_positions_1[a, i, c, j] / sigma ** 2
+
+            if return_all_energies:
+                return energy, energy_regularizer, energy_intensity_unscaled, energy_intensity, grad
+            return energy, grad
+        else:
+            if return_all_energies:
+                return energy, energy_regularizer, energy_intensity_unscaled, energy_intensity
+            else:
+                return energy
+
     def register(self, input_landmarks, target_landmarks, landmarks_labeled=True,
                  kernel_dist=GaussianKernel, kwargs_kernel_dist={},
-                 sigma=1., optimization_method='L-BFGS-B', optimizer_options={'disp': True},
+                 sigma=1., optimization_method='L-BFGS-B', optimizer_options={'disp': True, 'maxiter': 1000},
                  initial_momenta=None, return_all=False):
         """Performs actual registration according to geodesic shooting algorithm for landmarks using
            a Hamiltonian setting.
@@ -100,7 +138,7 @@ class LandmarkShooting:
             Used as initial guess for the initial momenta (will agree with the direction pointing
             from the input landmarks to the target landmarks if None is passed).
         return_all
-            Determines whether or not to return all information or only the initial momenta
+            Determines whether to return all information or only the initial momenta
             that led to the best registration result.
 
         Returns
@@ -113,6 +151,7 @@ class LandmarkShooting:
         if landmarks_labeled:
             assert input_landmarks.shape == target_landmarks.shape
         self.dim = input_landmarks.shape[1]
+        self.num_landmarks = input_landmarks.shape[0]
         self.size = input_landmarks.shape[0] * input_landmarks.shape[1]
 
         # define initial momenta
@@ -125,15 +164,15 @@ class LandmarkShooting:
             initial_momenta = np.reshape(initial_momenta, input_landmarks.shape)
         assert initial_momenta.shape == input_landmarks.shape
 
-        initial_momenta = initial_momenta.flatten()
-        initial_positions = input_landmarks.flatten()
+        initial_momenta = initial_momenta
+        initial_positions = input_landmarks
 
         if landmarks_labeled:
-            def compute_matching_function(positions):
-                return np.linalg.norm(positions - target_landmarks.flatten())**2
+            def compute_matching_function(positions, targets):
+                return np.linalg.norm(positions.flatten() - targets.flatten())**2
 
-            def compute_gradient_matching_function(positions):
-                return 2. * (positions - target_landmarks.flatten()) / sigma**2
+            def compute_gradient_matching_function(positions, targets):
+                return 2. * (positions.flatten() - targets.flatten())
         else:
             kernel_dist = kernel_dist(**kwargs_kernel_dist, scalar=True)
 
@@ -163,6 +202,12 @@ class LandmarkShooting:
                             grad[i*self.dim+j] -= 2. * kernel_dist.derivative_1(p, t, j)
                 return grad
 
+        energy_and_gradient = partial(self.energy_and_gradient, initial_positions=initial_positions,
+                                      target_landmarks=target_landmarks, sigma=sigma,
+                                      compute_matching_function=compute_matching_function,
+                                      compute_gradient_matching_function=compute_gradient_matching_function,
+                                      compute_grad=True, return_all_energies=False)
+
         opt = {'input_landmarks': input_landmarks, 'target_landmarks': target_landmarks}
 
         start_time = time.perf_counter()
@@ -170,31 +215,86 @@ class LandmarkShooting:
         def save_current_state(x):
             opt['x'] = x
 
-        def energy_and_gradient(initial_momenta):
-            momenta_time_dependent, positions_time_dependent = self.integrate_forward_Hamiltonian(
-                initial_momenta, initial_positions)
-            positions = positions_time_dependent[-1]
+        if optimization_method == 'newton' and landmarks_labeled:
+            # use Newton's method for minimizing energy function
+            def newton(x0, update_norm_tol=1e-5, rel_func_update_tol=1e-6, maxiter=50, disp=True, callback=None):
+                assert update_norm_tol >= 0 and rel_func_update_tol >= 0
+                assert isinstance(maxiter, int) and maxiter > 0
 
-            energy_regularizer = self.compute_Hamiltonian(initial_momenta, initial_positions)
-            energy_l2_unscaled = compute_matching_function(positions)
-            energy_l2 = 1. / sigma**2 * energy_l2_unscaled
-            energy = energy_regularizer + energy_l2
+                def compute_update_direction(x):
+                    momenta_time_dependent, positions_time_dependent = self.integrate_forward_Hamiltonian(
+                        x, initial_positions)
+                    momenta = momenta_time_dependent[-1]
+                    positions = positions_time_dependent[-1]
+                    d_positions_1, d_momenta_1 = self.integrate_forward_variational_Hamiltonian(
+                        momenta_time_dependent, positions_time_dependent)
+                    mat = d_momenta_1 + 2 * np.eye(self.size) @ d_positions_1 / sigma ** 2
+                    _, grad = energy_and_gradient(x)
+                    update = np.linalg.solve(mat, momenta + (positions - target_landmarks.flatten()) / sigma ** 2)
+                    return update
 
-            d_positions_1, _ = self.integrate_forward_variational_Hamiltonian(momenta_time_dependent,
-                                                                              positions_time_dependent)
-            positions = positions_time_dependent[-1]
-            grad_g = compute_gradient_matching_function(positions)
-            grad = self.K(initial_positions) @ initial_momenta + d_positions_1.T @ grad_g / sigma**2
+                message = ''
+                with self.logger.block('Starting optimization using Newton Algorithm ...'):
+                    x = x0.flatten()
+                    func_x, _ = energy_and_gradient(x)
+                    old_func_x = func_x
+                    rel_func_update = rel_func_update_tol + 1
+                    update = compute_update_direction(x)
+                    norm_update = np.linalg.norm(update)
+                    i = 0
+                    if disp:
+                        self.logger.info(f'iter: {i:5d}\tf= {func_x:.5e}\t|update|= {norm_update:.5e}\t'
+                                         f'rel.func.upd.= {rel_func_update:.5e}')
+                    try:
+                        while True:
+                            if callback is not None:
+                                callback(np.copy(x))
+                            if norm_update <= update_norm_tol:
+                                message = 'norm of update below tolerance'
+                                break
+                            elif rel_func_update <= rel_func_update_tol:
+                                message = 'relative function value update below tolerance'
+                                break
+                            elif i >= maxiter:
+                                message = 'maximum number of iterations reached'
+                                break
 
-            return energy, grad.flatten()
+                            update = compute_update_direction(x)
+                            x = x - update
 
-        # use scipy optimizer for minimizing energy function
-        with self.logger.block("Perform landmark matching via geodesic shooting ..."):
-            res = optimize.minimize(energy_and_gradient, initial_momenta.flatten(),
-                                    method=optimization_method, jac=True, options=optimizer_options,
-                                    callback=save_current_state)
+                            func_x, _ = energy_and_gradient(x)
+                            if not np.isclose(old_func_x, 0.):
+                                rel_func_update = abs((func_x - old_func_x) / old_func_x)
+                            else:
+                                rel_func_update = 0.
+                            old_func_x = func_x
+                            norm_update = np.linalg.norm(update)
+                            i += 1
+                            if disp:
+                                self.logger.info(f'iter: {i:5d}\tf= {func_x:.5e}\t|update|= {norm_update:.5e}\t'
+                                                 f'rel.func.upd.= {rel_func_update:.5e}')
+                    except KeyboardInterrupt:
+                        message = 'optimization stopped due to keyboard interrupt'
+                        self.logger.warning('Optimization interrupted ...')
 
-        opt['initial_momenta'] = res['x'].reshape(input_landmarks.shape)
+                self.logger.info('Finished optimization ...')
+                result = {'x': x, 'nit': i, 'message': message}
+                return result
+
+            res = newton(initial_momenta, callback=save_current_state, **optimizer_options)
+        elif optimization_method == 'newton' and not landmarks_labeled:
+            raise NotImplementedError
+        elif optimization_method == 'GD':
+            res = gradient_descent(energy_and_gradient, initial_momenta,
+                                   logger=self.logger, callback=save_current_state, **optimizer_options)
+        else:
+            # use scipy optimizer for minimizing energy function
+            with self.logger.block("Perform landmark matching via geodesic shooting ..."):
+                res = optimize.minimize(energy_and_gradient, initial_momenta.flatten(),
+                                        method=optimization_method, jac=True, options=optimizer_options,
+                                        callback=save_current_state)
+
+        opt['initial_momenta'] = res['x']
         momenta_time_dependent, positions_time_dependent = self.integrate_forward_Hamiltonian(res['x'],
                                                                                               initial_positions)
         opt['registered_landmarks'] = positions_time_dependent[-1].reshape(input_landmarks.shape)
@@ -207,9 +307,26 @@ class LandmarkShooting:
         opt['time'] = elapsed_time
         opt['reason_registration_ended'] = res['message']
 
+        energy, energy_regularizer, energy_intensity_unscaled, energy_intensity, grad = energy_and_gradient(
+            opt['initial_momenta'], return_all_energies=True)
+        opt['energy'] = energy
+        opt['energy_regularizer'] = energy_regularizer
+        opt['energy_intensity_unscaled'] = energy_intensity_unscaled
+        opt['energy_intensity'] = energy_intensity
+        opt['grad'] = grad
+
         if return_all:
             return opt
         return opt['initial_momenta']
+
+    def _momenta_positions_flatten(self, momenta, positions):
+        if not momenta.shape == (self.size,):
+            momenta = momenta.flatten()
+        if not positions.shape == (self.size,):
+            positions = positions.flatten()
+        assert momenta.shape == (self.size,)
+        assert positions.shape == (self.size,)
+        return momenta, positions
 
     def compute_Hamiltonian(self, momenta, positions):
         """Computes the value of the Hamiltonian given positions and momenta.
@@ -225,9 +342,22 @@ class LandmarkShooting:
         -------
         Value of the Hamiltonian.
         """
-        assert momenta.shape == (self.size,)
-        assert positions.shape == (self.size,)
+        momenta, positions = self._momenta_positions_flatten(momenta, positions)
         return 0.5 * momenta.T @ self.K(positions) @ momenta
+
+    def _rhs_momenta_function(self, momenta, positions):
+        rhs = np.zeros((self.num_landmarks, self.dim))
+
+        for a, (pa, qa) in enumerate(zip(momenta.reshape((self.num_landmarks, self.dim)),
+                                         positions.reshape((self.num_landmarks, self.dim)))):
+            for b, (pb, qb) in enumerate(zip(momenta.reshape((self.num_landmarks, self.dim)),
+                                             positions.reshape((self.num_landmarks, self.dim)))):
+                rhs[a] -= np.einsum("ijk,i,j->k", self.kernel.full_derivative_1(qa, qb), pa, pb)
+
+        return rhs.flatten()
+
+    def _rhs_position_function(self, positions, momenta):
+        return self.K(positions) @ momenta
 
     def integrate_forward_Hamiltonian(self, initial_momenta, initial_positions):
         """Performs forward integration of Hamiltonian equations to obtain time-dependent momenta
@@ -244,29 +374,20 @@ class LandmarkShooting:
         -------
         Time-dependent momenta and positions.
         """
-        assert initial_momenta.shape == (self.size,)
-        assert initial_positions.shape == (self.size,)
-
         momenta = np.zeros((self.time_steps, self.size))
         positions = np.zeros((self.time_steps, self.size))
-        momenta[0] = initial_momenta
-        positions[0] = initial_positions
+        momenta[0] = initial_momenta.flatten()
+        positions[0] = initial_positions.flatten()
 
-        def rhs_momenta_function(momentum, position):
-            return - 0.5 * (momentum.T @ self.DK(position) @ momentum)
+        ti_momenta = self.time_integrator(self._rhs_momenta_function, self.dt)
 
-        ti_momenta = self.time_integrator(rhs_momenta_function, self.dt)
-
-        def rhs_position_function(position, momentum):
-            return self.K(position) @ momentum
-
-        ti_position = self.time_integrator(rhs_position_function, self.dt)
+        ti_position = self.time_integrator(self._rhs_position_function, self.dt)
 
         for t in range(self.time_steps-1):
-            momenta[t+1] = ti_momenta.step(momenta[t], additional_args={'position': positions[t]})
-            positions[t+1] = ti_position.step(positions[t], additional_args={'momentum': momenta[t]})
+            momenta[t+1] = ti_momenta.step(momenta[t], additional_args={'positions': positions[t]})
+            positions[t+1] = ti_position.step(positions[t], additional_args={'momenta': momenta[t]})
 
-        return momenta, positions
+        return momenta.reshape((self.time_steps, self.num_landmarks, self.dim)), positions.reshape((self.time_steps, self.num_landmarks, self.dim))
 
     def K(self, positions):
         """Computes matrix that contains (dim x dim)-blocks derived from the kernel.
@@ -280,51 +401,49 @@ class LandmarkShooting:
         -------
         Matrix of shape (size x size).
         """
-        assert positions.shape == (self.size, )
+        return self.kernel.apply_vectorized(positions, positions, self.dim)
 
-        mat = []
-        pos = positions.reshape((self.size // self.dim, self.dim))
+    def _rhs_d_positions_function(self, d_position, position, d_momentum, momentum):
+        momentum = momentum.reshape((-1, self.dim))
+        position = position.reshape((-1, self.dim))
 
-        for i in range(self.size // self.dim):
-            mat_row = []
-            for j in range(self.size // self.dim):
-                mat_row.append(self.kernel(pos[i], pos[j]))
-            mat.append(mat_row)
+        rhs = np.zeros((self.num_landmarks, self.dim, self.num_landmarks, self.dim))
 
-        block_mat = np.block(mat)
-        assert block_mat.shape == (self.size, self.size)
+        for a, (pa, qa, dqa) in enumerate(zip(momentum, position, d_position)):
+            assert dqa.shape == (self.dim, self.num_landmarks, self.dim)
+            for c in range(self.num_landmarks):
+                for i in range(self.dim):
+                    for j in range(self.dim):
+                        for b, (pb, qb, dpb, dqb) in enumerate(zip(momentum, position, d_momentum, d_position)):
+                            for k in range(self.dim):
+                                rhs[a, i, c, j] += self.kernel(qa, qb)[i, k] * dpb[k, c, j]
+                                for l in range(self.dim):
+                                    rhs[a, i, c, j] += self.kernel.derivative_1(qa, qb, l)[i, k] * dqa[l, c, j] * pb[k]
+                                    rhs[a, i, c, j] += self.kernel.derivative_2(qa, qb, l)[i, k] * dqb[l, c, j] * pb[k]
 
-        return block_mat
+        return rhs
 
-    def DK(self, positions):
-        """Computes derivative of the matrix K as a third order tensor.
+    def _rhs_d_momenta_function(self, d_momentum, momentum, position, d_position):
+        momentum = momentum.reshape((-1, self.dim))
+        position = position.reshape((-1, self.dim))
 
-        Parameters
-        ----------
-        positions
-            Array containing the positions of the landmarks.
+        rhs = np.zeros((self.num_landmarks, self.dim, self.num_landmarks, self.dim))
 
-        Returns
-        -------
-        Tensor of shape (size x size x size).
-        """
-        mat = np.zeros((self.size, self.size, self.size))
+        for a, (pa, qa, dpa, dqa) in enumerate(zip(momentum, position, d_momentum, d_position)):
+            assert dqa.shape == (self.dim, self.num_landmarks, self.dim)
+            for c in range(self.num_landmarks):
+                for i in range(self.dim):
+                    for j in range(self.dim):
+                        for b, (pb, qb, dpb, dqb) in enumerate(zip(momentum, position, d_momentum, d_position)):
+                            for j_tilde in range(self.dim):
+                                for k in range(self.dim):
+                                    rhs[a, i, c, j] -= self.kernel.derivative_1(qa, qb, i)[j_tilde, k] * dpa[j_tilde, c, j] * pb[k]
+                                    rhs[a, i, c, j] -= self.kernel.derivative_1(qa, qb, i)[j_tilde, k] * pa[j_tilde] * dpb[k, c, j]
+                                    for l in range(self.dim):
+                                        rhs[a, i, c, j] -= self.kernel.second_derivative_1_1(qa, qb, i, l)[j_tilde, k] * dqa[l, c, j]
+                                        rhs[a, i, c, j] -= self.kernel.second_derivative_1_2(qa, qb, i, l)[j_tilde, k] * dqb[l, c, j]
 
-        for i in range(self.size):
-            modi = i % self.dim
-            for j in range(self.size):
-                modj = j % self.dim
-                for k in range(self.size):
-                    if i == k:
-                        mat[i][j][k] += self.kernel.derivative_1(positions[i-modi:i+self.dim-modi],
-                                                                 positions[j-modj:j+self.dim-modj],
-                                                                 modi)
-                    if j == k:
-                        mat[i][j][k] += self.kernel.derivative_2(positions[i-modi:i+self.dim-modi],
-                                                                 positions[j-modj:j+self.dim-modj],
-                                                                 modj)
-
-        return mat
+        return rhs
 
     def integrate_forward_variational_Hamiltonian(self, momenta, positions):
         """Performs forward integration of Hamiltonian equations for derivatives of momenta
@@ -341,34 +460,30 @@ class LandmarkShooting:
         -------
         Derivative of the momenta at final time t=1.
         """
-        assert positions.shape == (self.time_steps, self.size)
-        assert momenta.shape == (self.time_steps, self.size)
+        assert positions.shape == (self.time_steps, self.num_landmarks, self.dim)
+        assert momenta.shape == (self.time_steps, self.num_landmarks, self.dim)
 
-        d_positions = np.zeros((self.time_steps, self.size, self.size))
-        d_momenta = np.zeros((self.time_steps, self.size, self.size))
-        d_momenta[0] = np.eye(self.size)
+        d_positions = np.zeros((self.time_steps, self.num_landmarks, self.dim, self.num_landmarks, self.dim))
+        d_momenta = np.zeros((self.time_steps, self.num_landmarks, self.dim, self.num_landmarks, self.dim))
 
-        def rhs_d_positions_function(d_position, position, d_momentum, momentum):
-            return self.DK(position) @ d_position @ momentum + self.K(position) @ d_momentum
+        for k in range(self.num_landmarks):
+            d_momenta[0, k, :, k, :] = np.eye(self.dim)
 
-        ti_d_positions = self.time_integrator(rhs_d_positions_function, self.dt)
+        ti_d_positions = self.time_integrator(self._rhs_d_positions_function, self.dt)
 
-        def rhs_d_momenta_function(d_momentum, position):
-            return - (d_momentum @ self.DK(position) @ position + position @ self.DK(position) @ d_momentum)
-
-        ti_d_momenta = self.time_integrator(rhs_d_momenta_function, self.dt)
+        ti_d_momenta = self.time_integrator(self._rhs_d_momenta_function, self.dt)
 
         for t in range(self.time_steps-1):
             d_positions[t+1] = ti_d_positions.step(d_positions[t], additional_args={'position': positions[t],
                                                                                     'd_momentum': d_momenta[t],
                                                                                     'momentum': momenta[t]})
-            d_momenta[t+1] = ti_d_momenta.step(d_momenta[t], additional_args={'position': positions[t]})
+            d_momenta[t+1] = ti_d_momenta.step(d_momenta[t], additional_args={'momentum': momenta[t],
+                                                                              'position': positions[t],
+                                                                              'd_position': d_positions[t]})
 
         return d_positions[-1], d_momenta[-1]
 
-    def get_vector_field(self, momenta, positions,
-                         mins=np.array([0., 0.]), maxs=np.array([1., 1.]),
-                         spatial_shape=(100, 100)):
+    def get_vector_field(self, momenta, positions, spatial_shape=(100, 100)):
         """Evaluates vector field given by positions and momenta at grid points.
 
         Parameters
@@ -377,10 +492,6 @@ class LandmarkShooting:
             Array containing the momenta of the landmarks.
         positions
             Array containing the positions of the landmarks.
-        mins
-            Array containing the lower bounds of the coordinates.
-        maxs
-            Array containing the upper bounds of the coordinates.
         spatial_shape
             Tuple containing the spatial shape of the grid the diffeomorphism is defined on.
 
@@ -396,14 +507,13 @@ class LandmarkShooting:
                                          kernel=self.kernel)
 
         for pos in np.ndindex(spatial_shape):
-            spatial_pos = mins + (maxs - mins) / np.array(spatial_shape) * np.array(pos)
-            vector_field[pos] = vf_func(spatial_pos) * np.array(spatial_shape)
+            spatial_pos = np.array(pos) / np.array(spatial_shape)
+            vector_field[pos] = vf_func(spatial_pos)
 
         return vector_field
 
-    def compute_time_evolution_of_diffeomorphisms(self, initial_momenta, initial_positions,
-                                                  mins=np.array([0., 0.]), maxs=np.array([1., 1.]),
-                                                  spatial_shape=(100, 100)):
+    def compute_diffeomorphism(self, initial_momenta, initial_positions, spatial_shape=(100, 100),
+                               get_time_dependent_diffeomorphism=False):
         """Performs forward integration of diffeomorphism on given grid using the given
            initial momenta and positions.
 
@@ -413,62 +523,26 @@ class LandmarkShooting:
             Array containing the initial momenta of the landmarks.
         initial_positions
             Array containing the initial positions of the landmarks.
-        mins
-            Array containing the lower bounds of the coordinates.
-        maxs
-            Array containing the upper bounds of the coordinates.
         spatial_shape
             Tuple containing the spatial shape of the grid the diffeomorphism is defined on.
+        get_time_dependent_diffeomorphism
+            Determines whether to return the `TimeDependentDiffeomorphism` or only
+            the final `Diffeomorphism`.
 
         Returns
         -------
         `VectorField` containing the diffeomorphism at the different time instances.
         """
-        assert mins.ndim == 1 and mins.shape[0] == len(spatial_shape)
-        assert maxs.ndim == 1 and maxs.shape[0] == len(spatial_shape)
-        assert np.all(mins < maxs)
         assert initial_momenta.shape == initial_positions.shape
 
-        momenta, positions = self.integrate_forward_Hamiltonian(initial_momenta.flatten(), initial_positions.flatten())
+        momenta, positions = self.integrate_forward_Hamiltonian(initial_momenta, initial_positions)
         vector_fields = TimeDependentVectorField(spatial_shape, self.time_steps)
 
         for t, (m, p) in enumerate(zip(momenta, positions)):
-            vector_fields[t] = self.get_vector_field(m, p, mins, maxs, spatial_shape)
+            vector_fields[t] = self.get_vector_field(m, p, spatial_shape)
 
-        flow = self.integrate_forward_flow(vector_fields)
-
-        return flow
-
-    def integrate_forward_flow(self, vector_fields):
-        """Computes forward integration according to given vector fields.
-
-        Parameters
-        ----------
-        vector_fields
-            `TimeDependentVectorField` containing the sequence of vector fields to integrate
-            in time.
-
-        Returns
-        -------
-        `VectorField` containing the flow at the final time.
-        """
-        assert isinstance(vector_fields, TimeDependentVectorField)
-        assert vector_fields.time_steps == self.time_steps
-        spatial_shape = vector_fields[0].spatial_shape
-        # make identity grid
-        identity_grid = grid.coordinate_grid(spatial_shape)
-
-        # initial flow is the identity mapping
-        flow = identity_grid.copy()
-
-        def rhs_function(x, v):
-            return - sampler.sample(v, x, sampler_options=self.sampler_options)
-
-        ti = self.time_integrator(rhs_function, self.dt)
-
-        # perform forward integration
-        for v in vector_fields:
-            flow = ti.step(flow, additional_args={'v': v})
+        flow = vector_fields.integrate(sampler_options=self.sampler_options,
+                                       get_time_dependent_diffeomorphism=get_time_dependent_diffeomorphism)
 
         return flow
 
@@ -482,6 +556,8 @@ def construct_vector_field(momenta, positions, kernel=GaussianKernel()):
         Array containing the momenta of the landmarks.
     positions
         Array containing the positions of the landmarks.
+    kernel
+        Kernel function to use for constructing the vector field.
 
     Returns
     -------

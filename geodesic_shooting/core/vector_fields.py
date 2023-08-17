@@ -650,7 +650,7 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
         sampler_options
             Additional options to pass to the sampler.
         get_time_dependent_diffeomorphism
-            Determines whether or not to return the `TimeDependentDiffeomorphism` or only
+            Determines whether to return the `TimeDependentDiffeomorphism` or only
             the final `Diffeomorphism`.
 
         Returns
