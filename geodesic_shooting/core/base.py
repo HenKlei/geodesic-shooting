@@ -82,14 +82,19 @@ class BaseFunction:
             return self._data.reshape(shape)
         return self._data
 
-    def flatten(self):
+    def flatten(self, order='C'):
         """Returns the `BaseFunction` represented as a flattened numpy-array.
+
+        Parameters
+        ----------
+        order
+            See https://numpy.org/doc/stable/reference/generated/numpy.ndarray.flatten.html.
 
         Returns
         -------
         Flattened numpy-array containing the entries of the `BaseFunction`.
         """
-        return self.to_numpy().flatten()
+        return self.to_numpy().flatten(order=order)
 
     def get_norm(self, product_operator=None, order=None, restriction=np.s_[...]):
         """Computes the norm of the `BaseFunction`.

@@ -11,15 +11,15 @@ def test_grad():
     f1 = ScalarFunction(shape)
     f1[..., 2] = 1
     derivative = VectorField(shape)
-    derivative[:, 1, 1] = 0.5 * shape[1]
-    derivative[:, 3, 1] = -0.5 * shape[1]
+    derivative[:, 1, 1] = 0.5 * (shape[1] - 1.)
+    derivative[:, 3, 1] = -0.5 * (shape[1] - 1.)
     assert finite_difference(f1) == derivative
 
     f2 = ScalarFunction(shape)
     f2[2, ...] = 1
     derivative = VectorField(shape)
-    derivative[1, :, 0] = 0.5 * shape[0]
-    derivative[3, :, 0] = -0.5 * shape[0]
+    derivative[1, :, 0] = 0.5 * (shape[0] - 1.)
+    derivative[3, :, 0] = -0.5 * (shape[0] - 1.)
     assert finite_difference(f2) == derivative
 
     v = VectorField(shape)
@@ -36,7 +36,8 @@ def test_differential_operators():
     def g(x, y):
         return np.exp(-(6.*x-3.)**2-2.*(6.*y-3.)**2)
 
-    grid_x, grid_y = np.meshgrid(np.linspace(0, 1, shape[0]), np.linspace(0, 1, shape[1]), indexing='ij')
+    grid_x, grid_y = np.meshgrid(np.linspace(0, 1, shape[0]), np.linspace(0, 1, shape[1]),
+                                 indexing='ij')
 
     function = ScalarFunction(data=g(grid_x, grid_y))
 
