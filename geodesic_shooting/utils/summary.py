@@ -250,6 +250,7 @@ def save_plots_registration_results(results, filepath='results/', postfix='', in
     plt.semilogy(singular_values)
     plt.title("Singular values of time-evolution of the vector field")
     plt.savefig(filepath + 'singular_values_of_vector_fields.png')
+    plt.close()
 
     with open(f'{filepath}/singular_values.txt', 'a') as singular_values_file:
         for val in singular_values:
