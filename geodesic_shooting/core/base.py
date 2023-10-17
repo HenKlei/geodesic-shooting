@@ -82,14 +82,19 @@ class BaseFunction:
             return self._data.reshape(shape)
         return self._data
 
-    def flatten(self):
+    def flatten(self, order='C'):
         """Returns the `BaseFunction` represented as a flattened numpy-array.
+
+        Parameters
+        ----------
+        order
+            See https://numpy.org/doc/stable/reference/generated/numpy.ndarray.flatten.html.
 
         Returns
         -------
         Flattened numpy-array containing the entries of the `BaseFunction`.
         """
-        return self.to_numpy().flatten()
+        return self.to_numpy().flatten(order=order)
 
     def get_norm(self, product_operator=None, order=None, restriction=np.s_[...]):
         """Computes the norm of the `BaseFunction`.
@@ -122,6 +127,14 @@ class BaseFunction:
             return np.linalg.norm(self.to_numpy()[restriction].flatten(), ord=order) * np.power(vol, 1./order)
 
     norm = property(get_norm)
+
+    def dot(self, other, product_operator=None, restriction=np.s_[...]):
+        vol = 1. / tuple_product(self.spatial_shape)
+        if product_operator:
+            apply_product_operator = product_operator(self).to_numpy()[restriction].flatten()
+            return apply_product_operator.dot(other.to_numpy()[restriction].flatten()) * vol
+        else:
+            return self.to_numpy()[restriction].flatten().dot(other.to_numpy()[restriction].flatten()) * vol
 
     @property
     def size(self):

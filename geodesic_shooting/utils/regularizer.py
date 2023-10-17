@@ -117,7 +117,7 @@ class BiharmonicRegularizer:
 
             return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
         else:
-            res = [self.helmholtz_matrix @ v.to_numpy()[..., d].flatten(order='F') for d in range(v.dim)]
+            res = [self.helmholtz_matrix @ v[..., d].flatten(order='F') for d in range(v.dim)]
             res = np.array(res).T.reshape(v.full_shape, order='F')
             return VectorField(spatial_shape=v.spatial_shape, data=res)
 
@@ -155,7 +155,7 @@ class BiharmonicRegularizer:
 
             return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
         else:
-            res = [self.cauchy_navier_matrix @ v.to_numpy()[..., d].flatten(order='F') for d in range(v.dim)]
+            res = [self.cauchy_navier_matrix @ v[..., d].flatten(order='F') for d in range(v.dim)]
             res = np.array(res).T.reshape(v.full_shape, order='F')
             return VectorField(spatial_shape=v.spatial_shape, data=res)
 
@@ -233,7 +233,7 @@ class BiharmonicRegularizer:
             res_complete = []
             prod = tuple_product(v.spatial_shape)
             for d in range(v.dim):
-                res = self.lu_decomposed_cauchy_navier_matrix.solve(v.to_numpy().flatten(order='F')[d*prod:(d+1)*prod])
+                res = self.lu_decomposed_cauchy_navier_matrix.solve(v.flatten(order='F')[d*prod:(d+1)*prod])
                 res_complete.append(res)
             res = np.array(res_complete).T.reshape(v.full_shape, order='F')
             return VectorField(spatial_shape=v.spatial_shape, data=res)

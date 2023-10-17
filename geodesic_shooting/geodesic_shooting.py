@@ -166,7 +166,7 @@ class GeodesicShooting:
                 # to the initial vector field
                 gradient_initial_vector = self.integrate_backward_adjoint_Jacobi_field(gradient_l2_energy,
                                                                                        vector_fields)
-                gradient_initial_vector = gradient_initial_vector.to_numpy().flatten()
+                gradient_initial_vector = gradient_initial_vector.flatten()
 
                 if return_all_energies:
                     return energy, energy_regularizer, energy_intensity_unscaled, energy_intensity, \
@@ -260,11 +260,11 @@ class GeodesicShooting:
                     result = {'x': x, 'nit': i, 'message': message}
                     return result
 
-                res = gradient_descent(energy_and_gradient, initial_vector_field.to_numpy().flatten(),
+                res = gradient_descent(energy_and_gradient, initial_vector_field.flatten(),
                                        callback=save_current_state, **optimizer_options)
             else:
-                save_current_state(initial_vector_field.to_numpy().flatten())
-                res = optimize.minimize(energy_and_gradient, initial_vector_field.to_numpy().flatten(),
+                save_current_state(initial_vector_field.flatten())
+                res = optimize.minimize(energy_and_gradient, initial_vector_field.flatten(),
                                         method=optimization_method, jac=True, options=optimizer_options,
                                         callback=save_current_state)
 

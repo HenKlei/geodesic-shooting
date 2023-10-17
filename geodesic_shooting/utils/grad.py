@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.ndimage import correlate
+import scipy.sparse as sps
 
 import geodesic_shooting.core as core
 from geodesic_shooting.utils.helper_functions import tuple_product
@@ -33,15 +34,15 @@ def finite_difference(f):
         indices = list(range(dim))
         indices[0] = d
         indices[d] = 0
-        window_d = np.transpose(window, axes=indices) * shape[d]
+        window_d = np.transpose(window, axes=indices) * (shape[d] - 1.)
         return correlate(u, window_d)
 
     derivatives = []
 
     if isinstance(f, core.VectorField):
-        for i in range(f.dim):
+        for i in range(dim):
             derivatives_d = []
-            for j in range(f.dim):
+            for j in range(dim):
                 derivatives_d.append(_fd_single_dim(f[..., i], j))
             derivatives.append(np.stack(derivatives_d, axis=-1))
         return np.stack(derivatives, axis=-1)
@@ -56,41 +57,38 @@ def finite_difference(f):
 
 def finite_difference_matrix(shape):
     dim = len(shape)
-    assert dim in [1, 2, ]
+    assert dim in [1, 2]
     size = tuple_product(shape)
 
     if dim == 1:
         main_diagonal = np.zeros(size)
-        main_diagonal[0] = -0.5
-        main_diagonal[-1] = 0.5
-        first_diagonal = np.ones(size-1) * 0.5
-        mat = np.diag(main_diagonal, 0) + np.diag(first_diagonal, 1) + np.diag(-first_diagonal, -1)
-
-    if dim == 2:
+        main_diagonal[0] = -0.5 * (shape[0] - 1.)
+        main_diagonal[-1] = 0.5 * (shape[0] - 1.)
+        first_diagonal = np.ones(size-1) * 0.5 * (shape[0] - 1.)
+        mat = sps.diags([main_diagonal, first_diagonal, -first_diagonal], [0, 1, -1])
+    elif dim == 2:
         main_diagonal = np.zeros(size)
         main_diagonal[0:shape[1]] = -0.5
         main_diagonal[-shape[1]:] = 0.5
         first_diagonal = np.ones(size-shape[1]) * 0.5
-        mat1 = (np.diag(main_diagonal, 0) + np.diag(first_diagonal, shape[1])
-                + np.diag(-first_diagonal, -shape[1]))
+        mat1 = sps.diags([main_diagonal, first_diagonal, -first_diagonal], [0, shape[1], -shape[1]])
 
         main_diagonal = np.zeros(size)
         main_diagonal[::shape[1]] = -0.5
         main_diagonal[shape[1]-1::shape[1]] = 0.5
         first_diagonal = np.ones(size-1) * 0.5
         first_diagonal[shape[1]-1::shape[1]] = 0
-        mat2 = (np.diag(main_diagonal, 0) + np.diag(first_diagonal, 1)
-                + np.diag(-first_diagonal, -1))
+        mat2 = sps.diags([main_diagonal, first_diagonal, -first_diagonal], [0, 1, -1])
 
-        mat = np.vstack([np.hstack([mat1, mat2]), np.hstack([mat1, mat2])])
+        mat = sps.vstack([sps.hstack([mat1, mat2]), sps.hstack([mat1, mat2])])
 
-    assert mat.shape == (dim * size, dim * size)
+    assert mat.shape == (dim * size, size)
     return mat
 
 
 def gradient_matrix(shape):
     dim = len(shape)
-    assert dim in [1, 2, ]
+    assert dim in [1, 2]
     size = tuple_product(shape)
 
     if dim == 1:
@@ -99,8 +97,7 @@ def gradient_matrix(shape):
         main_diagonal[-1] = 0.5
         first_diagonal = np.ones(size-1) * 0.5
         mat = np.diag(main_diagonal, 0) + np.diag(first_diagonal, 1) + np.diag(-first_diagonal, -1)
-
-    if dim == 2:
+    elif dim == 2:
         main_diagonal = np.zeros(size)
         main_diagonal[0:shape[1]] = -0.5
         main_diagonal[-shape[1]:] = 0.5
