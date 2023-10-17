@@ -128,6 +128,14 @@ class BaseFunction:
 
     norm = property(get_norm)
 
+    def dot(self, other, product_operator=None, restriction=np.s_[...]):
+        vol = 1. / tuple_product(self.spatial_shape)
+        if product_operator:
+            apply_product_operator = product_operator(self).to_numpy()[restriction].flatten()
+            return apply_product_operator.dot(other.to_numpy()[restriction].flatten()) * vol
+        else:
+            return self.to_numpy()[restriction].flatten().dot(other.to_numpy()[restriction].flatten()) * vol
+
     @property
     def size(self):
         """Returns the size of the `BaseFunction`, i.e. the number of entries of the numpy-array.

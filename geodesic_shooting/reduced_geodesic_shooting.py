@@ -78,7 +78,7 @@ class ReducedGeodesicShooting:
 
         self.logger = getLogger('reduced_geodesic_shooting', level=log_level)
 
-        self.logger.info("Initialize matrices of regularizer ...")
+        self.logger.info('Initialize matrices of regularizer ...')
         self.regularizer.init_matrices(self.shape)
 
         matrices_labels = ['matrices_forward', 'matrices_backward_1',
@@ -92,18 +92,21 @@ class ReducedGeodesicShooting:
                 assert div.shape == (self.dim * self.size, self.dim * self.size)
                 L = self.regularizer.cauchy_navier_matrix
                 assert L.shape == (self.dim * self.size, self.dim * self.size)
-                K = self.regularizer.cauchy_navier_inverse_matrix
+                #K = self.regularizer.cauchy_navier_inverse_matrix
                 # No need to compute K explicitly!
                 # It can be replaced by solving for each vector in the reduced basis a linear system!
-                assert K.shape == (self.dim * self.size, self.dim * self.size)
+                #assert K.shape == (self.dim * self.size, self.dim * self.size)
 
-                U = np.array([v.flatten() for v in self.rb_vector_fields]).T
+                U = np.array([v.flatten('F') for v in self.rb_vector_fields]).T
                 assert U.shape == (self.dim * self.size, self.rb_size)
+
+                # flatten with order='F'?!?!
 
                 # To check if every matrix is constructed correctly, try to implement the full
                 # geodesic shooting algorithm (without reduction) in a matrix-based fashion!
 
-                UTK = U.T.dot(K)
+                UTK = self.regularizer.lu_decomposed_cauchy_navier_matrix.solve(U, trans='T').T
+                #UTK = U.T.dot(K)
                 DL = D.dot(L)
                 DTU = D.T.dot(U)
                 DLU = DL.dot(U)

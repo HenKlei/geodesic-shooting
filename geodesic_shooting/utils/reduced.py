@@ -16,7 +16,7 @@ def pod(modes, num_modes=10, product_operator=None, return_singular_values='all'
     product_operator
         Operator to compute the inner product for the gramian matrix.
     return_singular_values
-        Determines whether or not to return (all) singular values.
+        Determines whether to return (all) singular values.
         If `'all'`, all singular values are returned. If `True`, only the
         singular values to the POD modes are returned. If `False`, no
         singular values are returned.
