@@ -246,6 +246,11 @@ def save_plots_registration_results(results, filepath='results/', postfix='', in
     time_dependent_diffeomorphism = results['vector_fields'].integrate(get_time_dependent_diffeomorphism=True)
     assert time_dependent_diffeomorphism[-1] == diffeomorphism
 
+    _, singular_values = pod(results['vector_fields'], return_singular_values='all')
+    with open(filepath + 'singular_values.txt', 'a') as singular_values_file:
+        for val in singular_values:
+            singular_values_file.write(f"{val}\n")
+
     if save_animations:
         ani = time_dependent_diffeomorphism.animate('Animation of the time-evolution of the diffeomorphism' + postfix,
                                                     figsize=figsize, interval=interval)
