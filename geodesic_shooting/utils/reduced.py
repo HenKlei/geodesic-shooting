@@ -5,7 +5,7 @@ def pod(modes, num_modes=10, product_operator=None, return_singular_values='all'
     """Proper orthogonal decomposition of the given modes.
 
     This function computes the POD of the given modes. It is possible to pass a
-    product to the method which is used to computed the gramian matrix.
+    product to the method which is used to compute the gramian matrix.
 
     Parameters
     ----------
@@ -16,7 +16,7 @@ def pod(modes, num_modes=10, product_operator=None, return_singular_values='all'
     product_operator
         Operator to compute the inner product for the gramian matrix.
     return_singular_values
-        Determines whether or not to return (all) singular values.
+        Determines whether to return (all) singular values.
         If `'all'`, all singular values are returned. If `True`, only the
         singular values to the POD modes are returned. If `False`, no
         singular values are returned.
