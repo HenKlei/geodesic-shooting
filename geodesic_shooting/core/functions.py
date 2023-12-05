@@ -84,7 +84,7 @@ class ScalarFunction(BaseFunction):
                 label_img[restriction] = True
                 mask = skimage.segmentation.find_boundaries(label_img, mode='outer')
                 image[mask] = np.nan
-            vals = axis.imshow(image, origin='lower', extent=extent, vmin=vmin, vmax=vmax)
+            vals = axis.imshow(image, origin='lower', extent=extent, vmin=vmin, vmax=vmax, aspect=None)
         elif self.dim == 3:
             identity_grid = grid.coordinate_grid(self.spatial_shape).to_numpy()
             vals = axis.scatter(identity_grid[..., 0].flatten(),
