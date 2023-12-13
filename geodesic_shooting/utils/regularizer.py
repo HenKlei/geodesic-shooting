@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.sparse as sps
+import torch
 
 from geodesic_shooting.core import VectorField
 from geodesic_shooting.utils.helper_functions import tuple_product
@@ -12,8 +13,6 @@ class BiharmonicRegularizer:
     This class implements a regularizer for vector fields to make them smooth,
     such that the corresponding flows define diffeomorphisms.
     """
-    format = 'csc'
-
     def __init__(self, alpha=0.1, exponent=1, gamma=1., fourier=True, spatial_shape=None, log_level='INFO'):
         """Constructor.
 
@@ -74,10 +73,10 @@ class BiharmonicRegularizer:
             prod = tuple_product(shape)
             self.helmholtz_matrix = self._helmholtz_matrix(shape)
             assert self.helmholtz_matrix.shape == (prod, prod)
-            self.cauchy_navier_matrix = self.helmholtz_matrix.transpose().tocsc() @ self.helmholtz_matrix
+            self.cauchy_navier_matrix = self.helmholtz_matrix.T @ self.helmholtz_matrix
             assert self.cauchy_navier_matrix.shape == (prod, prod)
             with self.logger.block("Computing LU decomposition of Cauchy Navier matrix ..."):
-                self.lu_decomposed_cauchy_navier_matrix = sps.linalg.splu(self.cauchy_navier_matrix)
+                self.lu_decomposed_cauchy_navier_matrix = torch.linalg.lu_factor(self.cauchy_navier_matrix)
                 self.logger.info("Done.")
             self.matrices_initialized = True
         elif self.fourier:
@@ -117,8 +116,8 @@ class BiharmonicRegularizer:
 
             return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
         else:
-            res = [self.helmholtz_matrix @ v.to_numpy()[..., d].flatten(order='F') for d in range(v.dim)]
-            res = np.array(res).T.reshape(v.full_shape, order='F')
+            res = [self.helmholtz_matrix @ v.to_torch()[..., d].flatten(order='F') for d in range(v.dim)]
+            res = torch.tensor(res).T.reshape(v.full_shape, order='F')
             return VectorField(spatial_shape=v.spatial_shape, data=res)
 
     def cauchy_navier(self, v):
@@ -155,7 +154,7 @@ class BiharmonicRegularizer:
 
             return VectorField(spatial_shape=v.spatial_shape, data=result_inverse_fourier)
         else:
-            res = [self.cauchy_navier_matrix @ v.to_numpy()[..., d].flatten(order='F') for d in range(v.dim)]
+            res = [(self.cauchy_navier_matrix @ v.to_numpy()[..., d].flatten(order='F')).numpy() for d in range(v.dim)]
             res = np.array(res).T.reshape(v.full_shape, order='F')
             return VectorField(spatial_shape=v.spatial_shape, data=res)
 
@@ -169,34 +168,27 @@ class BiharmonicRegularizer:
             assert 0 <= dim <= len_input_shape - 1
             assert len_input_shape == 1 or 0 <= i <= len_input_shape - 2
 
-            main_diagonal = -2. * np.ones(input_shape[dim]) * (input_shape[dim] - 1.)**2
-            first_diagonal = np.ones(input_shape[dim]-1) * (input_shape[dim] - 1.)**2
-            laplacian = sps.diags([main_diagonal, first_diagonal, first_diagonal], [0, 1, -1],
-                                  format=self.format)
+            main_diagonal = -2. * torch.ones(input_shape[dim]) * (input_shape[dim] - 1.)**2
+            first_diagonal = torch.ones(input_shape[dim]-1) * (input_shape[dim] - 1.)**2
+            laplacian = torch.diag(main_diagonal, 0) + torch.diag(first_diagonal, 1) + torch.diag(first_diagonal, -1)
 
             if len_input_shape == 1:
                 return laplacian
             if i == len_input_shape - 2:
                 if i == dim:
-                    return sps.kron(laplacian, sps.eye(input_shape[i+1]),
-                                    format=self.format)
+                    return torch.kron(laplacian, torch.eye(input_shape[i+1]))
                 if dim == len_input_shape - 1:
-                    return sps.kron(sps.eye(input_shape[i]), laplacian,
-                                    format=self.format)
-                return sps.kron(sps.eye(input_shape[i]), sps.eye(input_shape[i+1]),
-                                format=self.format)
+                    return torch.kron(torch.eye(input_shape[i]), laplacian)
+                return torch.kron(torch.eye(input_shape[i]), torch.eye(input_shape[i+1]))
             if i == dim:
-                return sps.kron(laplacian, recursive_kronecker_product(dim, i+1),
-                                format=self.format)
-            return sps.kron(sps.eye(input_shape[i]),
-                            recursive_kronecker_product(dim, i+1),
-                            format=self.format)
+                return torch.kron(laplacian, recursive_kronecker_product(dim, i+1))
+            return torch.kron(torch.eye(input_shape[i]), recursive_kronecker_product(dim, i+1))
 
         size = tuple_product(input_shape)
-        mat = sps.csc_matrix((size, size))
+        mat = torch.zeros((size, size))
         for dimension in range(len_input_shape):
             mat += recursive_kronecker_product(dimension)
-        return (- self.alpha * mat + self.gamma * sps.eye(size, format=self.format)) ** self.exponent
+        return (- self.alpha * mat + self.gamma * torch.eye(size)) ** self.exponent
 
     def cauchy_navier_inverse(self, v):
         """Application of the operator `K=(L^*L)^{-1}`, with the Helmholtz operator `L`.
@@ -233,9 +225,9 @@ class BiharmonicRegularizer:
             res_complete = []
             prod = tuple_product(v.spatial_shape)
             for d in range(v.dim):
-                res = self.lu_decomposed_cauchy_navier_matrix.solve(v.to_numpy().flatten(order='F')[d*prod:(d+1)*prod])
+                res = torch.lu_solve(torch.from_numpy(v.to_numpy().flatten(order='F')[d*prod:(d+1)*prod]), *self.lu_decomposed_cauchy_navier_matrix)
                 res_complete.append(res)
-            res = np.array(res_complete).T.reshape(v.full_shape, order='F')
+            res = torch.tensor(res_complete).T.reshape(v.full_shape, order='F')
             return VectorField(spatial_shape=v.spatial_shape, data=res)
 
     def compute_helper_operator(self, dim, spatial_shape):

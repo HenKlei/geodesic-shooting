@@ -1,5 +1,7 @@
 import numpy as np
 
+import torch
+
 import geodesic_shooting.core as core
 
 
@@ -17,12 +19,9 @@ def coordinate_grid(shape):
     """
     assert len(shape) > 0
 
-    if len(shape) == 1:
-        return core.VectorField(spatial_shape=shape, data=np.mgrid[:shape[0]][..., np.newaxis].astype(np.double))
-
     ranges = [np.arange(s) for s in shape]
     return core.VectorField(spatial_shape=shape,
-                            data=np.stack(np.meshgrid(*ranges, indexing='ij'), axis=-1).astype(np.double))
+                            data=torch.stack(torch.meshgrid(*ranges, indexing='ij'), dim=-1).astype(np.double))
 
 
 def identity_diffeomorphism(shape):
@@ -39,9 +38,6 @@ def identity_diffeomorphism(shape):
     """
     assert len(shape) > 0
 
-    if len(shape) == 1:
-        return core.Diffeomorphism(spatial_shape=shape, data=np.mgrid[:shape[0]][..., np.newaxis].astype(np.double))
-
     ranges = [np.arange(s) for s in shape]
     return core.Diffeomorphism(spatial_shape=shape,
-                               data=np.stack(np.meshgrid(*ranges, indexing='ij'), axis=-1).astype(np.double))
+                               data=torch.stack(torch.meshgrid(*ranges, indexing='ij'), dim=-1).astype(np.double))

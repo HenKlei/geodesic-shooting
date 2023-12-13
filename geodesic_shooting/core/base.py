@@ -1,5 +1,6 @@
-import numpy as np
 from copy import deepcopy
+import numpy as np
+import torch
 
 from geodesic_shooting.utils.helper_functions import tuple_product
 import geodesic_shooting.utils.grad as grad
@@ -34,7 +35,9 @@ class BaseFunction:
 
         if data is None:
             assert spatial_shape != ()
-            data = np.zeros(self.full_shape)
+            data = torch.zeros(self.full_shape)
+        if not isinstance(data, torch.Tensor):
+            data = torch.from_numpy(data)
         self._data = data
 
         assert self._data.shape == self.full_shape
@@ -66,7 +69,7 @@ class BaseFunction:
         """
         return sampler.sample(self, flow, sampler_options=sampler_options)
 
-    def to_numpy(self, shape=None):
+    def to_torch(self, shape=None):
         """Returns the `BaseFunction` represented as a numpy-array.
 
         Parameters
@@ -81,6 +84,22 @@ class BaseFunction:
         if shape:
             return self._data.reshape(shape)
         return self._data
+
+    def to_numpy(self, shape=None):
+        """Returns the `BaseFunction` represented as a numpy-array.
+
+        Parameters
+        ----------
+        shape
+            If not `None`, the numpy-array is reshaped according to `shape`.
+
+        Returns
+        -------
+        Numpy-array containing the entries of the `BaseFunction`.
+        """
+        if shape:
+            return self._data.numpy().reshape(shape)
+        return self._data.numpy()
 
     def flatten(self):
         """Returns the `BaseFunction` represented as a flattened numpy-array.
@@ -214,7 +233,7 @@ class BaseTimeDependentFunction:
     def _compute_full_shape(self):
         return (self.time_steps, *self.spatial_shape, self.dim)
 
-    def to_numpy(self, shape=None):
+    def to_torch(self, shape=None):
         """Returns the `BaseTimeDependentFunction` represented as a numpy-array.
 
         Parameters

@@ -1,7 +1,7 @@
-# -*- coding: utf-8 -*-
-import time
 import numpy as np
 import scipy.optimize as optimize
+import time
+import torch
 
 from geodesic_shooting.core import ScalarFunction, VectorField, TimeDependentVectorField
 from geodesic_shooting.utils.logger import getLogger
@@ -107,7 +107,7 @@ class GeodesicShooting:
 
         self.regularizer.init_matrices(template.spatial_shape)
 
-        inverse_mask = np.ones(template.spatial_shape, bool)
+        inverse_mask = torch.ones(template.spatial_shape, dtype=torch.bool)
         inverse_mask[restriction] = 0
 
         # function to compute the L2-error between a given image and the target
@@ -117,7 +117,7 @@ class GeodesicShooting:
         # function to compute the gradient of the overall energy function
         # with respect to the final vector field
         def compute_grad_energy(image):
-            grad_diff = image.grad * (image - target)[..., np.newaxis]
+            grad_diff = image.grad * (image - target)[..., None]
             grad_diff[inverse_mask] = 0.
             return 2. * self.regularizer.cauchy_navier_inverse(grad_diff)
 
@@ -166,7 +166,7 @@ class GeodesicShooting:
                 # to the initial vector field
                 gradient_initial_vector = self.integrate_backward_adjoint_Jacobi_field(gradient_l2_energy,
                                                                                        vector_fields)
-                gradient_initial_vector = gradient_initial_vector.to_numpy().flatten()
+                gradient_initial_vector = gradient_initial_vector.to_torch().flatten()
 
                 if return_all_energies:
                     return energy, energy_regularizer, energy_intensity_unscaled, energy_intensity, \
@@ -208,21 +208,21 @@ class GeodesicShooting:
                     with self.logger.block('Starting optimization using gradient descent ...'):
                         x = x0
                         if callback is not None:
-                            callback(np.copy(x))
+                            callback(torch.clone(x))
                         func_x, _, energy_intensity_unscaled, _, grad_x = func(x, compute_grad=True,
                                                                                return_all_energies=True)
                         old_func_x = func_x
                         rel_func_update = rel_func_update_tol + 1
-                        norm_grad_x = np.linalg.norm(grad_x)
+                        norm_grad_x = torch.linalg.norm(grad_x)
                         i = 0
                         if disp:
                             self.logger.info(f'iter: {i:5d}\tf= {func_x:.5e}\t|grad|= {norm_grad_x:.5e}\t'
                                              f'rel.func.upd.= {rel_func_update:.5e}\t'
-                                             f'rel.diff.= {(np.sqrt(energy_intensity_unscaled) / target_norm):.5e}')
+                                             f'rel.diff.= {(torch.sqrt(energy_intensity_unscaled) / target_norm):.5e}')
                         try:
                             while True:
                                 if callback is not None:
-                                    callback(np.copy(x))
+                                    callback(torch.clone(x))
                                 if norm_grad_x <= grad_norm_tol:
                                     message = 'gradient norm below tolerance'
                                     break
@@ -241,17 +241,17 @@ class GeodesicShooting:
                                 x = x + alpha * d
                                 func_x, _, energy_intensity_unscaled, _, grad_x = func(x, compute_grad=True,
                                                                                        return_all_energies=True)
-                                if not np.isclose(old_func_x, 0.):
+                                if not torch.isclose(old_func_x, 0.):
                                     rel_func_update = abs((func_x - old_func_x) / old_func_x)
                                 else:
                                     rel_func_update = 0.
                                 old_func_x = func_x
-                                norm_grad_x = np.linalg.norm(grad_x)
+                                norm_grad_x = torch.linalg.norm(grad_x)
                                 i += 1
                                 if disp:
                                     self.logger.info(f'iter: {i:5d}\tf= {func_x:.5e}\t|grad|= {norm_grad_x:.5e}\t'
                                                      f'rel.func.upd.= {rel_func_update:.5e}\trel.diff.= '
-                                                     f'{(np.sqrt(energy_intensity_unscaled) / target_norm):.5e}')
+                                                     f'{(torch.sqrt(energy_intensity_unscaled) / target_norm):.5e}')
                         except KeyboardInterrupt:
                             message = 'optimization stopped due to keyboard interrupt'
                             self.logger.warning('Optimization interrupted ...')
@@ -260,11 +260,11 @@ class GeodesicShooting:
                     result = {'x': x, 'nit': i, 'message': message}
                     return result
 
-                res = gradient_descent(energy_and_gradient, initial_vector_field.to_numpy().flatten(),
+                res = gradient_descent(energy_and_gradient, initial_vector_field.to_torch().flatten(),
                                        callback=save_current_state, **optimizer_options)
             else:
-                save_current_state(initial_vector_field.to_numpy().flatten())
-                res = optimize.minimize(energy_and_gradient, initial_vector_field.to_numpy().flatten(),
+                save_current_state(initial_vector_field.to_torch().flatten())
+                res = optimize.minimize(energy_and_gradient, initial_vector_field.to_torch().flatten(),
                                         method=optimization_method, jac=True, options=optimizer_options,
                                         callback=save_current_state)
 
@@ -287,7 +287,7 @@ class GeodesicShooting:
         opt['energy_intensity_unscaled'] = energy_intensity_unscaled
         opt['energy_intensity'] = energy_intensity
         opt['energy'] = energy
-        opt['norm_gradient'] = np.linalg.norm(gradient)
+        opt['norm_gradient'] = torch.linalg.norm(gradient)
 
         elapsed_time = int(time.perf_counter() - start_time)
 
@@ -376,9 +376,9 @@ class GeodesicShooting:
             # compute the divergence and the gradient (Jacobian) of the current vector field
             div_vt, grad_vt = x.get_divergence(return_gradient=True)
             # compute the right hand side, i.e. Dv^T m + Dm v + m div v
-            rhs = (np.einsum(einsum_string_transpose, grad_vt, momentum_t.to_numpy())
-                   + np.einsum(einsum_string, grad_mt, x.to_numpy())
-                   + momentum_t.to_numpy() * div_vt[..., np.newaxis])
+            rhs = (torch.einsum(einsum_string_transpose, torch.from_numpy(grad_vt), momentum_t.to_torch())
+                   + torch.einsum(einsum_string, torch.from_numpy(grad_mt), x.to_torch())
+                   + momentum_t.to_torch() * div_vt[..., None])
             rhs = VectorField(data=rhs)
             rhs = -self.regularizer.cauchy_navier_inverse(rhs)
             return rhs
@@ -433,9 +433,9 @@ class GeodesicShooting:
 
             # update adjoint variable `v_old`
             rhs_v = - self.regularizer.cauchy_navier_inverse(
-                VectorField(data=np.einsum(einsum_string_transpose, grad_vector_fields, regularized_v.to_numpy()))
-                + VectorField(data=np.einsum(einsum_string, grad_regularized_v, v.to_numpy()))
-                + regularized_v * div_vector_fields[..., np.newaxis])
+                VectorField(data=torch.einsum(einsum_string_transpose, grad_vector_fields, regularized_v.to_torch()))
+                + VectorField(data=torch.einsum(einsum_string, grad_regularized_v, v.to_torch()))
+                + regularized_v * div_vector_fields[..., None])
 
             # get divergence and gradient of the adjoint variable `delta_v`
             div_delta_v, grad_delta_v = delta_v.get_divergence(return_gradient=True)
@@ -445,16 +445,16 @@ class GeodesicShooting:
             grad_regularized_vector_fields = regularized_vector_fields.grad
             # update the adjoint variable `delta_v`
             rhs_delta_v = (- v_old
-                           - (np.einsum(einsum_string, grad_vector_fields, delta_v.to_numpy())
-                              - np.einsum(einsum_string, grad_delta_v, v.to_numpy()))
+                           - (torch.einsum(einsum_string, grad_vector_fields, delta_v.to_torch())
+                              - torch.einsum(einsum_string, grad_delta_v, v.to_torch()))
                            + self.regularizer.cauchy_navier_inverse(
-                               VectorField(data=np.einsum(einsum_string_transpose,
-                                                          grad_delta_v,
-                                                          regularized_vector_fields.to_numpy()))
-                               + VectorField(data=np.einsum(einsum_string,
-                                                            grad_regularized_vector_fields,
-                                                            delta_v.to_numpy()))
-                               + regularized_vector_fields * div_delta_v[..., np.newaxis]))
+                               VectorField(data=torch.einsum(einsum_string_transpose,
+                                                             grad_delta_v,
+                                                             regularized_vector_fields.to_torch()))
+                               + VectorField(data=torch.einsum(einsum_string,
+                                                               grad_regularized_vector_fields,
+                                                               delta_v.to_torch()))
+                               + regularized_vector_fields * div_delta_v[..., None]))
             return rhs_delta_v, rhs_v
 
         ti = self.time_integrator(rhs_function, self.dt)
