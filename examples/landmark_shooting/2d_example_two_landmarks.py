@@ -16,8 +16,8 @@ if __name__ == "__main__":
     gs = geodesic_shooting.LandmarkShooting(kernel=GaussianKernel, kwargs_kernel={'sigma': 1.5},
                                             dim=2, num_landmarks=2)
     kernel = gs.kernel
-    input_landmarks = np.array([[0., 0.], [10., 5.]])
-    true_momenta = np.array([[5., 2.5], [-5., -2.5]])
+    input_landmarks = np.array([[0., 0.], [1., 0.5]])
+    true_momenta = np.array([[1, 0.5], [-1, -.5]])
     time_evolution_momenta, time_evolution_positions = gs.integrate_forward_Hamiltonian(true_momenta, input_landmarks)
     plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions, kernel=gs.kernel,
                                show_vector_fields=False, title="True trajectories")
@@ -45,7 +45,8 @@ if __name__ == "__main__":
     # Check energy of true momenta
     energy, energy_regularizer, energy_intensity_unscaled, energy_intensity = gs.energy_and_gradient(
         true_momenta, input_landmarks, target_landmarks, sigma,
-        lambda positions: np.linalg.norm(positions.flatten() - target_landmarks.flatten())**2,
+        lambda positions, targets: np.linalg.norm(positions.flatten() - targets.flatten())**2,
+        lambda positions, targets: 2. * (positions.flatten() - targets.flatten()),
         compute_grad=False, return_all_energies=True)
     print("True momenta energies:")
     print(f"Energy regularizer: {energy_regularizer}")
