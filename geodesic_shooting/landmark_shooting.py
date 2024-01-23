@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from functools import partial
-import numpy as np
+import torch as np
 import scipy.optimize as optimize
 import time
 
@@ -68,7 +68,7 @@ class LandmarkShooting:
                             compute_grad=True, return_all_energies=False):
         momenta_time_dependent, positions_time_dependent = self.integrate_forward_Hamiltonian(
             initial_momenta, initial_positions)
-        positions = positions_time_dependent[-1]
+        positions = positions_time_dependent[-1].reshape((self.num_landmarks, self.dim))
 
         energy_regularizer = self.compute_Hamiltonian(initial_momenta, initial_positions)
         energy_intensity_unscaled = compute_matching_function(positions, target_landmarks)
@@ -81,7 +81,8 @@ class LandmarkShooting:
 
             assert initial_momenta.shape == (self.num_landmarks, self.dim)
             assert initial_positions.shape == (self.num_landmarks, self.dim)
-            grad = initial_momenta.flatten() @ self.kernel.apply_vectorized(initial_positions, initial_positions, self.dim) * initial_momenta.flatten()
+            grad = initial_momenta.flatten() @ self.kernel.apply_vectorized(initial_positions, initial_positions,
+                                                                            self.dim) * initial_momenta.flatten()
             grad = grad.reshape((self.num_landmarks, self.dim))
 
             assert positions.shape == (self.num_landmarks, self.dim)
@@ -90,7 +91,8 @@ class LandmarkShooting:
                 for j in range(self.dim):
                     for a, (qa1, target_qa1) in enumerate(zip(positions, target_landmarks)):
                         for i in range(self.dim):
-                            grad[c, j] += compute_gradient_matching_function(qa1[i], target_qa1[i]) * d_positions_1[a, i, c, j] / sigma ** 2
+                            grad[c, j] += (compute_gradient_matching_function(qa1[i], target_qa1[i])
+                                           * d_positions_1[a, i, c, j] / sigma ** 2)
 
             if return_all_energies:
                 return energy, energy_regularizer, energy_intensity_unscaled, energy_intensity, grad
@@ -287,6 +289,23 @@ class LandmarkShooting:
         elif optimization_method == 'GD':
             res = gradient_descent(energy_and_gradient, initial_momenta,
                                    logger=self.logger, callback=save_current_state, **optimizer_options)
+        elif optimization_method == 'ADAM':
+            learning_rate = 1e-1
+            initial_momenta.requires_grad_(True)
+            initial_momenta.retain_grad()
+            optim = np.optim.Adam([initial_momenta], lr=learning_rate)
+            np.autograd.set_detect_anomaly(True)
+            for i in range(100):
+                val = self.energy_and_gradient(initial_momenta, initial_positions=initial_positions,
+                                               target_landmarks=target_landmarks, sigma=sigma,
+                                               compute_matching_function=compute_matching_function,
+                                               compute_gradient_matching_function=compute_gradient_matching_function,
+                                               compute_grad=False, return_all_energies=False)
+                print(i, val.item())
+                optim.zero_grad()
+                val.backward()
+                optim.step()
+                print(initial_momenta)
         else:
             # use scipy optimizer for minimizing energy function
             with self.logger.block("Perform landmark matching via geodesic shooting ..."):
@@ -343,7 +362,7 @@ class LandmarkShooting:
         Value of the Hamiltonian.
         """
         momenta, positions = self._momenta_positions_flatten(momenta, positions)
-        return 0.5 * momenta.T @ self.K(positions) @ momenta
+        return 0.5 * np.dot(momenta, self.K(positions) @ momenta)
 
     def _rhs_momenta_function(self, momenta, positions):
         rhs = np.zeros((self.num_landmarks, self.dim))
@@ -374,8 +393,10 @@ class LandmarkShooting:
         -------
         Time-dependent momenta and positions.
         """
-        momenta = np.zeros((self.time_steps, self.size))
-        positions = np.zeros((self.time_steps, self.size))
+        #momenta = np.zeros((self.time_steps, self.size))
+        #positions = np.zeros((self.time_steps, self.size))
+        momenta = [np.zeros([self.size])] * self.time_steps
+        positions = [np.zeros([self.size])] * self.time_steps
         momenta[0] = initial_momenta.flatten()
         positions[0] = initial_positions.flatten()
 
@@ -387,7 +408,8 @@ class LandmarkShooting:
             momenta[t+1] = ti_momenta.step(momenta[t], additional_args={'positions': positions[t]})
             positions[t+1] = ti_position.step(positions[t], additional_args={'momenta': momenta[t]})
 
-        return momenta.reshape((self.time_steps, self.num_landmarks, self.dim)), positions.reshape((self.time_steps, self.num_landmarks, self.dim))
+        return momenta, positions#(momenta.reshape((self.time_steps, self.num_landmarks, self.dim)),
+                #positions.reshape((self.time_steps, self.num_landmarks, self.dim)))
 
     def K(self, positions):
         """Computes matrix that contains (dim x dim)-blocks derived from the kernel.

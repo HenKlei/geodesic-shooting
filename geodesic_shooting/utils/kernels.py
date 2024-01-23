@@ -1,4 +1,4 @@
-import numpy as np
+import torch as np
 
 from scipy.spatial import distance_matrix
 
@@ -28,7 +28,8 @@ class RBFKernel:
         num_elements_x = x.shape[0]
         num_elements_y = y.shape[0]
 
-        dist_mat = distance_matrix(x, y)
+#        dist_mat = np.FloatTensor(distance_matrix(x, y))
+        dist_mat = np.cdist(x, y)
         res = self._apply_rbf(dist_mat)
         assert res.shape == (num_elements_x, num_elements_y)
         if self.scalar:
@@ -146,7 +147,7 @@ class GaussianKernel(RBFKernel):
 
 class RationalQuadraticKernel(RBFKernel):
     """Class that implements a rational quadratic (matrix-valued, diagonal) kernel."""
-    def __init__(self, scalar=False, sigma=1./np.sqrt(2.), alpha=1):
+    def __init__(self, scalar=False, sigma=1./np.sqrt(np.FloatTensor([2.])), alpha=1):
         """Constructor.
 
         Parameters

@@ -1,4 +1,5 @@
-import numpy as np
+import torch
+import torch as np
 import matplotlib.pyplot as plt
 
 import geodesic_shooting
@@ -16,17 +17,18 @@ if __name__ == "__main__":
     gs = geodesic_shooting.LandmarkShooting(kernel=GaussianKernel, kwargs_kernel={'sigma': 1.5},
                                             dim=2, num_landmarks=2)
     kernel = gs.kernel
-    input_landmarks = np.array([[0., 0.], [1., 0.5]])
-    true_momenta = np.array([[1, 0.5], [-1, -.5]])
+    input_landmarks = np.FloatTensor([[0., 0.], [1., 0.5]])
+    true_momenta = np.FloatTensor([[1, 0.5], [-1, -.5]])
     time_evolution_momenta, time_evolution_positions = gs.integrate_forward_Hamiltonian(true_momenta, input_landmarks)
-    plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions, kernel=gs.kernel,
-                               show_vector_fields=False, title="True trajectories")
+    #plot_landmark_trajectories(np.FloatTensor(time_evolution_momenta).reshape((gs.time_steps, gs.num_landmarks, gs.dim)),
+    #                           np.FloatTensor(time_evolution_positions).reshape((gs.time_steps, gs.num_landmarks, gs.dim)),
+    #                           kernel=gs.kernel, show_vector_fields=False, title="True trajectories")
     plt.show()
     target_landmarks = time_evolution_positions[-1].reshape(input_landmarks.shape)
 
     sigma = 0.02
     # perform the registration using landmark shooting algorithm
-    result = gs.register(input_landmarks, target_landmarks, optimization_method='GD',
+    result = gs.register(input_landmarks, target_landmarks, optimization_method='ADAM',
                          sigma=sigma, return_all=True, landmarks_labeled=True,
                          initial_momenta=np.zeros_like(input_landmarks),
                          optimizer_options={'disp': True, 'maxiter': 100})

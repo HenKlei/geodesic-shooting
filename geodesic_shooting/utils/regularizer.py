@@ -50,12 +50,7 @@ class BiharmonicRegularizer:
             Shape of the input images.
         """
         dim = len(shape)
-        self.cauchy_navier_matrix = np.kron(np.eye(dim, dtype=int),
-                                            self._cauchy_navier_matrix(shape))
-        self.logger.warning("Computing inverse of Cauchy-Navier operator matrix ...")
-        inv_matrix = np.linalg.inv(self._cauchy_navier_matrix(shape))
-        self.cauchy_navier_inverse_matrix = np.kron(np.eye(dim, dtype=int), inv_matrix)
-        self.logger.info("Finished initialization of regularization matrices ...")
+        self.cauchy_navier_matrix = self._cauchy_navier_matrix(shape)
 
     def helmholtz(self, v):
         """Application of the Helmholtz operator `L` to a vector field.
