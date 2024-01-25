@@ -1,12 +1,13 @@
 import numpy as np
 import pytest
 
+from geodesic_shooting.utils.create_example_images import make_circle
 from geodesic_shooting.utils.regularizer import BiharmonicRegularizer
 from geodesic_shooting.core import VectorField
 
 
 def test_regularizer_self_adjoint():
-    regularizer = BiharmonicRegularizer(alpha=1, exponent=2)
+    regularizer = BiharmonicRegularizer(alpha=10., exponent=1, gamma=2.)
     v = VectorField((6, 4))
     v[2, 2, 0] = 1.
     w = VectorField(v.spatial_shape)
@@ -15,6 +16,30 @@ def test_regularizer_self_adjoint():
     wLv = w.to_numpy().flatten().dot(regularizer.cauchy_navier(v).to_numpy().flatten())
     vLw = v.to_numpy().flatten().dot(regularizer.cauchy_navier(w).to_numpy().flatten())
     assert np.isclose(wLv, vLw)
+
+
+def test_regularizer_inverse():
+    regularizer = BiharmonicRegularizer(alpha=10., exponent=1, gamma=2.)
+    image = make_circle((64, 64), np.array([32, 32]), 10)
+    vector_field = image.grad
+
+    tolerance = 1e-6
+    assert (regularizer.cauchy_navier_inverse(regularizer.cauchy_navier(vector_field))
+            - regularizer.cauchy_navier(regularizer.cauchy_navier_inverse(vector_field))).norm < tolerance
+    assert (regularizer.cauchy_navier_inverse(regularizer.cauchy_navier(vector_field)) - vector_field).norm < tolerance
+    assert (regularizer.cauchy_navier(regularizer.cauchy_navier_inverse(vector_field)) - vector_field).norm < tolerance
+
+
+def test_regularizer_in_norm():
+    regularizer = BiharmonicRegularizer(alpha=10., exponent=1, gamma=2.)
+    image = make_circle((64, 64), np.array([32, 32]), 10)
+    vector_field = image.grad
+
+    assert (regularizer.helmholtz(regularizer.helmholtz(vector_field))
+            - regularizer.cauchy_navier(vector_field)).norm < 1e-4
+
+    assert np.abs(regularizer.helmholtz(vector_field).norm
+                  - vector_field.get_norm(product_operator=regularizer.cauchy_navier)) < 1e-14
 
 
 @pytest.mark.parametrize("alpha", [1., 0.1, 0.01])
