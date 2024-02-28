@@ -59,8 +59,9 @@ class GeodesicShooting:
                 f"\tTime steps: {self.time_steps}\n"
                 f"\tSampler options: {self.sampler_options}")
 
-    def register(self, template, target, sigma=0.01, optimization_method='GD', optimizer_options={'disp': True},
-                 initial_vector_field=None, restriction=np.s_[...], return_all=False, log_summary=True):
+    def register(self, template, target, sigma=1, sigma_frac=0.99, optimization_method='GD',
+                 optimizer_options={'disp': True}, initial_vector_field=None, restriction=np.s_[...],
+                 return_all=False, log_summary=True):
         """Performs actual registration according to LDDMM algorithm with time-varying vector
            fields that are chosen via geodesics.
 
@@ -100,6 +101,7 @@ class GeodesicShooting:
         True).
         """
         assert sigma > 0
+        sigma_init = sigma
 
         assert isinstance(template, ScalarFunction)
         assert isinstance(target, ScalarFunction)
@@ -140,7 +142,7 @@ class GeodesicShooting:
         start_time = time.perf_counter()
 
         # function that computes the energy
-        def energy_and_gradient(v0, compute_grad=True, return_all_energies=False):
+        def energy_and_gradient(v0, compute_grad=True, return_all_energies=False, sigma_=None):
             v0 = VectorField(data=v0.reshape((*self.shape, self.dim)))
             # integrate initial vector field forward in time
             vector_fields = self.integrate_forward_vector_field(v0)
@@ -155,12 +157,12 @@ class GeodesicShooting:
             # and regularization
             energy_regularizer = self.regularizer.helmholtz(v0).get_norm(restriction=restriction)**2
             energy_intensity_unscaled = compute_energy(forward_pushed_input)
-            energy_intensity = 1 / sigma**2 * energy_intensity_unscaled
+            energy_intensity = 1 / sigma_**2 * energy_intensity_unscaled
             energy = energy_regularizer + energy_intensity
 
             if compute_grad:
                 # compute gradient of the intensity difference
-                gradient_l2_energy = compute_grad_energy(forward_pushed_input) / sigma**2
+                gradient_l2_energy = compute_grad_energy(forward_pushed_input) / sigma_**2
 
                 # compute gradient of the intensity difference with respect
                 # to the initial vector field
@@ -190,14 +192,14 @@ class GeodesicShooting:
                     assert grad_norm_tol > 0 and rel_func_update_tol > 0
                     assert isinstance(maxiter, int) and maxiter > 0
 
-                    def line_search(x, func_x, grad_x, d):
+                    def line_search(x, func_x, grad_x, d, sigma_):
                         alpha = alpha0
                         d_dot_grad = d.dot(grad_x)
-                        func_x_update = func(x + alpha * d, compute_grad=False)
+                        func_x_update = func(x + alpha * d, compute_grad=False, sigma_=sigma_)
                         k = 0
                         while (not func_x_update <= func_x + c1 * alpha * d_dot_grad) and k < maxiter_armijo:
                             alpha *= rho
-                            func_x_update = func(x + alpha * d, compute_grad=False)
+                            func_x_update = func(x + alpha * d, compute_grad=False, sigma_=sigma_)
                             k += 1
                         if not func_x_update <= func_x + c1 * alpha * d_dot_grad:
                             alpha = 0.
@@ -207,10 +209,11 @@ class GeodesicShooting:
                     message = ''
                     with self.logger.block('Starting optimization using gradient descent ...'):
                         x = x0
+                        sigma_k = sigma_init
                         if callback is not None:
                             callback(np.copy(x))
                         func_x, _, energy_intensity_unscaled, _, grad_x = func(x, compute_grad=True,
-                                                                               return_all_energies=True)
+                                                                               return_all_energies=True, sigma_=sigma_k)
                         old_func_x = func_x
                         rel_func_update = rel_func_update_tol + 1
                         norm_grad_x = np.linalg.norm(grad_x)
@@ -237,10 +240,11 @@ class GeodesicShooting:
                                     d = -grad_x / norm_grad_x
                                 else:
                                     d = -grad_x
-                                alpha = line_search(x, func_x, grad_x, d)
+                                alpha = line_search(x, func_x, grad_x, d, sigma_=sigma_k)
                                 x = x + alpha * d
                                 func_x, _, energy_intensity_unscaled, _, grad_x = func(x, compute_grad=True,
-                                                                                       return_all_energies=True)
+                                                                                       return_all_energies=True,
+                                                                                       sigma_=sigma_k)
                                 if not np.isclose(old_func_x, 0.):
                                     rel_func_update = abs((func_x - old_func_x) / old_func_x)
                                 else:
@@ -248,10 +252,12 @@ class GeodesicShooting:
                                 old_func_x = func_x
                                 norm_grad_x = np.linalg.norm(grad_x)
                                 i += 1
+                                sigma_k *= sigma_frac
                                 if disp:
                                     self.logger.info(f'iter: {i:5d}\tf= {func_x:.5e}\t|grad|= {norm_grad_x:.5e}\t'
                                                      f'rel.func.upd.= {rel_func_update:.5e}\trel.diff.= '
-                                                     f'{(np.sqrt(energy_intensity_unscaled) / target_norm):.5e}')
+                                                     f'{(np.sqrt(energy_intensity_unscaled) / target_norm):.5e}\t'
+                                                     f'sigma={sigma_k:.5e}')
                         except KeyboardInterrupt:
                             message = 'optimization stopped due to keyboard interrupt'
                             self.logger.warning('Optimization interrupted ...')
@@ -282,7 +288,7 @@ class GeodesicShooting:
         opt['flow'] = flow
         opt['vector_fields'] = vector_fields
         energy, energy_regularizer, energy_intensity_unscaled, energy_intensity, gradient = \
-            energy_and_gradient(opt['x'], compute_grad=True, return_all_energies=True)
+            energy_and_gradient(opt['x'], compute_grad=True, return_all_energies=True, sigma_=sigma)
         opt['energy_regularizer'] = energy_regularizer
         opt['energy_intensity_unscaled'] = energy_intensity_unscaled
         opt['energy_intensity'] = energy_intensity

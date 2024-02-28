@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
     # perform the registration
     gs = geodesic_shooting.GeodesicShooting(alpha=0.1, exponent=1, gamma=5.)
-    result = gs.register(template, target, sigma=0.01, return_all=True, optimization_method='GD',
+    result = gs.register(template, target, sigma=0.1, return_all=True, optimization_method='GD',
                          optimizer_options={'maxiter': 50, 'grad_norm_tol': 1e-3})
 
     plot_registration_results(result, frequency=5)
