@@ -136,6 +136,7 @@ class GeodesicShooting:
 
         opt = {'input': template, 'target': target}
         target_norm = target.get_norm(restriction=restriction)
+        assert not np.isclose(target_norm, 0.)
 
         start_time = time.perf_counter()
 
