@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.spatial import distance_matrix
 
 
 class Kernel:
@@ -32,13 +33,17 @@ class GaussianKernel(Kernel):
         return f"{self.__class__.__name__}: sigma={self.sigma}"
 
     def __call__(self, x, y):
-        assert x.ndim == 1
-        assert x.shape == y.shape
-        res = np.exp(-np.linalg.norm(x-y)**2 / (2. * self.sigma**2))
+        if x.ndim == 1:
+            x = x.reshape((1, -1))
+        if y.ndim == 1:
+            y = y.reshape((1, -1))
+        assert x.ndim == 2
+        assert y.ndim == 2
+        res = np.exp(-(self.sigma * distance_matrix(np.atleast_2d(x), np.atleast_2d(y))) ** 2)
         if self.scalar:
             return res
         else:
-            return res * np.eye(x.shape[0])
+            return np.kron(res, np.eye(x.shape[1]))
 
     def derivative_1(self, x, y, i):
         """Derivative of kernel with respect to i-th component of x."""
