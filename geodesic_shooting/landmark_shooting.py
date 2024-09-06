@@ -7,8 +7,6 @@ import scipy.optimize as optimize
 from geodesic_shooting.core import VectorField, TimeDependentVectorField
 from geodesic_shooting.utils.kernels import GaussianKernel
 from geodesic_shooting.utils.logger import getLogger
-from geodesic_shooting.utils import sampler
-from geodesic_shooting.utils import grid
 from geodesic_shooting.utils.time_integration import RK4
 
 
@@ -66,7 +64,7 @@ class LandmarkShooting:
 
     def register(self, input_landmarks, target_landmarks, landmarks_labeled=True,
                  kernel_dist=GaussianKernel, kwargs_kernel_dist={},
-                 sigma=1., optimization_method='L-BFGS-B', optimizer_options={'maxiter': 10, 'disp': True},
+                 sigma=1., optimization_method='L-BFGS-B', optimizer_options={'disp': True},
                  initial_momenta=None, return_all=False):
         """Performs actual registration according to geodesic shooting algorithm for landmarks using
            a Hamiltonian setting.
@@ -169,7 +167,8 @@ class LandmarkShooting:
                 initial_momenta.reshape((self.num_landmarks, self.dim)), initial_positions)
             positions = positions_time_dependent[-1]
 
-            energy_regularizer = self.compute_Hamiltonian(initial_momenta.reshape((self.num_landmarks, self.dim)), initial_positions)
+            energy_regularizer = self.compute_Hamiltonian(initial_momenta.reshape((self.num_landmarks, self.dim)),
+                                                          initial_positions)
             energy_l2_unscaled = compute_matching_function(positions)
             energy_l2 = 1. / sigma**2 * energy_l2_unscaled
             energy = energy_regularizer + energy_l2
@@ -189,8 +188,8 @@ class LandmarkShooting:
                                     callback=save_current_state)
 
         opt['initial_momenta'] = res['x'].reshape(input_landmarks.shape)
-        momenta_time_dependent, positions_time_dependent = self.integrate_forward_Hamiltonian(res['x'].reshape((self.num_landmarks, self.dim)),
-                                                                                              initial_positions)
+        momenta_time_dependent, positions_time_dependent = self.integrate_forward_Hamiltonian(
+                res['x'].reshape((self.num_landmarks, self.dim)), initial_positions)
         opt['registered_landmarks'] = positions_time_dependent[-1].reshape(input_landmarks.shape)
         opt['time_evolution_momenta'] = momenta_time_dependent
         opt['time_evolution_positions'] = positions_time_dependent
@@ -247,7 +246,8 @@ class LandmarkShooting:
         positions[0] = initial_positions
 
         def rhs_momenta_function(momentum, position):
-            return - 0.5 * (momentum.flatten().T @ self.DK(position) @ momentum.flatten()).reshape((self.num_landmarks, self.dim))
+            return - 0.5 * (momentum.flatten().T @ self.DK(position) @ momentum.flatten()).reshape((self.num_landmarks,
+                                                                                                    self.dim))
 
         ti_momenta = self.time_integrator(rhs_momenta_function, self.dt)
 
@@ -338,7 +338,8 @@ class LandmarkShooting:
         ti_d_positions = self.time_integrator(rhs_d_positions_function, self.dt)
 
         def rhs_d_momenta_function(d_momentum, position):
-            return - (d_momentum @ self.DK(position) @ position.flatten() + position.flatten().T @ self.DK(position) @ d_momentum)
+            return (- (d_momentum @ self.DK(position) @ position.flatten()
+                    + position.flatten().T @ self.DK(position) @ d_momentum))
 
         ti_d_momenta = self.time_integrator(rhs_d_momenta_function, self.dt)
 
@@ -411,7 +412,8 @@ class LandmarkShooting:
         assert np.all(mins < maxs)
         assert initial_momenta.shape == initial_positions.shape
 
-        momenta, positions = self.integrate_forward_Hamiltonian(initial_momenta.reshape((self.num_landmarks, self.dim)), initial_positions)
+        momenta, positions = self.integrate_forward_Hamiltonian(initial_momenta.reshape((self.num_landmarks, self.dim)),
+                                                                initial_positions)
         vector_fields = TimeDependentVectorField(spatial_shape, self.time_steps)
 
         for t, (m, p) in enumerate(zip(momenta, positions)):

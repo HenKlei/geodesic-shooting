@@ -20,7 +20,7 @@ if __name__ == "__main__":
 
     # perform the registration using landmark shooting algorithm
     gs = geodesic_shooting.LandmarkShooting(kwargs_kernel={'sigma': 1})
-    result = gs.register(input_landmarks, target_landmarks, sigma=0.1, return_all=True, landmarks_labeled=False)#True)
+    result = gs.register(input_landmarks, target_landmarks, sigma=0.1, return_all=True, landmarks_labeled=True)
     final_momenta = result['initial_momenta']
     registered_landmarks = result['registered_landmarks']
 
@@ -73,4 +73,4 @@ if __name__ == "__main__":
     error = np.linalg.norm(target_landmarks - registered_landmarks)
     print(f"Norm of difference: {error}")
 
-    print(f"Error in image matching: {(target_image - resulting_image).norm}")
+    print(f"Error in image matching: {(target_image - resulting_image).norm / target_image.norm}")
