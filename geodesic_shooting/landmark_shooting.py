@@ -147,12 +147,10 @@ class LandmarkShooting:
                 grad = np.zeros(positions.flatten().shape)
                 for i, p in enumerate(positions):
                     for q in positions:
-                        for j in range(self.dim):
-                            grad[i*self.dim+j] += kernel_dist.derivative_1(p, q, j)
-                            grad[i*self.dim+j] += kernel_dist.derivative_2(q, p, j)
+                        grad[i*self.dim:(i+1)*self.dim] += kernel_dist.derivative_1(p, q).squeeze()
+                        grad[i*self.dim:(i+1)*self.dim] += kernel_dist.derivative_2(q, p).squeeze()
                     for t in target_landmarks:
-                        for j in range(self.dim):
-                            grad[i*self.dim+j] -= 2. * kernel_dist.derivative_1(p, t, j)
+                        grad[i*self.dim:(i+1)*self.dim] -= 2. * kernel_dist.derivative_1(p, t).squeeze()
                 return grad
 
         opt = {'input_landmarks': input_landmarks, 'target_landmarks': target_landmarks}
