@@ -64,7 +64,7 @@ class LandmarkShooting:
 
     def register(self, input_landmarks, target_landmarks, landmarks_labeled=True,
                  kernel_dist=GaussianKernel, kwargs_kernel_dist={},
-                 sigma=1., optimization_method='L-BFGS-B', optimizer_options={'disp': True},
+                 sigma=1., optimization_method='L-BFGS-B', optimizer_options={'maxiter': 100, 'disp': True},
                  initial_momenta=None, return_all=False):
         """Performs actual registration according to geodesic shooting algorithm for landmarks using
            a Hamiltonian setting.
@@ -293,21 +293,23 @@ class LandmarkShooting:
         Tensor of shape (size x size x size).
         """
         mat = np.zeros((self.size, self.size, self.size))
+        num_positions = len(positions)
+        assert num_positions == self.size // self.dim
+        for a in range(num_positions):
+            for b in range(num_positions):
+                if a == b:
+                    mat[a*self.dim:(a+1)*self.dim, b*self.dim:(b+1)*self.dim, a*self.dim:(a+1)*self.dim] += self.kernel.derivative_1(positions[a], positions[b])
+                mat[a*self.dim:(a+1)*self.dim, b*self.dim:(b+1)*self.dim, b*self.dim:(b+1)*self.dim] += self.kernel.derivative_2(positions[a], positions[b])
+        return mat
 
-        for i in range(self.size):
-            modi = i % self.dim
-            for j in range(self.size):
-                modj = j % self.dim
-                for k in range(self.size):
-                    if i == k:
-                        mat[i][j][k] += self.kernel.derivative_1(positions[(i-modi) // self.dim],
-                                                                 positions[(j-modj) // self.dim],
-                                                                 modi)
-                    if j == k:
-                        mat[i][j][k] += self.kernel.derivative_2(positions[(i-modi) // self.dim],
-                                                                 positions[(j-modj) // self.dim],
-                                                                 modj)
-
+    def DK2(self, positions):
+        mat = np.zeros((self.size, self.size, self.size, self.size))
+        num_positions = len(positions)
+        for a in range(num_positions):
+            for b in range(num_positions):
+                if a == b:
+                    mat[a*self.dim:(a+1)*self.dim, b*self.dim:(b+1)*self.dim, a*self.dim:(a+1)*self.dim, a*self.dim:(a+1)*self.dim] += self.kernel.derivative_1_1(positions[a], positions[b])
+                mat[a*self.dim:(a+1)*self.dim, b*self.dim:(b+1)*self.dim, b*self.dim:(b+1)*self.dim, a*self.dim:(a+1)*self.dim] += self.kernel.derivative_1_2(positions[a], positions[b])
         return mat
 
     def integrate_forward_variational_Hamiltonian(self, momenta, positions):
@@ -339,7 +341,10 @@ class LandmarkShooting:
 
         def rhs_d_momenta_function(d_momentum, position):
             return (- (d_momentum @ self.DK(position) @ position.flatten()
-                    + position.flatten().T @ self.DK(position) @ d_momentum))
+                       + position.flatten().T @ self.DK(position) @ d_momentum))
+            return (- (self.DK(position) @ d_momentum @ position.flatten()
+                       + self.DK(position) @ position.flatten() @ d_momentum
+                       + self.DK2(position) @ d_momentum @ position.flatten() @ position.flatten()))
 
         ti_d_momenta = self.time_integrator(rhs_d_momenta_function, self.dt)
 

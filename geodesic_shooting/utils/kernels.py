@@ -45,23 +45,45 @@ class GaussianKernel(Kernel):
         else:
             return np.kron(res, np.eye(x.shape[1]))
 
-    def derivative_1(self, x, y, i):
+    def derivative_1(self, x, y):
         """Derivative of kernel with respect to i-th component of x."""
         assert x.ndim == 1
         assert x.shape == y.shape
-        assert 0 <= i < x.shape[0]
-        res = (y[i] - x[i]) / self.sigma**2
+        res = 2. * (y - x) * self.sigma**2
         if self.scalar:
             return res * self(x, y)
         else:
-            return res * self(x, y)[0][0]
+            mat = np.zeros((x.shape[0], x.shape[0], x.shape[0]))
+            for i in range(x.shape[0]):
+                mat[i, ...] = res[i] * self(x, y)
+            return mat
 
-    def derivative_2(self, x, y, i):
+    def derivative_2(self, x, y):
         """Derivative of kernel with respect to i-th component of y."""
         assert x.ndim == 1
         assert x.shape == y.shape
-        assert 0 <= i < x.shape[0]
-        return -self.derivative_1(x, y, i)
+        return -self.derivative_1(x, y)
+
+    def derivative_1_1(self, x, y):
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        res = x - y
+        if self.scalar:
+            return res * self(x, y)
+        else:
+            mat = np.zeros((x.shape[0], x.shape[0], x.shape[0], x.shape[0]))
+            for i in range(x.shape[0]):
+                for j in range(x.shape[0]):
+                    if i == j:
+                        mat[i, j, ...] = 2. * self.sigma**2 * (2. * self.sigma**2 * res[i]**2 - 1.) * self(x, y)
+                    else:
+                        mat[i, j, ...] = 4. * self.sigma**4 * res[i] * res[j] * self(x, y)
+            return mat
+
+    def derivative_1_2(self, x, y):
+        assert x.ndim == 1
+        assert x.shape == y.shape
+        return -self.derivative_1_1(x, y)
 
 
 class RationalQuadraticKernel(Kernel):
