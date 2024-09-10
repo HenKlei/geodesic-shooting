@@ -51,10 +51,7 @@ class GaussianKernel(Kernel):
         assert x.shape == y.shape
         assert 0 <= i < x.shape[0]
         res = (y[i] - x[i]) / self.sigma**2
-        if self.scalar:
-            return res * self(x, y)
-        else:
-            return res * self(x, y)[0][0]
+        return res * self(x, y)
 
     def derivative_2(self, x, y, i):
         """Derivative of kernel with respect to i-th component of y."""

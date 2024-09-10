@@ -64,7 +64,7 @@ class LandmarkShooting:
 
     def register(self, input_landmarks, target_landmarks, landmarks_labeled=True,
                  kernel_dist=GaussianKernel, kwargs_kernel_dist={},
-                 sigma=1., optimization_method='L-BFGS-B', optimizer_options={'disp': True},
+                 sigma=1., optimization_method='L-BFGS-B', optimizer_options={'maxiter': 10, 'disp': True},
                  initial_momenta=None, return_all=False):
         """Performs actual registration according to geodesic shooting algorithm for landmarks using
            a Hamiltonian setting.
@@ -220,7 +220,13 @@ class LandmarkShooting:
         """
         assert momenta.shape == (self.num_landmarks, self.dim)
         assert positions.shape == (self.num_landmarks, self.dim)
-        return 0.5 * momenta.flatten().T @ self.K(positions) @ momenta.flatten()
+        temp_val = 0.5 * momenta.flatten().T @ self.K(positions) @ momenta.flatten()
+        # test_val = 0.
+        # for pi, qi in zip(momenta, positions):
+        #     for pj, qj in zip(momenta, positions):
+        #         test_val += pi.T @ self.kernel(qi, qj) @ pj
+        # assert np.isclose(temp_val, 0.5 * test_val)
+        return temp_val
 
     def integrate_forward_Hamiltonian(self, initial_momenta, initial_positions):
         """Performs forward integration of Hamiltonian equations to obtain time-dependent momenta
@@ -246,8 +252,13 @@ class LandmarkShooting:
         positions[0] = initial_positions
 
         def rhs_momenta_function(momentum, position):
-            return - 0.5 * (momentum.flatten().T @ self.DK(position) @ momentum.flatten()).reshape((self.num_landmarks,
-                                                                                                    self.dim))
+            test_val = np.zeros(self.size)
+            for l, (pl, ql) in enumerate(zip(momentum, position)):
+                for m in range(self.dim):
+                    for pi, qi in zip(momentum, position):
+                        test_val[l*self.dim + m] += pi.T @ self.kernel.derivative_2(qi, ql, m) @ pl
+                        test_val[l*self.dim + m] += pl.T @ self.kernel.derivative_1(ql, qi, m) @ pi
+            return - 0.5 * test_val.reshape((self.num_landmarks, self.dim))
 
         ti_momenta = self.time_integrator(rhs_momenta_function, self.dt)
 
@@ -294,19 +305,16 @@ class LandmarkShooting:
         """
         mat = np.zeros((self.size, self.size, self.size))
 
-        for i in range(self.size):
-            modi = i % self.dim
-            for j in range(self.size):
-                modj = j % self.dim
-                for k in range(self.size):
-                    if i == k:
-                        mat[i][j][k] += self.kernel.derivative_1(positions[(i-modi) // self.dim],
-                                                                 positions[(j-modj) // self.dim],
-                                                                 modi)
-                    if j == k:
-                        mat[i][j][k] += self.kernel.derivative_2(positions[(i-modi) // self.dim],
-                                                                 positions[(j-modj) // self.dim],
-                                                                 modj)
+        for l in range(self.num_landmarks):
+            ql = positions[l]
+            for r in range(self.num_landmarks):
+                qr = positions[r]
+                for i in range(self.num_landmarks):
+                    for j in range(self.dim):
+                        if i == l:
+                            mat[l*self.dim:(l+1)*self.dim, r*self.dim:(r+1)*self.dim, i*self.dim+j] = self.kernel.derivative_1(ql, qr, j)
+                        if i == r:
+                            mat[l*self.dim:(l+1)*self.dim, r*self.dim:(r+1)*self.dim, i*self.dim+j] = self.kernel.derivative_2(ql, qr, j)
 
         return mat
 
@@ -339,7 +347,7 @@ class LandmarkShooting:
 
         def rhs_d_momenta_function(d_momentum, position):
             return (- (d_momentum @ self.DK(position) @ position.flatten()
-                    + position.flatten().T @ self.DK(position) @ d_momentum))
+                       + position.flatten().T @ self.DK(position) @ d_momentum))
 
         ti_d_momenta = self.time_integrator(rhs_d_momenta_function, self.dt)
 
