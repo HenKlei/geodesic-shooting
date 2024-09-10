@@ -2,12 +2,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import geodesic_shooting
-
-from geodesic_shooting.utils.visualization import (animate_landmark_trajectories,
-                                                   plot_initial_momenta_and_landmarks,
-                                                   plot_landmark_matchings,
-                                                   plot_landmark_trajectories, animate_warpgrids)
 from geodesic_shooting.core import ScalarFunction
+from geodesic_shooting.utils.kernels import GaussianKernel
+from geodesic_shooting.utils.visualization import (plot_initial_momenta_and_landmarks,
+                                                   plot_landmark_matchings,
+                                                   plot_landmark_trajectories)
 
 
 if __name__ == "__main__":
@@ -15,11 +14,8 @@ if __name__ == "__main__":
     input_landmarks = np.array([[.1, .1], [.3, .3], [.5, .5], [.7, .7]])
     target_landmarks = np.array([[.2, .1], [.4, .3], [.6, .5], [.8, .7]])
 
-    #input_landmarks = np.array([[.25, .25]])
-    #target_landmarks = np.array([[.75, .5]])
-
     # perform the registration using landmark shooting algorithm
-    gs = geodesic_shooting.LandmarkShooting(kwargs_kernel={'sigma': 1})
+    gs = geodesic_shooting.LandmarkShooting(GaussianKernel(sigma=1.))
     result = gs.register(input_landmarks, target_landmarks, sigma=0.1, return_all=True, landmarks_labeled=True)
     final_momenta = result['initial_momenta']
     registered_landmarks = result['registered_landmarks']
@@ -34,9 +30,6 @@ if __name__ == "__main__":
     time_evolution_positions = result['time_evolution_positions']
     plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
                                min_x=0., max_x=1., min_y=0., max_y=1.)
-
-#    ani = animate_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
-#                                        min_x=0., max_x=1., min_y=0., max_y=1.)
 
     nx = 70
     ny = 60

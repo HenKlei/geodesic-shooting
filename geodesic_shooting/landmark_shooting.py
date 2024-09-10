@@ -17,17 +17,14 @@ class LandmarkShooting:
     Geodesic Shooting and Diffeomorphic Matching Via Textured Meshes.
     Allassonnière, Trouvé, Younes, 2005
     """
-    def __init__(self, kernel=GaussianKernel, kwargs_kernel={}, dim=2, num_landmarks=1,
-                 time_integrator=RK4, time_steps=30, sampler_options={'order': 1, 'mode': 'edge'},
-                 log_level='INFO'):
+    def __init__(self, kernel=GaussianKernel(), dim=2, num_landmarks=1,
+                 time_integrator=RK4, time_steps=30, log_level='INFO'):
         """Constructor.
 
         Parameters
         ----------
         kernel
             Kernel to use for extending the velocity fields to the whole domain.
-        kwargs_kernel
-            Additional arguments passed to the constructor of the kernel.
         dim
             Dimension of the landmarks (set automatically when calling `register`).
         num_landmarks
@@ -36,8 +33,6 @@ class LandmarkShooting:
             Method to use for time integration.
         time_steps
             Number of time steps performed during forward and backward integration.
-        sampler_options
-            Additional options to pass to the sampler.
         log_level
             Verbosity of the logger.
         """
@@ -49,9 +44,7 @@ class LandmarkShooting:
         self.num_landmarks = num_landmarks
         self.size = dim * num_landmarks
 
-        self.kernel = kernel(**kwargs_kernel)
-
-        self.sampler_options = sampler_options
+        self.kernel = kernel
 
         self.logger = getLogger('landmark_shooting', level=log_level)
 
@@ -59,11 +52,10 @@ class LandmarkShooting:
         return (f"{self.__class__.__name__}:\n"
                 f"\tKernel:\n{self.kernel}\n"
                 f"\tTime integrator: {self.time_integrator.__name__}\n"
-                f"\tTime steps: {self.time_steps}\n"
-                f"\tSampler options: {self.sampler_options}")
+                f"\tTime steps: {self.time_steps}\n")
 
     def register(self, input_landmarks, target_landmarks, landmarks_labeled=True,
-                 kernel_dist=GaussianKernel, kwargs_kernel_dist={},
+                 kernel_dist=GaussianKernel(),
                  sigma=1., optimization_method='L-BFGS-B', optimizer_options={'maxiter': 100, 'disp': True},
                  initial_momenta=None, return_all=False):
         """Performs actual registration according to geodesic shooting algorithm for landmarks using
@@ -82,9 +74,6 @@ class LandmarkShooting:
             In that case, `kernel_dist` is used as kernel to compute the matching function.
         kernel_dist
             Kernel to use for the matching function.
-            Only required if `landmarks_labeled` is `False`.
-        kwargs_kernel_dist
-            Additional arguments passed to the constructor of the kernel.
             Only required if `landmarks_labeled` is `False`.
         sigma
             Weight for the similarity measurement (L2 difference of the target and the registered
@@ -134,7 +123,7 @@ class LandmarkShooting:
             def compute_gradient_matching_function(positions):
                 return 2. * (positions - target_landmarks) / sigma**2
         else:
-            kernel_dist = kernel_dist(**kwargs_kernel_dist, scalar=True)
+            kernel_dist.scalar = True
 
             def compute_matching_function(positions):
                 dist = 0.
