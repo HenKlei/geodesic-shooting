@@ -422,18 +422,17 @@ class VectorField(BaseFunction):
                                 "\\usepackage{pgfplots}\n"
                                 "\\begin{document}\n\n")
                 tikz_file.write("\t\\begin{tikzpicture}\n"
-                                "\t\t\\begin{axis}[tick align=outside, tick pos=left, "
+                                "\t\t\\begin{axis}[tick align=outside, tick pos=left, title={}, xmin=0, xmax=1, xtick style={color=black}, ymin=0, ymax=1, ytick style={color=black}, -latex, colorbar, colormap/viridis, "
                                 "title={"
                                 f"{title}"
-                                "}, xmin=0, xmax=1, "
-                                "xtick style={color=black}, ymin=0, ymax=1, ytick style={color=black}, -latex]\n")
+                                "}, axis equal image]\n")
+                tikz_file.write("\\addplot[quiver={u=\\thisrow{u},v=\\thisrow{v}}, -latex, colormap/viridis, quiver/colored={mapped color}, point meta={sqrt(x^2+y^2)}] table {\n")
+                tikz_file.write("x y u v\n")
                 x = grid.coordinate_grid(self.spatial_shape).to_numpy()
                 for pos_x, disp_x in zip(x[::interval], self[::interval]):
                     for pos, disp in zip(pos_x[::interval], disp_x[::interval]):
-                        tikz_file.write(f"\t\t\t\\draw (axis cs:{pos[0] / (self.spatial_shape[0] - 1)}, "
-                                        f"{pos[1] / (self.spatial_shape[1] - 1)}) "
-                                        f"-- (axis cs:{(pos[0] + disp[0] * scale) / (self.spatial_shape[0] - 1)}, "
-                                        f"{(pos[1] + disp[1] * scale) / (self.spatial_shape[1] - 1)});\n")
+                        tikz_file.write(f"{pos[0] / (self.spatial_shape[0] - 1)} {pos[1] / (self.spatial_shape[1] - 1)} {(disp[0] * scale)} {(disp[1] * scale)}\n")
+                tikz_file.write("};\n")
                 tikz_file.write("\t\t\\end{axis}\n"
                                 "\t\\end{tikzpicture}\n"
                                 "\\end{document}\n")
@@ -645,6 +644,8 @@ class TimeDependentVectorField(BaseTimeDependentFunction):
 
         if get_time_dependent_diffeomorphism:
             return TimeDependentDiffeomorphism(data=diffeomorphisms)
+        if np.any(np.isnan(diffeomorphisms[-1].to_numpy())):
+            return grid.identity_diffeomorphism(self.spatial_shape)
         return diffeomorphisms[-1]
 
     def integrate_backward(self, sampler_options={'order': 1, 'mode': 'edge'}, get_time_dependent_diffeomorphism=False):

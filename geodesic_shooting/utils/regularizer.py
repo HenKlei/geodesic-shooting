@@ -76,7 +76,8 @@ class BiharmonicRegularizer:
             assert self.helmholtz_matrix.shape == (prod, prod)
             self.cauchy_navier_matrix = self.helmholtz_matrix.transpose().tocsc() @ self.helmholtz_matrix
             assert self.cauchy_navier_matrix.shape == (prod, prod)
-            with self.logger.block("Computing LU decomposition of Cauchy Navier matrix ..."):
+            #with self.logger.block("Computing LU decomposition of Cauchy Navier matrix ..."):
+            if True:
                 self.lu_decomposed_cauchy_navier_matrix = sps.linalg.splu(self.cauchy_navier_matrix)
                 self.logger.info("Done.")
             self.matrices_initialized = True
