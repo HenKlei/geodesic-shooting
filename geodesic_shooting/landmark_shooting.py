@@ -5,6 +5,7 @@ import numpy as np
 import scipy.optimize as optimize
 
 from geodesic_shooting.core import VectorField, TimeDependentVectorField
+from geodesic_shooting.utils import grid
 from geodesic_shooting.utils.kernels import GaussianKernel
 from geodesic_shooting.utils.logger import getLogger
 from geodesic_shooting.utils.time_integration import RK4
@@ -64,8 +65,8 @@ class LandmarkShooting:
 
     def register(self, input_landmarks, target_landmarks, landmarks_labeled=True,
                  kernel_dist=GaussianKernel, kwargs_kernel_dist={},
-                 sigma=1., optimization_method='L-BFGS-B', optimizer_options={'maxiter': 10, 'disp': True},
-                 initial_momenta=None, return_all=False):
+                 sigma=1., optimization_method='L-BFGS-B', optimizer_options={'maxiter': 20, 'disp': True},
+                 initial_momenta=None, return_all=False, weighting_vector=None):
         """Performs actual registration according to geodesic shooting algorithm for landmarks using
            a Hamiltonian setting.
 
@@ -128,11 +129,14 @@ class LandmarkShooting:
         assert initial_momenta.shape == input_landmarks.shape
 
         if landmarks_labeled:
+            if weighting_vector is None:
+                weighting_vector = np.ones(self.num_landmarks)
+
             def compute_matching_function(positions):
-                return np.sum(np.linalg.norm(positions - target_landmarks, axis=-1)**2)
+                return np.sum(weighting_vector[:, None] * np.linalg.norm(positions - target_landmarks, axis=-1)**2)
 
             def compute_gradient_matching_function(positions):
-                return 2. * (positions - target_landmarks) / sigma**2
+                return 2. * weighting_vector[:, None] * (positions - target_landmarks) / sigma**2
         else:
             kernel_dist = kernel_dist(**kwargs_kernel_dist, scalar=True)
 
@@ -189,7 +193,7 @@ class LandmarkShooting:
 
         opt['initial_momenta'] = res['x'].reshape(input_landmarks.shape)
         momenta_time_dependent, positions_time_dependent = self.integrate_forward_Hamiltonian(
-                res['x'].reshape((self.num_landmarks, self.dim)), initial_positions)
+                opt['initial_momenta'], initial_positions)
         opt['registered_landmarks'] = positions_time_dependent[-1].reshape(input_landmarks.shape)
         opt['time_evolution_momenta'] = momenta_time_dependent
         opt['time_evolution_positions'] = positions_time_dependent
@@ -221,11 +225,6 @@ class LandmarkShooting:
         assert momenta.shape == (self.num_landmarks, self.dim)
         assert positions.shape == (self.num_landmarks, self.dim)
         temp_val = 0.5 * momenta.flatten().T @ self.K(positions) @ momenta.flatten()
-        # test_val = 0.
-        # for pi, qi in zip(momenta, positions):
-        #     for pj, qj in zip(momenta, positions):
-        #         test_val += pi.T @ self.kernel(qi, qj) @ pj
-        # assert np.isclose(temp_val, 0.5 * test_val)
         return temp_val
 
     def integrate_forward_Hamiltonian(self, initial_momenta, initial_positions):
@@ -263,6 +262,8 @@ class LandmarkShooting:
         ti_momenta = self.time_integrator(rhs_momenta_function, self.dt)
 
         def rhs_position_function(position, momentum):
+            #vf = construct_vector_field(momentum, position, self.kernel)(position)
+            #assert np.allclose(vf.reshape(self.num_landmarks, self.dim), (self.K(position) @ momentum.flatten()).reshape((self.num_landmarks, self.dim)))
             return (self.K(position) @ momentum.flatten()).reshape((self.num_landmarks, self.dim))
 
         ti_position = self.time_integrator(rhs_position_function, self.dt)
@@ -385,16 +386,17 @@ class LandmarkShooting:
         vector_field = VectorField(spatial_shape)
 
         vf_func = construct_vector_field(momenta, positions, kernel=self.kernel)
+        identity_grid = grid.coordinate_grid(spatial_shape)
+        identity_grid = np.stack([identity_grid[..., d] / (spatial_shape[d] - 1) for d in range(self.dim)], axis=-1)
+        coords = identity_grid.reshape((-1, self.dim))
+        vf = vf_func(coords).reshape((*spatial_shape, self.dim))
 
-        for pos in np.ndindex(spatial_shape):
-            spatial_pos = mins + (maxs - mins) / np.array(spatial_shape) * np.array(pos)
-            vector_field[pos] = -vf_func(spatial_pos)
-
+        vector_field = VectorField(spatial_shape=spatial_shape, data=vf)
         return vector_field
 
     def compute_time_evolution_of_diffeomorphisms(self, initial_momenta, initial_positions,
                                                   mins=np.array([0., 0.]), maxs=np.array([1., 1.]),
-                                                  spatial_shape=(100, 100)):
+                                                  spatial_shape=(100, 100), get_time_dependent_diffeomorphism=False):
         """Performs forward integration of diffeomorphism on given grid using the given
            initial momenta and positions.
 
@@ -427,11 +429,30 @@ class LandmarkShooting:
         for t, (m, p) in enumerate(zip(momenta, positions)):
             vector_fields[t] = self.get_vector_field(m, p, mins, maxs, spatial_shape)
 
-        return vector_fields.integrate()
+        return vector_fields.integrate_backward(get_time_dependent_diffeomorphism=get_time_dependent_diffeomorphism)
 
-        flow = self.integrate_forward_flow(vector_fields)
+    def transform_coords(self, initial_coords, time_evolution_momenta, time_evolution_positions,
+                         get_time_dependent_coords=False):
+        assert initial_coords.shape[1] == self.dim
+        assert time_evolution_momenta.shape == (self.time_steps, self.num_landmarks, self.dim)
+        assert time_evolution_momenta.shape == time_evolution_positions.shape
 
-        return flow
+        coords_time_dependent = np.zeros((self.time_steps, initial_coords.shape[0], self.dim))
+        coords_time_dependent[0] = initial_coords
+
+        def rhs(coords, momenta, positions):
+            return construct_vector_field(momenta, positions, kernel=self.kernel)(coords).reshape((-1, self.dim))
+
+        ti_coords = self.time_integrator(rhs, self.dt)
+
+        for t in range(self.time_steps-1):
+            coords_time_dependent[t+1] = ti_coords.step(coords_time_dependent[t],
+                                                        additional_args={'momenta': time_evolution_momenta[t],
+                                                                         'positions': time_evolution_positions[t]})
+
+        if get_time_dependent_coords:
+            return coords_time_dependent
+        return coords_time_dependent[-1]
 
 
 def construct_vector_field(momenta, positions, kernel=GaussianKernel()):
