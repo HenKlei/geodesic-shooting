@@ -65,7 +65,7 @@ class LandmarkShooting:
 
     def register(self, input_landmarks, target_landmarks, landmarks_labeled=True,
                  kernel_dist=GaussianKernel, kwargs_kernel_dist={},
-                 sigma=1., optimization_method='L-BFGS-B', optimizer_options={'maxiter': 20, 'disp': True},
+                 sigma=1., optimization_method='L-BFGS-B', optimizer_options={'disp': True},
                  initial_momenta=None, return_all=False, weighting_vector=None):
         """Performs actual registration according to geodesic shooting algorithm for landmarks using
            a Hamiltonian setting.
