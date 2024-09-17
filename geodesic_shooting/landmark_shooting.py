@@ -151,12 +151,10 @@ class LandmarkShooting:
                 grad = np.zeros(positions.flatten().shape)
                 for i, p in enumerate(positions):
                     for q in positions:
-                        for j in range(self.dim):
-                            grad[i*self.dim+j] += kernel_dist.derivative_1(p, q, j)
-                            grad[i*self.dim+j] += kernel_dist.derivative_2(q, p, j)
+                        grad[i*self.dim:(i+1)*self.dim] += kernel_dist.derivative_1(p, q)
+                        grad[i*self.dim:(i+1)*self.dim] += kernel_dist.derivative_2(q, p)
                     for t in target_landmarks:
-                        for j in range(self.dim):
-                            grad[i*self.dim+j] -= 2. * kernel_dist.derivative_1(p, t, j)
+                        grad[i*self.dim:(i+1)*self.dim] -= 2. * kernel_dist.derivative_1(p, t)
                 return grad
 
         opt = {'input_landmarks': input_landmarks, 'target_landmarks': target_landmarks}
@@ -253,10 +251,9 @@ class LandmarkShooting:
         def rhs_momenta_function(momentum, position):
             test_val = np.zeros(self.size)
             for l, (pl, ql) in enumerate(zip(momentum, position)):
-                for m in range(self.dim):
-                    for pi, qi in zip(momentum, position):
-                        test_val[l*self.dim + m] += pi.T @ self.kernel.derivative_2(qi, ql, m) @ pl
-                        test_val[l*self.dim + m] += pl.T @ self.kernel.derivative_1(ql, qi, m) @ pi
+                for pi, qi in zip(momentum, position):
+                    test_val[l*self.dim:(l+1)*self.dim] += pi.T @ self.kernel.derivative_2(qi, ql) @ pl
+                    test_val[l*self.dim:(l+1)*self.dim] += pl.T @ self.kernel.derivative_1(ql, qi) @ pi
             return - 0.5 * test_val.reshape((self.num_landmarks, self.dim))
 
         ti_momenta = self.time_integrator(rhs_momenta_function, self.dt)
@@ -311,11 +308,10 @@ class LandmarkShooting:
             for r in range(self.num_landmarks):
                 qr = positions[r]
                 for i in range(self.num_landmarks):
-                    for j in range(self.dim):
-                        if i == l:
-                            mat[l*self.dim:(l+1)*self.dim, r*self.dim:(r+1)*self.dim, i*self.dim+j] = self.kernel.derivative_1(ql, qr, j)
-                        if i == r:
-                            mat[l*self.dim:(l+1)*self.dim, r*self.dim:(r+1)*self.dim, i*self.dim+j] = self.kernel.derivative_2(ql, qr, j)
+                    if i == l:
+                        mat[l*self.dim:(l+1)*self.dim, r*self.dim:(r+1)*self.dim, i*self.dim:(i+1)*self.dim] = self.kernel.derivative_1(ql, qr)
+                    if i == r:
+                        mat[l*self.dim:(l+1)*self.dim, r*self.dim:(r+1)*self.dim, i*self.dim:(i+1)*self.dim] = self.kernel.derivative_2(ql, qr)
 
         return mat
 

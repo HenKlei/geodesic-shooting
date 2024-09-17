@@ -45,20 +45,19 @@ class GaussianKernel(Kernel):
         else:
             return np.kron(res, np.eye(x.shape[1]))
 
-    def derivative_1(self, x, y, i):
+    def derivative_1(self, x, y):
         """Derivative of kernel with respect to i-th component of x."""
         assert x.ndim == 1
         assert x.shape == y.shape
-        assert 0 <= i < x.shape[0]
-        res = (y[i] - x[i]) / self.sigma**2
-        return res * self(x, y)
+        res = (y - x) / self.sigma**2
+        res_self = self(x, y)
+        return np.kron(res, res_self).T.reshape((res.shape[0], *res_self.shape)).swapaxes(0, 1)
 
-    def derivative_2(self, x, y, i):
+    def derivative_2(self, x, y):
         """Derivative of kernel with respect to i-th component of y."""
         assert x.ndim == 1
         assert x.shape == y.shape
-        assert 0 <= i < x.shape[0]
-        return -self.derivative_1(x, y, i)
+        return -self.derivative_1(x, y)
 
 
 class RationalQuadraticKernel(Kernel):
