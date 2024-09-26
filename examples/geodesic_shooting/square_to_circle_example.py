@@ -15,11 +15,12 @@ if __name__ == "__main__":
 
     # perform the registration
     gs = geodesic_shooting.GeodesicShooting(alpha=0.01, exponent=1)
-    result = gs.register(template, target, sigma=0.01, return_all=True, restriction=restriction)
+    result = gs.register(template, target, sigma=0.01, return_all=True, restriction=restriction,
+                         optimization_method='GD', optimizer_options={'maxiter': 20})
 
     result['initial_vector_field'].save_tikz('initial_vector_field_square_to_circle.tex',
                                              title="Initial vector field square to circle",
                                              interval=2, scale=100)
 
     plot_registration_results(result, frequency=5)
-    save_plots_registration_results(result, filepath='results_square_to_circle/')
+    save_plots_registration_results(result, filepath='results_square_to_circle/', save_animations=True)

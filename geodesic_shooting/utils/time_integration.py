@@ -45,5 +45,5 @@ class RK4(TimeIntegrator):
             temp = x + sign * self.dt * k3
         k4 = self.f(temp, **additional_args)
         if isinstance(x, list):
-            return [self.dt/6. * (l1 + 2.*l2 + 2.*l3 + l4) for l1, l2, l3, l4 in zip(k1, k2, k3, k4)]
+            return [(l1 + 2.*l2 + 2.*l3 + l4) / 6. for l1, l2, l3, l4 in zip(k1, k2, k3, k4)]
         return (k1 + 2.*k2 + 2.*k3 + k4) / 6.
