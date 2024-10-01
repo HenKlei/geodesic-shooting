@@ -201,6 +201,34 @@ class Diffeomorphism(BaseFunction):
         except Exception:
             pass
 
+    def save_as_txt(self, filepath, interval=1):
+        identity_grid = grid.coordinate_grid(self.spatial_shape)
+        identity_grid = np.stack([identity_grid[..., 0] / (self.spatial_shape[0] - 1),
+                                  identity_grid[..., 1] / (self.spatial_shape[1] - 1)], axis=-1)
+        grid_x, grid_y = identity_grid[::interval, ::interval, 0], identity_grid[::interval, ::interval, 1]
+        grid_x = np.vstack([grid_x, identity_grid[-1, ::interval, 0][np.newaxis, ...]])
+        grid_x = np.hstack([grid_x, np.hstack([identity_grid[::interval, -1, 0],
+                                               identity_grid[-1, -1, 0]])[..., np.newaxis]])
+        grid_y = np.vstack([grid_y, identity_grid[-1, ::interval, 1][np.newaxis, ...]])
+        grid_y = np.hstack([grid_y, np.hstack([identity_grid[::interval, -1, 1],
+                                               identity_grid[-1, -1, 1]])[..., np.newaxis]])
+
+        dist_x = self[::interval, ::interval, 0] / (self.spatial_shape[0] - 1)
+        dist_y = self[::interval, ::interval, 1] / (self.spatial_shape[1] - 1)
+        dist_x = np.vstack([dist_x, self[-1, ::interval, 0][np.newaxis, ...] / (self.spatial_shape[0] - 1)])
+        dist_x = np.hstack([dist_x, np.hstack([self[::interval, -1, 0],
+                                               self[-1, -1, 0]])[..., np.newaxis] / (self.spatial_shape[0] - 1)])
+        dist_y = np.vstack([dist_y, self[-1, ::interval, 1][np.newaxis, ...] / (self.spatial_shape[1] - 1)])
+        dist_y = np.hstack([dist_y, np.hstack([self[::interval, -1, 1],
+                                               self[-1, -1, 1]])[..., np.newaxis] / (self.spatial_shape[1] - 1)])
+        dist_x = grid_x + (dist_x - grid_x) * (self.spatial_shape[0] - 1)
+        dist_y = grid_y + (dist_y - grid_y) * (self.spatial_shape[1] - 1)
+
+        with open(filepath, "w") as f:
+            f.write("x\ty\tu\tv\n")
+            for x, y, u, v in zip(grid_x.flatten(), grid_y.flatten(), dist_x.flatten(), dist_y.flatten()):
+                f.write(f"{x}\t{y}\t{u}\t{v}\n")
+
 
 class TimeDependentDiffeomorphism(BaseTimeDependentFunction):
     """Class that represents a time-dependent vector field."""

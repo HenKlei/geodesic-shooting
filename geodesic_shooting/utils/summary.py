@@ -192,14 +192,18 @@ def save_plots_registration_results(results, filepath='results/', postfix='', in
 
     results['input'].save(filepath + 'input.png', title='Input' + postfix, figsize=figsize,
                           show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
+    results['input'].save_as_txt(filepath + 'input.txt')
     results['target'].save(filepath + 'target.png', title='Target' + postfix, figsize=figsize,
                            show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
+    results['target'].save_as_txt(filepath + 'target.txt')
     results['transformed_input'].save(filepath + 'transformed_input.png', title='Result' + postfix, figsize=figsize,
                                       show_restriction_boundary=show_restriction_boundary,
                                       restriction=results['restriction'])
+    results['transformed_input'].save_as_txt(filepath + 'transformed_input.txt')
     diff = results['target'] - results['transformed_input']
     diff.save(filepath + 'difference.png', title='Difference of target and result' + postfix, figsize=figsize,
               show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
+    diff.save_as_txt(filepath + 'difference.txt')
     results['initial_vector_field'].save(filepath + 'initial_vector_field.png', plot_type='default',
                                          plot_args={'title': 'Initial vector field' + postfix, 'interval': interval,
                                                     'color_length': True, 'scale': None, 'figsize': figsize})
@@ -208,11 +212,14 @@ def save_plots_registration_results(results, filepath='results/', postfix='', in
                                          plot_args={'title': 'Initial vector field' + postfix, 'interval': interval,
                                                     'color_length': True, 'scale': None, 'figsize': figsize,
                                                     'density': 2})
+    results['initial_vector_field'].save_tikz(filepath + 'initial_vector_field.txt', interval=interval)
     results['initial_vector_field'].get_magnitude().save(filepath + 'initial_vector_field_magnitude.png',
                                                          title='Magnitude of initial vector field' + postfix,
                                                          figsize=figsize)
+    results['initial_vector_field'].get_magnitude().save_as_txt(filepath + 'initial_vector_field_magnitude.txt')
     results['initial_vector_field'].get_angle().save(filepath + 'initial_vector_field_angle.png',
                                                      title='Angle of initial vector field' + postfix, figsize=figsize)
+    results['initial_vector_field'].get_angle().save_as_txt(filepath + 'initial_vector_field_angle.txt')
     for d in range(results['initial_vector_field'].dim):
         comp = results['initial_vector_field'].get_component_as_function(d)
         comp.save(filepath + f'initial_vector_field_component_{d}.png',
@@ -220,28 +227,34 @@ def save_plots_registration_results(results, filepath='results/', postfix='', in
     diffeomorphism = results['flow']
     diffeomorphism.save(filepath + 'diffeomorphism.png', title='Diffeomorphism' + postfix,  figsize=figsize,
                         interval=interval)
+    diffeomorphism.save_as_txt(filepath + 'diffeomorphism.txt', interval=interval)
     diffeomorphism.set_inverse(results['vector_fields'].integrate_backward())
     diffeomorphism.inverse.save(filepath + 'inverse_diffeomorphism.png', title='Inverse diffeomorphism' + postfix,
                                 figsize=figsize, interval=interval)
+    diffeomorphism.inverse.save_as_txt(filepath + 'inverse_diffeomorphism.png', interval=interval)
 
     inverse_transformed_registration_result = results['transformed_input'].push_forward(diffeomorphism.inverse)
     inverse_transformed_registration_result.save(filepath + 'inverse_transformed_registration_result.png',
                                                  title='Inverse transformed registration result' + postfix,
                                                  figsize=figsize, show_restriction_boundary=show_restriction_boundary,
                                                  restriction=results['restriction'])
+    inverse_transformed_registration_result.save_as_txt(filepath + 'inverse_transformed_registration_result.txt')
     diff = results['input'] - inverse_transformed_registration_result
     diff.save(filepath + 'diff_input_inverse_transformed_registration_result.png',
               title='Difference between input and inverse transformed registration result' + postfix,
               figsize=figsize, show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
+    diff.save_as_txt(filepath + 'diff_input_inverse_transformed_registration_result.txt')
     inverse_transformed_target = results['target'].push_forward(diffeomorphism.inverse)
     inverse_transformed_target.save(filepath + 'inverse_transformed_target.png',
                                     title='Inverse transformed target' + postfix, figsize=figsize,
                                     show_restriction_boundary=show_restriction_boundary,
                                     restriction=results['restriction'])
+    inverse_transformed_target.save_as_txt(filepath + 'inverse_transformed_target.txt')
     diff = results['input'] - inverse_transformed_target
     diff.save(filepath + 'diff_input_inverse_transformed_target.png',
               title='Difference between input and inverse transformed target' + postfix, figsize=figsize,
               show_restriction_boundary=show_restriction_boundary, restriction=results['restriction'])
+    diff.save_as_txt(filepath + 'diff_input_inverse_transformed_target.txt')
 
     time_dependent_diffeomorphism = results['vector_fields'].integrate(get_time_dependent_diffeomorphism=True)
     assert time_dependent_diffeomorphism[-1] == diffeomorphism

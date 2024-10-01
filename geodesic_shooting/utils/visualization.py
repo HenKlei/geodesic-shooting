@@ -42,13 +42,8 @@ def plot_initial_momenta_and_landmarks(momenta, positions, kernel=GaussianKernel
     -------
     The created plot.
     """
-    assert momenta.ndim == 1
+    assert momenta.ndim == 2
     assert momenta.shape == positions.shape
-
-    dim = 2
-
-    positions = positions.reshape((-1, dim))
-    momenta = momenta.reshape((-1, dim))
 
     created_figure = False
     if not axis:
@@ -119,7 +114,7 @@ def plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
     -------
     The created plot.
     """
-    assert time_evolution_momenta.ndim == 2
+    assert time_evolution_momenta.ndim == 3
     assert time_evolution_momenta.shape == time_evolution_positions.shape
 
     dim = 2
@@ -133,8 +128,7 @@ def plot_landmark_trajectories(time_evolution_momenta, time_evolution_positions,
     axis.set_aspect('equal')
     axis.set_title(title)
 
-    vector_field = construct_vector_field(time_evolution_momenta[0].reshape((-1, dim)),
-                                          time_evolution_positions[0].reshape((-1, dim)))
+    vector_field = construct_vector_field(time_evolution_momenta[0], time_evolution_positions[0])
 
     xs = np.array([[x for x in np.linspace(min_x, max_x, N)] for _ in np.linspace(min_y, max_y, N)])
     ys = np.array([[y for _ in np.linspace(min_x, max_x, N)] for y in np.linspace(min_y, max_y, N)])
@@ -190,7 +184,7 @@ def animate_landmark_trajectories(time_evolution_momenta, time_evolution_positio
     -------
     The created plot.
     """
-    assert time_evolution_momenta.ndim == 2
+    assert time_evolution_momenta.ndim == 3
     assert time_evolution_momenta.shape == time_evolution_positions.shape
 
     dim = 2
@@ -217,10 +211,10 @@ def animate_landmark_trajectories(time_evolution_momenta, time_evolution_positio
 
         axis.quiver(xs, ys, vector_field_x, vector_field_y, scale=arrow_scale, angles='xy', scale_units='xy')
 
-        colors = ([f'C{i}' for i in range(len(positions[0].reshape((-1, dim))))]
+        colors = ([f'C{i}' for i in range(len(positions[0]))]
                   * len(positions))
 
-        axis.scatter(positions.reshape((-1, dim))[:, 0], positions.reshape((-1, dim))[:, 1],
+        axis.scatter(positions[:, 0], positions[:, 1],
                      s=landmark_size, color=colors)
 
         return fig
@@ -236,7 +230,7 @@ def animate_landmark_trajectories(time_evolution_momenta, time_evolution_positio
 
 
 def plot_landmark_matchings(input_landmarks, target_landmarks, registered_landmarks,
-                            title='', axis=None, landmark_size=50):
+                            title='', axis=None, landmark_size=50, landmarks_labeled=True):
     """Plot the results of the matching of landmarks.
 
     Parameters
@@ -259,7 +253,6 @@ def plot_landmark_matchings(input_landmarks, target_landmarks, registered_landma
     The created plot.
     """
     assert input_landmarks.ndim == 2
-    assert input_landmarks.shape == target_landmarks.shape == registered_landmarks.shape
 
     created_figure = False
     if not axis:
@@ -270,14 +263,23 @@ def plot_landmark_matchings(input_landmarks, target_landmarks, registered_landma
     axis.set_aspect('equal')
     axis.set_title(title)
 
-    colors = [f'C{i}' for i in range(len(input_landmarks))]
+    if landmarks_labeled:
+        assert input_landmarks.shape == target_landmarks.shape == registered_landmarks.shape
+        colors = [f'C{i}' for i in range(len(input_landmarks))]
 
-    axis.scatter(input_landmarks[:, 0], input_landmarks[:, 1],
-                 s=landmark_size, color=colors, marker='o', label="Input landmark")
-    axis.scatter(target_landmarks[:, 0], target_landmarks[:, 1],
-                 s=landmark_size, color=colors, marker='*', label="Target landmark")
-    axis.scatter(registered_landmarks[:, 0], registered_landmarks[:, 1],
-                 s=landmark_size, color=colors, marker='s', label="Registered landmark")
+        axis.scatter(input_landmarks[:, 0], input_landmarks[:, 1],
+                     s=landmark_size, color=colors, marker='o', label="Input landmark")
+        axis.scatter(target_landmarks[:, 0], target_landmarks[:, 1],
+                     s=landmark_size, color=colors, marker='*', label="Target landmark")
+        axis.scatter(registered_landmarks[:, 0], registered_landmarks[:, 1],
+                     s=landmark_size, color=colors, marker='s', label="Registered landmark")
+    else:
+        axis.scatter(input_landmarks[:, 0], input_landmarks[:, 1],
+                     s=landmark_size, marker='o', label="Input landmark")
+        axis.scatter(target_landmarks[:, 0], target_landmarks[:, 1],
+                     s=landmark_size, marker='*', label="Target landmark")
+        axis.scatter(registered_landmarks[:, 0], registered_landmarks[:, 1],
+                     s=landmark_size, marker='s', label="Registered landmark")
 
     plt.legend()
 

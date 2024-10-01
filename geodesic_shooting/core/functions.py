@@ -131,6 +131,17 @@ class ScalarFunction(BaseFunction):
         except Exception:
             pass
 
+    def save_as_txt(self, filepath):
+        identity_grid = grid.coordinate_grid(self.spatial_shape)
+        identity_grid = np.stack([identity_grid[..., 0] / (self.spatial_shape[0] - 1),
+                                  identity_grid[..., 1] / (self.spatial_shape[1] - 1)], axis=-1)
+        grid_x, grid_y = identity_grid[..., 0], identity_grid[..., 1]
+
+        with open(filepath, "w") as f:
+            f.write("x\ty\tz\n")
+            for x, y, u in zip(grid_x.flatten(), grid_y.flatten(), self.flatten()):
+                f.write(f"{x}\t{y}\t{u}\n")
+
     def abs(self):
         """Returns new `ScalarFunction` containing absolute values of the elements.
 

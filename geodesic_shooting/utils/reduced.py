@@ -32,7 +32,10 @@ def pod(modes, num_modes=10, product_operator=None, return_singular_values='all'
     type_input = type(modes[0])
 
     if shift is None:
-        shift = type_input(spatial_shape=modes[0].spatial_shape)
+        if hasattr(modes[0], "spatial_shape"):
+            shift = type_input(spatial_shape=modes[0].spatial_shape)
+        else:
+            shift = np.zeros(modes[0].shape)
 
     if product_operator:
         B = np.stack([a.flatten() for a in modes])
@@ -66,7 +69,10 @@ def pod(modes, num_modes=10, product_operator=None, return_singular_values='all'
         U, all_singular_values, _ = np.linalg.svd(B, full_matrices=False)
         selected_modes = min(num_modes, U.shape[1])
         singular_vectors = U[:, :selected_modes].T
-        singular_vectors = [type_input(data=u.reshape(modes[0].full_shape)) + shift for u in singular_vectors]
+        if hasattr(modes[0], "full_shape"):
+            singular_vectors = [type_input(data=u.reshape(modes[0].full_shape)) + shift for u in singular_vectors]
+        else:
+            singular_vectors = [u.reshape(modes[0].shape) + shift for u in singular_vectors]
         if return_singular_values == 'all':
             return singular_vectors, all_singular_values
         elif return_singular_values:
